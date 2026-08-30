@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.core.auth import get_current_user
-from app.core.settings_store import require_ai
+from app.core.settings_store import get_settings_row, require_ai
 from app.core.sse import sse_event
 from app.db import get_db
 from app.models import Card, Deck, Note, NoteFileType
@@ -215,6 +215,10 @@ async def upload_notes(request: Request,
     text would make every one of them match every query and show identical previews.
     """
     user = get_current_user(request, db)
+    # Not gated. Turning AI off removes the *inference*, not the feature: the note still uploads,
+    # is stored, opens and can be read — it just isn't transcribed. Blocking the route outright
+    # would take away a filing cabinet because the OCR that makes it searchable is switched off.
+    transcribe = get_settings_row(db, user.id).ai_generation
     if not files:
         raise HTTPException(400, "No files uploaded")
 
@@ -228,7 +232,11 @@ async def upload_notes(request: Request,
         # and transaction that writes the notes.
         deck = _deck_for_upload(db, user.id, deck_id, deck_name)
         uploads = [_decompose(*r) for r in raw]
-        markdowns = _transcribe_all(uploads)
+        # A text-layer PDF still gets its exact text with AI off — `_decompose` pulls that from the
+        # file with pymupdf and no model is involved, which is the same short-circuit
+        # `transcribe_notes` takes anyway. Images and scanned PDFs save with no text: readable and
+        # openable, just absent from search until AI is switched back on.
+        markdowns = _transcribe_all(uploads) if transcribe else [u.text for u in uploads]
         created = [
             _save_note(db, user.id, deck.id if deck else None, upload, markdown)
             for upload, markdown in zip(uploads, markdowns)

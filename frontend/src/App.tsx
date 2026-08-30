@@ -43,6 +43,9 @@ export default function App() {
   const [studyDeckId, setStudyDeckId] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const { settings, error: settingsError, update: updateSettings } = useSettings(DEFAULT_ACCENT)
+  // Default to nothing blocked while settings are still loading: briefly greying a tab that turns
+  // out to be enabled looks broken, whereas the reverse is a tap that works a moment later.
+  const blockedTabs: Tab[] = settings && !settings.ai_tutor ? ['tutor'] : []
 
   // `undefined` means "still asking", `null` means "asked, and nobody is signed in". Collapsing
   // those two into one value would flash the sign-in screen for a moment on every load.
@@ -129,7 +132,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen font-sans text-[var(--text)]">
-      <DesktopSidebar active={tab} onChange={setTab} />
+      <DesktopSidebar active={tab} onChange={setTab} disabled={blockedTabs} />
 
       {/* min-w-0 is load-bearing: a flex item defaults to `min-width: auto`, so without it this
           column refuses to shrink below its content's min-content width — and any one descendant
@@ -174,18 +177,25 @@ export default function App() {
               onOpenExams={() => setTab('calendar')}
             />
           )}
-          {tab === 'cards' && <CardsScreen key={refreshKey} onStudy={setStudyDeckId} onChanged={() => setRefreshKey((k) => k + 1)} />}
+          {tab === 'cards' && (
+            <CardsScreen
+              key={refreshKey}
+              onStudy={setStudyDeckId}
+              onChanged={() => setRefreshKey((k) => k + 1)}
+              aiGeneration={settings?.ai_generation ?? true}
+            />
+          )}
           {/* Not keyed by refreshKey: its own saves bump the key (for Home/Cards), and a remount
               here would snap the month back to today and close the sheet mid-edit. */}
           {tab === 'calendar' && <ExamsScreen onChanged={() => setRefreshKey((k) => k + 1)} />}
-          {tab === 'notes' && <NotesScreen onGoToCards={() => setTab('cards')} />}
+          {tab === 'notes' && <NotesScreen onGoToCards={() => setTab('cards')} aiGeneration={settings?.ai_generation ?? true} />}
           {tab === 'tutor' && <TutorScreen settings={settings} enterClass={slideClass} isOwner={me.is_owner} />}
           {tab === 'settings' && <SettingsScreen me={me} settings={settings} error={settingsError} onChange={updateSettings} />}
           </div>
         </main>
       </div>
 
-      <TabBar active={tab} onChange={setTab} />
+      <TabBar active={tab} onChange={setTab} disabled={blockedTabs} />
     </div>
   )
 }

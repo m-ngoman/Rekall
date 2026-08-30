@@ -11,17 +11,24 @@ export default function ActionCard({
   title,
   description,
   icon,
+  disabled = false,
+  disabledHint,
 }: {
   onClick: () => void
   title: string
   description: string
   icon: ReactNode
+  disabled?: boolean
+  /** Replaces `description` when disabled, so the tile says why it's off rather than describing a
+   * route you can't take. */
+  disabledHint?: string
 }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-3.5 rounded-[16px] bg-[var(--bg-card)] p-4 text-left"
-      style={{ boxShadow: 'var(--shadow-sm)' }}
+      disabled={disabled}
+      className="flex items-center gap-3.5 rounded-[16px] bg-[var(--bg-card)] p-4 text-left disabled:cursor-not-allowed"
+      style={{ boxShadow: 'var(--shadow-sm)', opacity: disabled ? 0.45 : 1 }}
     >
       <div
         className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full"
@@ -35,7 +42,9 @@ export default function ActionCard({
       </div>
       <div className="min-w-0">
         <div className="text-sm font-bold">{title}</div>
-        <div className="mt-0.5 text-xs text-[var(--text-secondary)]">{description}</div>
+        <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
+          {disabled && disabledHint ? disabledHint : description}
+        </div>
       </div>
     </button>
   )

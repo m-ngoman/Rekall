@@ -7,6 +7,9 @@ import type { Deck, Note, NoteDetail } from '../types'
 
 interface Props {
   onGoToCards: () => void
+  /** Notes can always be added. With generation off the upload skips transcription, so the tile
+   * says what you'll get rather than refusing the route. */
+  aiGeneration: boolean
 }
 
 const UNFILED = 'Unfiled'
@@ -74,7 +77,7 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export default function NotesScreen({ onGoToCards }: Props) {
+export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
   // Seeded from cache so returning to this tab renders the previous list immediately instead of
   // collapsing to "Loading…" and jerking the page height. Only the unfiltered list is cached —
   // a search result is transient and shouldn't come back when you reopen the tab.
@@ -252,7 +255,11 @@ export default function NotesScreen({ onGoToCards }: Props) {
           setAdding(true)
         }}
         title="Add notes"
-        description="A photo, a PDF, or a page from your notebook"
+        description={
+          aiGeneration
+            ? 'A photo, a PDF, or a page from your notebook'
+            : 'Photos save as-is — not read into text while AI is off'
+        }
         icon={ADD_NOTES_ICON}
       />
 

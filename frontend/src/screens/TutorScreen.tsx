@@ -1295,7 +1295,11 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
               <button
                 ref={micButtonRef}
                 onClick={handleToggleVoiceMode}
-                title="Start voice mode"
+                title={settings?.ai_voice === false ? 'Voice mode is turned off in Settings' : 'Start voice mode'}
+                // Hidden rather than greyed, unlike the Tutor tab: the composer is a tight row of
+                // controls, and a dead button wedged between Send and the photo picker reads as
+                // broken. The tab is a place you might go; this is a thing you'd press by mistake.
+                hidden={settings?.ai_voice === false}
                 disabled={voiceModeActive}
                 // Takes over the photo group's `ml-auto` in voice mode, when that group isn't
                 // rendered. It's invisible by then, but it's still the FLIP animation's target

@@ -217,9 +217,12 @@ a,
    snap back at the end. */
 .sliding-pill {
   transition:
-    translate 400ms cubic-bezier(0.33, 1.16, 0.45, 1),
+    /* Position and width are one motion and share a clock — during the rejection bounce they
+       travel together, and a fixed width duration would leave the pill still resizing after it
+       had already arrived. */
+    translate var(--pill-move-ms, 400ms) var(--pill-move-ease, cubic-bezier(0.33, 1.16, 0.45, 1)),
+    width var(--pill-move-ms, 400ms) var(--pill-move-ease, cubic-bezier(0.22, 1, 0.36, 1)),
     scale var(--pill-scale-ms, 400ms) var(--pill-scale-ease, ease-out),
-    width 400ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 160ms linear;
 }
 

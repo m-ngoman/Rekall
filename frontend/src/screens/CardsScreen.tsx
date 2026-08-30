@@ -11,9 +11,12 @@ import WriteCardsScreen from './WriteCardsScreen'
 interface Props {
   onStudy: (deckId: string) => void
   onChanged: () => void
+  /** False when AI card generation is off in settings. Import and hand-written cards are
+   * unaffected — turning AI off removes a route to cards, not the ability to have any. */
+  aiGeneration: boolean
 }
 
-export default function CardsScreen({ onStudy, onChanged }: Props) {
+export default function CardsScreen({ onStudy, onChanged, aiGeneration }: Props) {
   const [decks, setDecks] = useCachedResource<Deck[]>('decks', listDecks, () => [])
   const [importing, setImporting] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -100,6 +103,8 @@ export default function CardsScreen({ onStudy, onChanged }: Props) {
         />
         <ActionCard
           onClick={() => setGenerating(true)}
+          disabled={!aiGeneration}
+          disabledHint="Turned off in Settings → AI features"
           title="Generate with AI"
           description="From photos of your notes or a PDF"
           icon={

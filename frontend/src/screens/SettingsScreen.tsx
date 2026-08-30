@@ -499,7 +499,7 @@ function AISection({ settings, onChange }: { settings: Settings; onChange: (patc
           <Row label="Card grading" hint="Off: you see the answer and rate your own recall, like paper flashcards.">
             <Toggle value={settings.ai_grading} onChange={(ai_grading) => onChange({ ai_grading })} />
           </Row>
-          <Row label="Card generation" hint="Off: no cards made from photos or notes. You can still write and import your own.">
+          <Row label="Card generation & note text" hint="Off: no cards made from photos or PDFs, and photos aren't read into searchable text. Notes still upload and open normally, and you can still write cards yourself or import a CSV.">
             <Toggle value={settings.ai_generation} onChange={(ai_generation) => onChange({ ai_generation })} />
           </Row>
           <Row label="Tutor mode" hint="Off: the Tutor tab stops working. Nothing pretends to replace it.">

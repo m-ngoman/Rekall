@@ -4,9 +4,11 @@ import { NAV_ITEMS, SETTINGS_ICON, type Tab } from './navIcons'
 interface Props {
   active: Tab
   onChange: (tab: Tab) => void
+  /** See TabBar — same rule, minus the bounce: the sidebar has no sliding pill to throw. */
+  disabled?: Tab[]
 }
 
-export default function DesktopSidebar({ active, onChange }: Props) {
+export default function DesktopSidebar({ active, onChange, disabled = [] }: Props) {
   return (
     <div className="sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col bg-[var(--bg-card)] p-[18px] shadow-[2px_0_14px_oklch(0.4_0.03_50_/_0.05)] lg:flex">
       <div className="flex items-center gap-2.5 px-2.5 pb-7 pt-2 text-lg font-extrabold tracking-tight">
@@ -17,15 +19,18 @@ export default function DesktopSidebar({ active, onChange }: Props) {
       <div className="flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const isActive = item.id === active
+          const isDisabled = disabled.includes(item.id)
           const color = isActive ? 'var(--accent)' : 'var(--text-secondary)'
           return (
             <button
               key={item.id}
-              onClick={() => onChange(item.id)}
+              onClick={() => isDisabled || onChange(item.id)}
+              aria-disabled={isDisabled || undefined}
               className="flex items-center gap-3 rounded-full px-3.5 py-2.5"
               style={{
                 background: isActive ? 'color-mix(in oklab, var(--accent) 15%, var(--bg-card))' : undefined,
                 boxShadow: isActive ? 'var(--highlight-shadow)' : undefined,
+                opacity: isDisabled ? 0.4 : undefined,
               }}
             >
               {item.icon(color)}

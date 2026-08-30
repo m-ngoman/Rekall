@@ -4,10 +4,14 @@ import { useSlidingPill } from '../hooks/useSlidingPill'
 interface Props {
   active: Tab
   onChange: (tab: Tab) => void
+  /** Tabs that exist but can't be opened — currently Tutor with AI turned off. Kept visible and
+   * greyed rather than removed: a nav that changes shape based on a setting is disorienting, and
+   * the greyed tab is a reminder that the feature is there and switched off. */
+  disabled?: Tab[]
 }
 
-export default function TabBar({ active, onChange }: Props) {
-  const { container, register, pillStyle } = useSlidingPill(active)
+export default function TabBar({ active, onChange, disabled = [] }: Props) {
+  const { container, register, pillStyle, rejectTo } = useSlidingPill(active)
 
   return (
     <div
@@ -29,11 +33,15 @@ export default function TabBar({ active, onChange }: Props) {
 
       {NAV_ITEMS.map((tab) => {
         const isActive = tab.id === active
+        const isDisabled = disabled.includes(tab.id)
         return (
           <button
             key={tab.id}
             ref={register(tab.id)}
-            onClick={() => onChange(tab.id)}
+            // Deliberately not the `disabled` attribute: a disabled button swallows the click,
+            // and the click is what plays the bounce that explains the refusal.
+            onClick={() => (isDisabled ? rejectTo(tab.id) : onChange(tab.id))}
+            aria-disabled={isDisabled || undefined}
             // The visible caption disappears at large text sizes, so the button carries its own
             // name rather than relying on the label being rendered.
             aria-label={tab.label}
@@ -41,7 +49,10 @@ export default function TabBar({ active, onChange }: Props) {
             className="pill-option relative z-10 flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-full px-1 py-2"
             // `currentColor` rather than a baked-in stroke, so the icon's colour is one CSS
             // property away from the label's and both can transition together.
-            style={{ color: isActive ? 'var(--accent)' : 'var(--text-secondary)' }}
+            style={{
+              color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+              opacity: isDisabled ? 0.4 : 1,
+            }}
           >
             {tab.icon('currentColor')}
             <span className="tab-label max-w-full truncate text-[0.625rem] font-bold">{tab.label}</span>
