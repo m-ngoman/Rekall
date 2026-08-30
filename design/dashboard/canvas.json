@@ -1,0 +1,11 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 480, "h": 860 },
+    { "file": "Dark.dc.html", "x": 560, "y": 0, "w": 480, "h": 860 }
+  ],
+  "annotations": [
+    { "id": "note-main", "x": 0, "y": -110, "w": 480, "text": "Light — cozy dashboard\nWarm cream bg, floating pill tab bar (Home/Cards/Notes/Tutor), soft-shadow cards instead of borders, rounded everything, coral accent, today-progress ring + streak." },
+    { "id": "note-dark", "x": 560, "y": -110, "w": 480, "text": "Dark — same system\nSame warmth and roundness carried into dark mode, not just inverted grays." }
+  ],
+  "launch": { "view": "canvas" }
+}

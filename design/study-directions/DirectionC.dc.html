@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'JetBrains Mono', monospace; }
+    a { color: oklch(0.82 0.19 142); }
+    a:hover { color: oklch(0.9 0.19 142); }
+  </style>
+</helmet>
+<div style="width:480px;height:760px;background:oklch(0.08 0 0);color:oklch(0.93 0.02 145);display:flex;flex-direction:column;padding:22px;position:relative;overflow:hidden">
+
+  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg, transparent, transparent 3px, oklch(1 0 0 / 0.012) 3px, oklch(1 0 0 / 0.012) 4px);pointer-events:none;z-index:1"></div>
+
+  <div style="position:relative;z-index:2;display:flex;flex-direction:column;height:100%">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;font-size:11px;letter-spacing:0.04em">
+      <span style="color:oklch(0.55 0.02 145)">&lt; back</span>
+      <span style="color:oklch(0.82 0.19 142)">● connected</span>
+    </div>
+
+    <div style="font-size:11px;color:oklch(0.55 0.02 145);margin-bottom:6px">card 07 of 12</div>
+    <div style="font-size:11px;color:oklch(0.4 0.02 145);letter-spacing:0.02em;margin-bottom:22px;overflow:hidden;white-space:nowrap">
+      [■■■■■■■■■■■■■■■■■■■■■■■■■■■■■□□□□□□□□□□□□□□□□□□□□]
+    </div>
+
+    <div style="font-size:11px;color:oklch(0.82 0.19 142);letter-spacing:0.04em;margin-bottom:14px">
+      &gt; topic: cell_biology
+    </div>
+
+    <div style="font-size:17px;font-weight:500;line-height:1.6;color:oklch(0.96 0.02 145);margin-bottom:22px">
+      What organelle is responsible for producing ATP through cellular respiration?
+    </div>
+
+    <div style="color:oklch(0.28 0.02 145);font-size:11px;margin-bottom:16px;letter-spacing:0.05em">────────────────────────────────</div>
+
+    <div style="margin-bottom:18px">
+      <div style="font-size:11px;color:oklch(0.55 0.02 145);margin-bottom:6px">&gt; your_answer:</div>
+      <div style="font-size:14px;line-height:1.6;color:oklch(0.85 0.02 145);padding-left:12px;border-left:2px solid oklch(0.28 0.02 145)">the mitochondria</div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <span style="font-size:13px;font-weight:700;letter-spacing:0.06em;color:oklch(0.82 0.19 142)">[ GOOD ]</span>
+    </div>
+
+    <div style="font-size:13px;line-height:1.65;color:oklch(0.6 0.02 145);flex:1">
+      &gt; correct — matches the reference answer closely.
+    </div>
+
+    <div style="display:flex;gap:14px;margin-bottom:22px;font-size:10px">
+      <span style="color:oklch(0.62 0.2 25)">[forgot]</span>
+      <span style="color:oklch(0.75 0.15 70)">[hard]</span>
+      <span style="color:oklch(0.82 0.19 142)">[good]</span>
+      <span style="color:oklch(0.85 0.14 195)">[easy]</span>
+    </div>
+
+    <button style="width:100%;padding:15px;background:transparent;border:1px solid oklch(0.82 0.19 142);border-radius:0;color:oklch(0.82 0.19 142);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;letter-spacing:0.08em;cursor:pointer">[ NEXT → ]</button>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

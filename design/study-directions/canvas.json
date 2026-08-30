@@ -1,0 +1,15 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 480, "h": 760 },
+    { "file": "DirectionB.dc.html", "x": 560, "y": 0, "w": 480, "h": 760 },
+    { "file": "DirectionC.dc.html", "x": 1120, "y": 0, "w": 480, "h": 760 },
+    { "file": "DirectionD.dc.html", "x": 1680, "y": 0, "w": 480, "h": 760 }
+  ],
+  "annotations": [
+    { "id": "note-a", "x": 0, "y": -110, "w": 480, "text": "A — Instrument Panel\nDark, phosphor-amber accent, hairline-bordered card. Hardware measurement-panel feel — closest match to the planned voice-orb aesthetic." },
+    { "id": "note-b", "x": 560, "y": -110, "w": 480, "text": "B — Signal Editorial\nLight, single electric-indigo accent, no boxed card — hairline rules and generous type instead. Refined, document-like precision." },
+    { "id": "note-c", "x": 1120, "y": -110, "w": 480, "text": "C — Terminal Native\nPure black, monospace throughout, bracketed labels, subtle scanline. The most literal/raw take on the technical direction." },
+    { "id": "note-d", "x": 1680, "y": -110, "w": 480, "text": "D — between A and B\nLight + airy like B (Space Grotesk headline, bordered-but-open card) with A's technical chrome: IBM Plex Mono for all data/labels, warm muted ochre accent instead of A's amber or B's indigo." }
+  ],
+  "launch": { "view": "canvas" }
+}

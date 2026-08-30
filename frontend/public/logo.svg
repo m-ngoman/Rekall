@@ -1,0 +1,24 @@
+<!-- Rekall mark.
+
+     The dim nodes and edges are the accent at reduced opacity, not separate darker colours. That
+     makes the same file legible on a light browser tab and a dark one, since opacity blends
+     toward whatever is behind it. This is the static fallback; the running app swaps in a data
+     URI of the same shape in the user's chosen accent (see hooks/useSettings.ts).
+
+     The bright node is held by TWO edges on purpose. A single edge ending in a round terminus
+     reads as something else entirely once the silhouette is all you can see. Do not reduce it. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none">
+  <g stroke="#F77C4F" stroke-opacity=".42" stroke-linecap="round">
+    <line x1="26" y1="84" x2="56" y2="92" stroke-width="6"/>
+    <line x1="56" y1="92" x2="38" y2="58" stroke-width="6"/>
+    <line x1="38" y1="58" x2="26" y2="84" stroke-width="6"/>
+    <line x1="38" y1="58" x2="88" y2="40" stroke-width="5.5"/>
+    <line x1="56" y1="92" x2="88" y2="40" stroke-width="5.5"/>
+  </g>
+  <g fill="#F77C4F">
+    <circle cx="26" cy="84" r="8.5" fill-opacity=".58"/>
+    <circle cx="56" cy="92" r="8.5" fill-opacity=".58"/>
+    <circle cx="38" cy="58" r="8.5" fill-opacity=".58"/>
+    <circle cx="88" cy="40" r="13.5"/>
+  </g>
+</svg>

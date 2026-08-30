@@ -1,0 +1,13 @@
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      // `ws: true` needed for /api/tutor/live-transcribe (the Deepgram STT proxy) — Vite's plain
+      // string shorthand doesn't upgrade WebSocket connections on its own.
+      '/api': { target: 'http://localhost:8000', ws: true },
+    },
+  },
+})

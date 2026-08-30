@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Deliberately NOT viewport-fit=cover. Painting under the status bar is what makes iOS
+         Safari draw its own translucent backdrop there so the clock stays legible — a dark bar
+         across the top that no page CSS can remove, because it isn't the page. Staying inside the
+         safe area means the strip above the page is drawn from theme-color below, which matches
+         the page's own background. The env(safe-area-inset-*) padding elsewhere resolves to 0
+         under this setting and costs nothing; it's kept so an installed (standalone) build, where
+         no Safari chrome exists to collide with, only needs this one line changed. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <title>Rekall — flashcards that check your answer</title>
+
+    <!-- Absolute URLs are required here: a relative og:image is ignored by every crawler, so
+         these must stay fully qualified even though the app is served from the same origin. -->
+    <link rel="canonical" href="https://rekall.study/" />
+
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <!-- The SVG is preferred where supported: it stays crisp on any display and scales to
+         whatever size the browser asks for, where the .ico is a fixed 16/32 pair. -->
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <!-- iOS composites this on black and applies its own rounded mask, so the file has the
+         background baked in and deliberately square corners. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <meta name="description" content="Rekall is a flashcard app that grades what you actually wrote or said, not whether you tapped 'I knew it'. Turn photos of your notes into cards, answer out loud, and get told what you missed." />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Colours the browser chrome: Chrome's toolbar, and on iOS the strip above the page where
+         the status bar sits. A single element rather than a prefers-color-scheme pair, because
+         the app's theme can differ from the phone's — the boot script below and applyTheme() in
+         useSettings.ts both write the exact --bg of whichever theme is actually in force. The
+         value here is only the pre-script default. -->
+    <meta name="theme-color" content="#19120e" />
+
+    <!-- Open Graph: what Discord, iMessage, Slack, WhatsApp and Facebook read. These crawlers do
+         NOT execute JavaScript, so anything React renders is invisible to them — for a link
+         shared between friends this markup is the entire preview. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Rekall" />
+    <meta property="og:title" content="Rekall — flashcards that check your answer" />
+    <meta property="og:description" content="Type or say your answer and get told what you missed, not just whether you were right. Build decks from photos of your notes." />
+    <meta property="og:url" content="https://rekall.study/" />
+    <meta property="og:image" content="https://rekall.study/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Rekall — flashcards that actually check your answer" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Rekall — flashcards that check your answer" />
+    <meta name="twitter:description" content="Type or say your answer and get told what you missed, not just whether you were right." />
+    <meta name="twitter:image" content="https://rekall.study/og-image.png" />
+    <script>
+      // Applied before paint so a saved accent or theme doesn't flash to the default on load.
+      // These read a local mirror of the server's settings rather than the server itself —
+      // nothing here can wait on a network round-trip without showing the wrong thing first.
+      try {
+        var accent = localStorage.getItem('pipcards:accent')
+        if (accent) document.documentElement.style.setProperty('--accent', accent)
+
+        // 'system' is resolved to a concrete value here, so the stylesheet only ever needs one
+        // dark block keyed on the attribute rather than a media query and a duplicate of it.
+        var theme = localStorage.getItem('pipcards:theme') || 'system'
+        if (theme === 'system') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        }
+        document.documentElement.dataset.theme = theme
+        // Must match THEME_BG in useSettings.ts and --bg in index.css.
+        document
+          .querySelector('meta[name="theme-color"]')
+          .setAttribute('content', theme === 'dark' ? '#19120e' : '#faf4ec')
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light'
+        // The fallback theme is light, so the chrome colour has to fall back with it — otherwise
+        // a browser that blocks storage gets the dark default above a light page.
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#faf4ec')
+      }
+
+      // iOS Dynamic Type, measured before first paint so text doesn't visibly resize after load.
+      // Deliberately a duplicate of lib/dynamicType.ts rather than an import: that module can't
+      // run until the bundle does, which is far too late to avoid the reflow. Keep the two in
+      // step — same probe, same 17px baseline, same 0.9-1.4 clamp.
+      try {
+        var isAppleTouch =
+          /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+        if (isAppleTouch && window.CSS && CSS.supports && CSS.supports('font: -apple-system-body')) {
+          var probe = document.createElement('div')
+          probe.style.cssText = 'position:absolute;visibility:hidden;font:-apple-system-body'
+          document.documentElement.appendChild(probe)
+          var bodyPx = parseFloat(getComputedStyle(probe).fontSize)
+          probe.remove()
+          if (bodyPx) {
+            var scale = Math.min(1.4, Math.max(0.9, bodyPx / 17))
+            document.documentElement.style.setProperty('--text-scale', String(Math.round(scale * 1000) / 1000))
+            // Mirrors LARGE_SCALE in lib/dynamicType.ts.
+            if (scale >= 1.15) document.documentElement.dataset.textScale = 'large'
+          }
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

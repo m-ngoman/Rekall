@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+    a { color: #d99a3d; }
+    a:hover { color: #e8ac57; }
+  </style>
+</helmet>
+<div style="width:480px;height:760px;background:oklch(0.16 0.01 260);color:oklch(0.92 0.01 260);display:flex;flex-direction:column;padding:20px;position:relative;overflow:hidden">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.65 0.01 260)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.08em;color:oklch(0.65 0.01 260);text-transform:uppercase">Back</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <div style="width:6px;height:6px;border-radius:50%;background:oklch(0.72 0.15 145)"></div>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;color:oklch(0.65 0.01 260);text-transform:uppercase">Synced</span>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;color:oklch(0.65 0.01 260);white-space:nowrap">CARD</span>
+    <div style="flex:1;height:4px;background:oklch(0.26 0.01 260);border-radius:2px;overflow:hidden;position:relative">
+      <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(90deg, transparent, transparent 7px, oklch(0.16 0.01 260) 7px, oklch(0.16 0.01 260) 8px);z-index:2"></div>
+      <div style="width:58%;height:100%;background:oklch(0.78 0.16 75)"></div>
+    </div>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:oklch(0.92 0.01 260);white-space:nowrap;font-variant-numeric:tabular-nums">07 / 12</span>
+  </div>
+
+  <div style="flex:1;border:1px solid oklch(0.32 0.01 260);border-radius:8px;background:oklch(0.19 0.012 260);padding:24px;display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:oklch(0.78 0.16 75);border:1px solid oklch(0.4 0.1 75);border-radius:3px;padding:3px 8px">Cell Biology</span>
+    </div>
+
+    <div style="font-size:19px;font-weight:600;line-height:1.5;color:oklch(0.95 0.01 260)">
+      What organelle is responsible for producing ATP through cellular respiration?
+    </div>
+
+    <div style="height:1px;background:oklch(0.28 0.01 260)"></div>
+
+    <div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.55 0.01 260);margin-bottom:6px">Your answer</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1.6;color:oklch(0.8 0.01 260);background:oklch(0.14 0.008 260);border:1px solid oklch(0.28 0.01 260);border-radius:4px;padding:10px 12px">the mitochondria</div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:6px;background:oklch(0.24 0.06 145);border:1px solid oklch(0.72 0.15 145);border-radius:3px;padding:4px 10px">
+        <div style="width:7px;height:7px;border-radius:50%;background:oklch(0.72 0.15 145)"></div>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:oklch(0.85 0.13 145);font-weight:600">Good</span>
+      </div>
+    </div>
+
+    <div style="font-size:13px;line-height:1.6;color:oklch(0.68 0.01 260)">
+      Correct — matches the reference answer closely.
+    </div>
+  </div>
+
+  <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;gap:10px">
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:1px;background:oklch(0.62 0.19 25)"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:oklch(0.5 0.01 260)">FORGOT</span></div>
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:1px;background:oklch(0.72 0.15 55)"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:oklch(0.5 0.01 260)">HARD</span></div>
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:1px;background:oklch(0.72 0.15 145)"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:oklch(0.5 0.01 260)">GOOD</span></div>
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:1px;background:oklch(0.8 0.15 80)"></div><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:oklch(0.5 0.01 260)">EASY</span></div>
+    </div>
+  </div>
+
+  <button style="margin-top:14px;width:100%;padding:15px;border:none;border-radius:6px;background:oklch(0.78 0.16 75);color:oklch(0.14 0.01 260);font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer">Next →</button>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

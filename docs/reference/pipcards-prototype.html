@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PipCards</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#fff;--bg2:#f5f5f3;--bg3:#e8e8e4;--text:#1a1a18;--text2:#6b6b67;--text3:#9a9a96;--border:rgba(0,0,0,.1);--border2:rgba(0,0,0,.18);--accent:#1a1a18;--danger:#c0392b;--success:#1D9E75;--r:10px;--rs:6px;--r1-bg:#fde8e8;--r1-fg:#c0392b;--r2-bg:#fef3e2;--r2-fg:#b8770a;--r3-bg:#e8f8f0;--r3-fg:#1a7a52;--r4-bg:#e8f0fe;--r4-fg:#2855a0}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1a;--bg2:#252523;--bg3:#2e2e2c;--text:#e8e8e4;--text2:#9a9a96;--text3:#6b6b67;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.15);--accent:#e8e8e4;--r1-bg:#3d1515;--r1-fg:#e05252;--r2-bg:#3a2a08;--r2-fg:#e0a030;--r3-bg:#0f2d1e;--r3-fg:#3dc882;--r4-bg:#0f1e3d;--r4-fg:#5080e0}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.nav{display:flex;align-items:center;gap:10px;padding:11px 18px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.nav-logo{font-size:16px;font-weight:700;letter-spacing:-.02em;cursor:pointer}
+.nav-logo span{opacity:.35}
+.nav-mid{flex:1;display:flex;align-items:center;gap:8px;justify-content:center}
+.nav-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--bg3);flex-shrink:0}
+.sync-dot.ok{background:var(--success)}
+.sync-dot.busy{background:#f0c040;animation:sdpulse .8s infinite}
+.sync-dot.err{background:var(--danger)}
+@keyframes sdpulse{0%,100%{opacity:.4}50%{opacity:1}}
+.sync-lbl{font-size:11px;color:var(--text3)}
+.nav-btn{background:none;border:1px solid var(--border2);cursor:pointer;font-size:12px;color:var(--text2);padding:5px 12px;border-radius:var(--rs);font-family:inherit;transition:background .12s}
+.nav-btn:hover{background:var(--bg2);color:var(--text)}
+.nav-btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.nav-btn.primary:hover{opacity:.84}
+.user-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid var(--border2)}
+.page{max-width:640px;margin:0 auto;padding:1.5rem 1rem}
+.view{display:none}.view.active{display:block}
+.page-title{font-size:20px;font-weight:600;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text2);margin-bottom:1.5rem}
+.lbl{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:6px}
+input[type=text],textarea,select{width:100%;padding:9px 12px;font-size:14px;font-family:inherit;border:1px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);outline:none}
+.btn{padding:9px 20px;border-radius:var(--rs);font-size:14px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-family:inherit;transition:background .12s;white-space:nowrap}
+.btn:hover{background:var(--bg2)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-p{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.btn-p:hover{opacity:.84;background:var(--accent)}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn-danger{color:var(--danger);border-color:transparent}
+.btn-danger:hover{background:var(--r1-bg);border-color:var(--danger)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp{flex:1}
+.ebox{background:var(--r1-bg);border:1px solid var(--r1-fg);color:var(--r1-fg);border-radius:var(--rs);padding:10px 14px;font-size:13px}
+.ibox{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:12px 14px;font-size:13px;color:var(--text2);line-height:1.7}
+.signin-banner{background:var(--r4-bg);border:1px solid var(--r4-fg);color:var(--r4-fg);border-radius:var(--rs);padding:12px 14px;font-size:13px;display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;flex-wrap:wrap}
+/* import area */
+.upload{border:1.5px dashed var(--border2);border-radius:var(--r);padding:1.5rem;text-align:center;cursor:pointer;transition:background .15s;user-select:none;margin-bottom:1rem}
+.upload:hover,.upload.drag{background:var(--bg2)}
+/* deck list */
+.deck-grid{display:flex;flex-direction:column;gap:12px}
+.deck-card{border:1px solid var(--border2);border-radius:var(--r);padding:1.25rem;background:var(--bg)}
+.deck-card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;gap:8px}
+.deck-name{font-size:16px;font-weight:600}
+.deck-meta{font-size:12px;color:var(--text3);margin-top:3px}
+.deck-stats{display:flex;gap:10px;margin-bottom:1rem}
+.dstat{flex:1;border-radius:var(--rs);padding:10px;text-align:center}
+.dstat-val{font-size:22px;font-weight:600;display:block}
+.dstat-lbl{font-size:11px;opacity:.7}
+.empty-state{text-align:center;padding:3.5rem 1rem;color:var(--text2)}
+.empty-state .ei{font-size:48px;margin-bottom:1rem}
+/* study */
+.study-header{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem}
+.spw{flex:1;height:6px;background:var(--bg3);border-radius:999px;overflow:hidden}
+.spr{height:100%;background:var(--accent);border-radius:999px;transition:width .3s;width:0%}
+.s-count{font-size:12px;color:var(--text3);white-space:nowrap}
+.study-card{border:1px solid var(--border2);border-radius:var(--r);background:var(--bg);padding:1.5rem;margin-bottom:1rem;min-height:160px}
+.sc-top{display:flex;align-items:center;gap:8px;margin-bottom:1rem}
+.sc-badge{font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);max-width:65%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-new{font-size:10px;padding:2px 8px;border-radius:999px;background:var(--r4-bg);color:var(--r4-fg);font-weight:600}
+.sc-q{font-size:17px;line-height:1.6;font-weight:500}
+.sc-sep{display:flex;align-items:center;gap:10px;margin:1rem 0;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.sc-sep::before,.sc-sep::after{content:'';flex:1;height:1px;background:var(--border)}
+.sc-a{font-size:15px;line-height:1.65;color:var(--text2)}
+.show-btn{width:100%;padding:13px;border-radius:var(--rs);border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-size:15px;font-weight:500;cursor:pointer;font-family:inherit}
+.show-btn:hover{background:var(--bg3)}
+.rate-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:.75rem}
+.rate-btn{padding:13px 10px;border-radius:var(--rs);border:none;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px}
+.rate-btn:hover{filter:brightness(.92)}
+.rate-btn .rl{font-size:14px;font-weight:600}
+.rate-btn .rh{font-size:11px;opacity:.65}
+.r1{background:var(--r1-bg);color:var(--r1-fg)}
+.r2{background:var(--r2-bg);color:var(--r2-fg)}
+.r3{background:var(--r3-bg);color:var(--r3-fg)}
+.r4{background:var(--r4-bg);color:var(--r4-fg)}
+/* end */
+.end-icon{font-size:56px;text-align:center;margin-bottom:1rem}
+.end-title{font-size:22px;font-weight:700;text-align:center;margin-bottom:.5rem}
+.end-sub{font-size:14px;color:var(--text2);text-align:center;margin-bottom:2rem}
+.end-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:2rem}
+.estat{border-radius:var(--rs);padding:14px;text-align:center}
+.estat-val{font-size:26px;font-weight:700}
+.estat-lbl{font-size:11px;opacity:.7;margin-top:3px}
+/* toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--bg);padding:10px 20px;border-radius:999px;font-size:13px;font-weight:500;opacity:0;transition:opacity .2s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-logo" onclick="goHome()">Pip<span>Cards</span></span>
+  <div class="nav-mid">
+    <div class="sync-dot" id="sync-dot"></div>
+    <span class="sync-lbl" id="sync-lbl">Not signed in</span>
+  </div>
+  <div class="nav-right">
+    <div id="nav-auth">
+      <button class="nav-btn primary" onclick="driveSignIn()">Sign in with Google</button>
+    </div>
+    <div id="nav-user" style="display:none;align-items:center;gap:8px">
+      <img id="user-avatar" class="user-avatar" src="" alt=""/>
+      <button class="nav-btn" onclick="goHome()">My Decks</button>
+      <button class="nav-btn" onclick="driveSignOut()">Sign out</button>
+    </div>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div class="view active page" id="v-home">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px">
+    <div><div class="page-title">My Decks</div><div id="home-sub" class="page-sub" style="margin:0"></div></div>
+    <button class="btn btn-p btn-sm" onclick="showImport()">+ Import Deck</button>
+  </div>
+  <div id="signin-banner" class="signin-banner" style="display:none">
+    <span>☁️ Sign in with Google to sync your decks across devices</span>
+    <span class="sp"></span>
+    <button class="btn btn-sm btn-p" onclick="driveSignIn()">Sign in</button>
+  </div>
+  <div class="deck-grid" id="deck-list"></div>
+</div>
+
+<!-- IMPORT -->
+<div class="view page" id="v-import">
+  <div class="page-title">Import Deck</div>
+  <div class="page-sub">Import a CSV generated by PipCards Generator in Claude.ai</div>
+  <div class="ibox" style="margin-bottom:1rem">
+    <strong>CSV format:</strong> <code>DeckName,Subtopic,Front,Back</code> (with header row)<br>
+    Generate this file using the <strong>PipCards Generator</strong> artifact in Claude.ai, then paste the CSV text below.
+  </div>
+  <div class="upload" id="imp-upload" onclick="document.getElementById('imp-fi').click()">
+    <div style="font-size:24px;margin-bottom:5px">📄</div>
+    <div style="font-size:14px;color:var(--text2)">Drop a .csv file here or click to browse</div>
+  </div>
+  <input type="file" id="imp-fi" accept=".csv" style="display:none"/>
+  <div style="font-size:12px;color:var(--text3);margin-bottom:8px;text-align:center">— or paste CSV text directly —</div>
+  <textarea id="imp-text" placeholder="Paste CSV content here..." style="min-height:140px;resize:vertical;font-size:12px;font-family:monospace"></textarea>
+  <div style="display:flex;gap:8px;margin-top:1rem;flex-wrap:wrap">
+    <button class="btn btn-p" onclick="importCSV()">Import →</button>
+    <button class="btn btn-sm" onclick="goHome()">Cancel</button>
+  </div>
+  <div id="imp-err" style="display:none;margin-top:8px"></div>
+</div>
+
+<!-- STUDY -->
+<div class="view page" id="v-study">
+  <div class="study-header">
+    <button class="btn btn-sm" onclick="goHome()">← Back</button>
+    <div class="spw"><div class="spr" id="s-prog"></div></div>
+    <div class="s-count" id="s-count">0/0</div>
+  </div>
+  <div class="study-card">
+    <div class="sc-top">
+      <span class="sc-badge" id="sc-badge"></span>
+      <span class="sc-new" id="sc-new" style="display:none">NEW</span>
+    </div>
+    <div class="sc-q" id="sc-q"></div>
+    <div class="sc-sep" id="sc-sep" style="display:none">Answer</div>
+    <div class="sc-a" id="sc-a" style="display:none"></div>
+  </div>
+  <button class="show-btn" id="s-show" onclick="studyShowAns()">Show Answer</button>
+  <div id="s-rate" style="display:none">
+    <div class="rate-grid">
+      <button class="rate-btn r1" onclick="studyRate(1)"><span class="rl">Forgot</span><span class="rh" id="rh1"></span></button>
+      <button class="rate-btn r2" onclick="studyRate(2)"><span class="rl">Hard</span><span class="rh" id="rh2"></span></button>
+      <button class="rate-btn r3" onclick="studyRate(3)"><span class="rl">Got it</span><span class="rh" id="rh3"></span></button>
+      <button class="rate-btn r4" onclick="studyRate(4)"><span class="rl">Easy</span><span class="rh" id="rh4"></span></button>
+    </div>
+  </div>
+</div>
+
+<!-- END -->
+<div class="view page" id="v-end">
+  <div class="end-icon" id="end-icon">🎉</div>
+  <div class="end-title" id="end-title">Session Complete</div>
+  <div class="end-sub" id="end-sub"></div>
+  <div class="end-stats" id="end-stats"></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+    <button class="btn btn-p" onclick="goHome()">← My Decks</button>
+    <button class="btn" onclick="studyAgain()">Study Again</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const CLIENT_ID='623310986056-j3fdmbc12elg4psgt8smvohp6t03bp9j.apps.googleusercontent.com';
+const SCOPES='https://www.googleapis.com/auth/drive.appdata';
+const DRIVE_FILE='pipcards_db.json';
+const LSKEY='pipcards_v2';
+
+// ─── FSRS-4.5 ─────────────────────────────────────────────────────────────────
+const W=[0.4072,1.1829,3.1262,15.4722,7.2102,0.5316,1.0651,0.0589,1.533,0.1544,0.9898,1.9323,0.1101,0.29,2.27,0.25,2.9898,0.51,0.43];
+const DECAY=-0.5,FACTOR=19/81,RETENTION=0.9;
+function fsrsInterval(S){return Math.max(1,Math.round(S*(Math.pow(RETENTION,1/DECAY)-1)/FACTOR))}
+function clampD(D){return Math.min(10,Math.max(1,D))}
+function fsrsR(t,S){return Math.pow(1+FACTOR*Math.max(0,t)/S,DECAY)}
+function reviewCard(card,grade,now){
+  now=now||Date.now();
+  let S,D;
+  if(!card.stability){
+    S=W[grade-1];D=clampD(W[4]-Math.exp(W[5]*(grade-1))+1);
+  } else {
+    const elapsed=(now-card.lastReview)/86400000;
+    const R=fsrsR(elapsed,card.stability);
+    D=clampD(card.difficulty-W[6]*(grade-3)*(10-card.difficulty)/9);
+    if(grade===1)S=Math.max(0.1,W[11]*Math.pow(D,-W[12])*(Math.pow(card.stability+1,W[13])-1)*Math.exp(W[14]*(1-R)));
+    else{const hp=grade===2?W[15]:1,eb=grade===4?W[16]:1;S=Math.max(0.1,card.stability*(Math.exp(W[8])*(11-D)*Math.pow(card.stability,-W[9])*(Math.exp(W[10]*(1-R))-1)*hp*eb+1))}
+  }
+  const lapses=(card.lapses||0)+(grade===1?1:0);
+  const reviews=(card.reviews||0)+1;
+  let due,state;
+  if(grade===1){due=now+600000;state='learning'}
+  else{due=now+fsrsInterval(S)*86400000;state='review'}
+  return{...card,stability:S,difficulty:D,due,lastReview:now,reviews,lapses,state};
+}
+function previewInterval(card,grade){
+  const u=reviewCard(card,grade);
+  if(u.state==='learning')return'10 min';
+  const d=Math.round((u.due-Date.now())/86400000);
+  if(d<=1)return'1 day';if(d<30)return d+' days';
+  if(d<365)return Math.round(d/30)+' mo';return Math.round(d/365)+' yr';
+}
+
+// ─── LOCAL DB ──────────────────────────────────────────────────────────────────
+function lsLoad(){try{return JSON.parse(localStorage.getItem(LSKEY))||{decks:{}}}catch{return{decks:{}}}}
+function lsSave(db){try{localStorage.setItem(LSKEY,JSON.stringify(db))}catch{showToast('Storage full')}}
+function getDecks(){return lsLoad().decks}
+function saveDeck(deck){const db=lsLoad();db.decks[deck.id]=deck;lsSave(db);driveScheduleSave()}
+function deleteDeckDB(id){const db=lsLoad();delete db.decks[id];lsSave(db);driveScheduleSave()}
+function updateCard(deckId,card){
+  const db=lsLoad();const dk=db.decks[deckId];if(!dk)return;
+  const i=dk.cards.findIndex(c=>c.id===card.id);
+  if(i>=0)dk.cards[i]=card;lsSave(db);driveScheduleSave();
+}
+function uid(){return Math.random().toString(36).slice(2,10)}
+
+// ─── GOOGLE DRIVE ──────────────────────────────────────────────────────────────
+let gToken=null,gTokenExpiry=0,gFileId=null,gTokenClient=null,gSaveTimer=null;
+
+function driveInit(){
+  if(typeof google==='undefined')return;
+  gTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,scope:SCOPES,
+    callback:async(resp)=>{
+      if(resp.error){setSyncStatus('err','Sign-in failed');return}
+      gToken=resp.access_token;gTokenExpiry=Date.now()+(resp.expires_in-60)*1000;
+      await driveLoadUser();await drivePull();
+    }
+  });
+  try{
+    google.accounts.oauth2.initTokenClient({
+      client_id:CLIENT_ID,scope:SCOPES,prompt:'none',
+      callback:async(resp)=>{
+        if(resp.error||!resp.access_token)return;
+        gToken=resp.access_token;gTokenExpiry=Date.now()+(resp.expires_in-60)*1000;
+        await driveLoadUser();await drivePull();
+      }
+    }).requestAccessToken({prompt:''});
+  }catch{}
+}
+function driveSignIn(){if(gTokenClient)gTokenClient.requestAccessToken({prompt:''})}
+function driveSignOut(){
+  if(typeof google!=='undefined')try{google.accounts.oauth2.revoke(gToken,()=>{})}catch{}
+  gToken=null;gFileId=null;
+  document.getElementById('nav-auth').style.display='';
+  document.getElementById('nav-user').style.display='none';
+  document.getElementById('signin-banner').style.display='';
+  setSyncStatus('off','Not signed in');
+}
+async function driveLoadUser(){
+  try{
+    const r=await fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{Authorization:`Bearer ${gToken}`}});
+    const u=await r.json();
+    if(u.picture)document.getElementById('user-avatar').src=u.picture;
+    document.getElementById('nav-auth').style.display='none';
+    document.getElementById('nav-user').style.display='flex';
+    document.getElementById('signin-banner').style.display='none';
+  }catch{}
+}
+async function driveEnsureToken(){
+  if(!gToken)return false;
+  if(Date.now()<gTokenExpiry)return true;
+  return new Promise(res=>{
+    try{google.accounts.oauth2.initTokenClient({
+      client_id:CLIENT_ID,scope:SCOPES,prompt:'none',
+      callback:(resp)=>{
+        if(resp.access_token){gToken=resp.access_token;gTokenExpiry=Date.now()+(resp.expires_in-60)*1000;res(true)}
+        else res(false);
+      }
+    }).requestAccessToken({prompt:''})}catch{res(false)}
+  });
+}
+async function driveFindFile(){
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D'${DRIVE_FILE}'&fields=files(id)`,{headers:{Authorization:`Bearer ${gToken}`}});
+  const j=await r.json();return j.files?.[0]?.id||null;
+}
+async function driveReadFile(id){
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`,{headers:{Authorization:`Bearer ${gToken}`}});
+  return await r.json();
+}
+async function driveWriteFile(data){
+  const body=JSON.stringify(data);
+  if(gFileId){
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${gFileId}?uploadType=media`,{
+      method:'PATCH',headers:{Authorization:`Bearer ${gToken}`,'Content-Type':'application/json'},body
+    });
+  } else {
+    const b='pbc_boundary';
+    const meta=JSON.stringify({name:DRIVE_FILE,parents:['appDataFolder']});
+    const mp=`--${b}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`;
+    const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+      method:'POST',headers:{Authorization:`Bearer ${gToken}`,'Content-Type':`multipart/related; boundary=${b}`},body:mp
+    });
+    const j=await r.json();gFileId=j.id;
+  }
+}
+async function drivePull(){
+  setSyncStatus('busy','Syncing...');
+  try{
+    if(!await driveEnsureToken()){setSyncStatus('err','Auth expired');return}
+    gFileId=await driveFindFile();
+    if(gFileId){
+      const remote=await driveReadFile(gFileId);
+      if(remote&&remote.decks){
+        const local=lsLoad();
+        lsSave({decks:{...local.decks,...remote.decks}});
+      }
+    }
+    renderHome();setSyncStatus('ok','Synced');
+  }catch{setSyncStatus('err','Sync failed')}
+}
+function driveScheduleSave(){
+  clearTimeout(gSaveTimer);setSyncStatus('busy','Saving...');
+  gSaveTimer=setTimeout(async()=>{
+    if(!gToken)return;
+    try{if(!await driveEnsureToken())return;await driveWriteFile(lsLoad());setSyncStatus('ok','Synced')}
+    catch{setSyncStatus('err','Save failed')}
+  },2000);
+}
+function setSyncStatus(s,l){
+  const dot=document.getElementById('sync-dot');
+  dot.className='sync-dot';
+  if(s==='ok')dot.classList.add('ok');
+  else if(s==='busy')dot.classList.add('busy');
+  else if(s==='err')dot.classList.add('err');
+  document.getElementById('sync-lbl').textContent=l;
+}
+
+// ─── VIEWS ─────────────────────────────────────────────────────────────────────
+function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById('v-'+id).classList.add('active');window.scrollTo(0,0)}
+function goHome(){showView('home');renderHome()}
+
+// ─── HOME ───────────────────────────────────────────────────────────────────────
+function renderHome(){
+  const decks=getDecks();const ids=Object.keys(decks);
+  const el=document.getElementById('deck-list');
+  document.getElementById('home-sub').textContent=ids.length?ids.length+' deck'+(ids.length>1?'s':''):'';
+  if(!ids.length){
+    el.innerHTML=`<div class="empty-state"><div class="ei">📚</div><p style="margin-bottom:1.25rem;font-size:15px">No decks yet.<br><span style="font-size:13px;opacity:.7">Generate cards in the PipCards Generator in Claude.ai, then import the CSV here.</span></p><button class="btn btn-p" onclick="showImport()">+ Import Deck</button></div>`;
+    return;
+  }
+  const now=Date.now();el.innerHTML='';
+  ids.sort((a,b)=>decks[b].created-decks[a].created).forEach(id=>{
+    const dk=decks[id];const total=dk.cards.length;
+    const newC=dk.cards.filter(c=>c.state==='new').length;
+    const dueC=dk.cards.filter(c=>c.state!=='new'&&c.due<=now).length;
+    const learnedC=total-newC;
+    const d=document.createElement('div');d.className='deck-card';
+    d.innerHTML=`
+      <div class="deck-card-head">
+        <div><div class="deck-name">${dk.name}</div><div class="deck-meta">${total} cards · ${dk.subtopics||0} sub-topics</div></div>
+        <div class="row" style="gap:6px"><button class="btn btn-sm btn-danger" onclick="deleteDeck('${id}')">Delete</button></div>
+      </div>
+      <div class="deck-stats">
+        <div class="dstat" style="background:var(--r1-bg);color:var(--r1-fg)"><span class="dstat-val">${dueC}</span><span class="dstat-lbl">Due</span></div>
+        <div class="dstat" style="background:var(--r4-bg);color:var(--r4-fg)"><span class="dstat-val">${newC}</span><span class="dstat-lbl">New</span></div>
+        <div class="dstat" style="background:var(--r3-bg);color:var(--r3-fg)"><span class="dstat-val">${learnedC}</span><span class="dstat-lbl">Learned</span></div>
+      </div>
+      <button class="btn btn-p" style="width:100%" onclick="studyStart('${id}')">${(dueC>0||newC>0)?'Study →':'Review early →'}</button>`;
+    el.appendChild(d);
+  });
+}
+function deleteDeck(id){
+  if(!confirm('Delete this deck and all study history?'))return;
+  deleteDeckDB(id);renderHome();
+}
+
+// ─── IMPORT ─────────────────────────────────────────────────────────────────────
+function showImport(){
+  document.getElementById('imp-text').value='';
+  document.getElementById('imp-err').style.display='none';
+  showView('import');
+}
+const impUpload=document.getElementById('imp-upload');
+const impFi=document.getElementById('imp-fi');
+impUpload.addEventListener('dragover',e=>{e.preventDefault();impUpload.classList.add('drag')});
+impUpload.addEventListener('dragleave',()=>impUpload.classList.remove('drag'));
+impUpload.addEventListener('drop',e=>{
+  e.preventDefault();impUpload.classList.remove('drag');
+  const f=e.dataTransfer.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>{document.getElementById('imp-text').value=r.result};r.readAsText(f);
+});
+impFi.addEventListener('change',()=>{
+  const f=impFi.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>{document.getElementById('imp-text').value=r.result};r.readAsText(f);
+  impFi.value='';
+});
+
+function parseCSV(text){
+  const lines=text.trim().split('\n');
+  if(lines.length<2)return null;
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const cols=splitCSVLine(lines[i]);
+    if(cols.length>=4)rows.push(cols);
+  }
+  return rows;
+}
+function splitCSVLine(line){
+  const cols=[];let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'&&!inQ){inQ=true}
+    else if(ch==='"'&&inQ){if(line[i+1]==='"'){cur+='"';i++}else inQ=false}
+    else if(ch===','&&!inQ){cols.push(cur.trim());cur=''}
+    else cur+=ch;
+  }
+  cols.push(cur.trim());return cols;
+}
+function importCSV(){
+  const text=document.getElementById('imp-text').value.trim();
+  if(!text){showImpErr('Paste some CSV text first.');return}
+  const rows=parseCSV(text);
+  if(!rows||rows.length===0){showImpErr('Could not parse CSV. Make sure it has the header: DeckName,Subtopic,Front,Back');return}
+  // Group by deck name
+  const deckMap={};
+  rows.forEach(cols=>{
+    const [deckName,subtopic,front,back]=cols;
+    if(!deckName||!front||!back)return;
+    if(!deckMap[deckName])deckMap[deckName]={name:deckName,subtopics:new Set(),cards:[]};
+    deckMap[deckName].subtopics.add(subtopic||'General');
+    deckMap[deckName].cards.push({q:front,a:back,subtopic:subtopic||'General'});
+  });
+  const deckNames=Object.keys(deckMap);
+  if(!deckNames.length){showImpErr('No valid cards found in CSV.');return}
+  let totalCards=0;
+  deckNames.forEach(name=>{
+    const dm=deckMap[name];
+    const deck={
+      id:'d'+uid(),name:dm.name,created:Date.now(),
+      subtopics:dm.subtopics.size,
+      cards:dm.cards.map((c,i)=>({
+        ...c,id:'c'+uid()+i,state:'new',
+        stability:null,difficulty:null,due:0,lastReview:null,reviews:0,lapses:0
+      }))
+    };
+    saveDeck(deck);totalCards+=deck.cards.length;
+  });
+  showToast(`Imported ${totalCards} cards across ${deckNames.length} deck${deckNames.length>1?'s':''}`);
+  goHome();
+}
+function showImpErr(msg){const e=document.getElementById('imp-err');e.style.display='block';e.innerHTML=`<div class="ebox">${msg}</div>`}
+
+// ─── STUDY ──────────────────────────────────────────────────────────────────────
+let sDeckId=null,sQueue=[],sCur=null,sShown=false,sTotal=0,sDone=0,sStats={},sRelearn=new Set();
+function studyStart(deckId){
+  sDeckId=deckId;
+  const dk=getDecks()[deckId];if(!dk){goHome();return}
+  const now=Date.now();
+  const due=dk.cards.filter(c=>c.state!=='new'&&c.due<=now);
+  const newC=dk.cards.filter(c=>c.state==='new').sort(()=>Math.random()-.5).slice(0,20);
+  sQueue=[...due,...newC];sTotal=sQueue.length;sDone=0;sStats={forgot:0,hard:0,good:0,easy:0};sRelearn=new Set();
+  if(!sQueue.length){showView('end');renderEnd(dk,true);return}
+  sCur=sQueue.shift();sShown=false;showView('study');renderStudyCard();
+}
+function studyShowAns(){
+  sShown=true;
+  document.getElementById('sc-sep').style.display='';
+  document.getElementById('sc-a').style.display='';
+  document.getElementById('s-show').style.display='none';
+  document.getElementById('s-rate').style.display='';
+}
+function studyRate(grade){
+  if(!sCur||!sShown)return;
+  const labels=['','forgot','hard','good','easy'];
+  sStats[labels[grade]]=(sStats[labels[grade]]||0)+1;
+  const updated=reviewCard(sCur,grade);
+  updateCard(sDeckId,updated);
+  if(grade===1&&!sRelearn.has(sCur.id)){sRelearn.add(sCur.id);sQueue.push({...updated})}
+  else sDone++;
+  sCur=sQueue.shift()||null;sShown=false;
+  if(!sCur){const dk=getDecks()[sDeckId];showView('end');renderEnd(dk,false)}
+  else renderStudyCard();
+}
+function renderStudyCard(){
+  const c=sCur;
+  const total=sTotal+sRelearn.size;
+  const pct=total>0?Math.round(sDone/total*100):0;
+  document.getElementById('s-prog').style.width=pct+'%';
+  document.getElementById('s-count').textContent=`${sDone}/${total}`;
+  document.getElementById('sc-badge').textContent=c.subtopic||'';
+  document.getElementById('sc-new').style.display=c.state==='new'?'':'none';
+  document.getElementById('sc-q').textContent=c.q;
+  document.getElementById('sc-a').textContent=c.a;
+  document.getElementById('sc-sep').style.display='none';
+  document.getElementById('sc-a').style.display='none';
+  document.getElementById('s-show').style.display='';
+  document.getElementById('s-rate').style.display='none';
+  [1,2,3,4].forEach(g=>{document.getElementById('rh'+g).textContent=previewInterval(c,g)});
+}
+function studyAgain(){studyStart(sDeckId)}
+
+// ─── SESSION END ────────────────────────────────────────────────────────────────
+function renderEnd(dk,noCards){
+  if(noCards){
+    document.getElementById('end-icon').textContent='📭';
+    document.getElementById('end-title').textContent='Nothing due!';
+    document.getElementById('end-sub').textContent='All caught up. Come back later.';
+    document.getElementById('end-stats').innerHTML='';return;
+  }
+  const total=sDone+sRelearn.size;
+  const correct=(sStats.good||0)+(sStats.easy||0);
+  const pct=total>0?Math.round(correct/total*100):0;
+  document.getElementById('end-icon').textContent=pct>=80?'🎉':pct>=60?'💪':'📖';
+  document.getElementById('end-title').textContent=pct>=80?'Great session!':pct>=60?'Good effort!':'Keep at it!';
+  document.getElementById('end-sub').textContent=`${total} cards · ${pct}% retention`;
+  document.getElementById('end-stats').innerHTML=`
+    <div class="estat" style="background:var(--r3-bg);color:var(--r3-fg)"><div class="estat-val">${correct}</div><div class="estat-lbl">Remembered</div></div>
+    <div class="estat" style="background:var(--r1-bg);color:var(--r1-fg)"><div class="estat-val">${sStats.forgot||0}</div><div class="estat-lbl">Forgot</div></div>
+    <div class="estat" style="background:var(--r2-bg);color:var(--r2-fg)"><div class="estat-val">${sStats.hard||0}</div><div class="estat-lbl">Hard</div></div>
+    <div class="estat" style="background:var(--r4-bg);color:var(--r4-fg)"><div class="estat-val">${sStats.easy||0}</div><div class="estat-lbl">Easy</div></div>`;
+}
+
+// ─── UTILS ──────────────────────────────────────────────────────────────────────
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('v-study').classList.contains('active'))return;
+  if((e.key===' '||e.key==='Enter')&&!sShown){e.preventDefault();studyShowAns()}
+  else if(e.key==='1'&&sShown)studyRate(1);
+  else if(e.key==='2'&&sShown)studyRate(2);
+  else if(e.key==='3'&&sShown)studyRate(3);
+  else if(e.key==='4'&&sShown)studyRate(4);
+});
+
+if(!gToken)document.getElementById('signin-banner').style.display='';
+renderHome();
+window.addEventListener('load',()=>{
+  const wait=setInterval(()=>{
+    if(typeof google!=='undefined'){clearInterval(wait);driveInit()}
+  },200);
+  setTimeout(()=>clearInterval(wait),10000);
+});
+</script>
+</body>
+</html>

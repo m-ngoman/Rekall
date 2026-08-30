@@ -1,0 +1,5 @@
+# The app itself is behind a login and has nothing worth indexing — only the public pages do.
+User-agent: *
+Allow: /
+
+Sitemap: https://rekall.study/sitemap.xml

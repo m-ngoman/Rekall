@@ -1,0 +1,463 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+
+  --bg: oklch(0.97 0.012 75);
+  --bg-card: oklch(1 0 0);
+  --text: oklch(0.28 0.02 50);
+  --text-secondary: oklch(0.55 0.02 50);
+  --ring-track: oklch(0.93 0.015 75);
+
+  --streak: oklch(0.72 0.16 55);
+  --grade-forgot: oklch(0.62 0.16 25);
+  --grade-forgot-bg: oklch(0.95 0.05 25);
+  --grade-hard: oklch(0.72 0.16 55);
+  --grade-hard-bg: oklch(0.95 0.05 55);
+  --grade-good: oklch(0.62 0.155 145);
+  --grade-good-bg: oklch(0.95 0.04 145);
+
+  /* Easy re-uses --accent directly (see the accent picker in Settings) — the "mastery" color. */
+  --accent: oklch(0.7 0.145 40);
+
+  /* --bg-card is pure white here, so a white inset "highlight" is invisible — there's no lighter
+     tone to contrast against. Edge definition comes from a hairline inset border instead.
+
+     The three sizes are a genuine elevation ramp rather than three intensities of the same haze:
+     sm rests on the page, md is lifted, lg floats over it. Each is a tight contact shadow plus at
+     most one ambient layer — the previous 24px/50px blurs read as fog under everything. */
+  --shadow-sm: inset 0 0 0 1px oklch(0.4 0.03 50 / 0.06), 0 1px 2px oklch(0.4 0.03 50 / 0.06);
+  --shadow-md: inset 0 0 0 1px oklch(0.4 0.03 50 / 0.06), 0 1px 2px oklch(0.4 0.03 50 / 0.06),
+    0 4px 10px oklch(0.4 0.03 50 / 0.07);
+  --shadow-lg: inset 0 0 0 1px oklch(0.4 0.03 50 / 0.07), 0 2px 4px oklch(0.4 0.04 50 / 0.08),
+    0 10px 22px oklch(0.4 0.04 50 / 0.1);
+
+  /* Solid accent-filled controls (buttons, active bubbles). Deliberately NOT a glow: a centered
+     halo around every primary button is the single loudest thing in the old look, and it reads as
+     decoration rather than as a button. What's left is what a real raised surface does — a thin
+     catchlight along the top edge where light lands, and one tight contact shadow tinted by the
+     button's own color, since a colored object bounces colored light onto what's under it. */
+  --accent-shadow: inset 0 1px 0 oklch(1 0 0 / 0.18), 0 1px 2px color-mix(in oklab, var(--accent) 35%, transparent);
+
+  /* Selected/active pills on their own tinted background (nav items, composer chips, subtopic
+     badges). Now a single crisp accent hairline and nothing else. These sit flat on the card, so
+     they shouldn't cast anything at all — selection is communicated by the tint plus the ring,
+     which is legible without asking the element to appear lit from within. */
+  /* oklab, not oklch, everywhere the accent is blended with a surface. oklch interpolates hue
+     around the wheel: mixing 15% of a blue accent into these deliberately warm greys took the
+     short arc through red and produced an *orange* highlight (measured: hue 26). oklab has no
+     hue axis to travel along, so a blue accent tints things blue. Coral, being warm already,
+     renders essentially identically either way — which is why this went unnoticed. */
+  --highlight-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 35%, transparent);
+
+  /* Softer variants for the tutor composer's buttons (chips, send/mic) — the standard tokens were
+     too heavy in that tightly-packed row. Now that the standard ones are themselves quiet, these
+     are close to a hairline: enough to separate a chip from the bar behind it, nothing more. */
+  --shadow-xs: inset 0 0 0 1px oklch(0.4 0.03 50 / 0.05), 0 1px 1px oklch(0.4 0.03 50 / 0.04);
+  --accent-shadow-soft: inset 0 1px 0 oklch(1 0 0 / 0.14), 0 1px 2px color-mix(in oklab, var(--accent) 24%, transparent);
+}
+
+/* Selected by an attribute JS always sets, never by a bare `prefers-color-scheme` media query.
+   Resolving "system" in JS means these tokens exist in exactly one place: the alternative — a
+   media query for system plus a duplicate `[data-theme='dark']` block for the explicit choice —
+   is two copies of every dark colour that have to be kept in step by hand. index.html sets the
+   attribute before first paint, so there's no flash of the wrong theme. */
+:root[data-theme='dark'] {
+  /* Tells the browser to render native widgets (scrollbars, form controls, the
+     on-screen keyboard) in dark too, which CSS variables alone can't do. */
+  color-scheme: dark;
+
+  --bg: oklch(0.19 0.014 50);
+  --bg-card: oklch(0.24 0.016 50);
+  --text: oklch(0.94 0.01 60);
+  --text-secondary: oklch(0.68 0.015 55);
+  --ring-track: oklch(0.32 0.015 50);
+
+  --streak: oklch(0.76 0.16 55);
+  --grade-forgot: oklch(0.68 0.17 25);
+  --grade-forgot-bg: oklch(0.3 0.08 25);
+  --grade-hard: oklch(0.76 0.16 55);
+  --grade-hard-bg: oklch(0.32 0.08 55);
+  --grade-good: oklch(0.68 0.16 145);
+  --grade-good-bg: oklch(0.28 0.06 145);
+
+  /* Dark cards aren't pure black, so a top inset highlight (a hairline of lifted card color) IS
+     visible here — paired with the same hairline border + stronger contact/ambient shadow. */
+  --shadow-sm: inset 0 1px 0 oklch(1 0 0 / 0.05), inset 0 0 0 1px oklch(1 0 0 / 0.04), 0 1px 2px oklch(0 0 0 / 0.25);
+  --shadow-md: inset 0 1px 0 oklch(1 0 0 / 0.06), inset 0 0 0 1px oklch(1 0 0 / 0.05),
+    0 1px 2px oklch(0 0 0 / 0.28), 0 4px 10px oklch(0 0 0 / 0.22);
+  --shadow-lg: inset 0 1px 0 oklch(1 0 0 / 0.07), inset 0 0 0 1px oklch(1 0 0 / 0.06),
+    0 2px 4px oklch(0 0 0 / 0.3), 0 10px 22px oklch(0 0 0 / 0.3);
+
+  --accent-shadow: inset 0 1px 0 oklch(1 0 0 / 0.12), 0 1px 2px oklch(0 0 0 / 0.35);
+
+  --highlight-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent);
+
+  --shadow-xs: inset 0 0 0 1px oklch(1 0 0 / 0.04), 0 1px 1px oklch(0 0 0 / 0.18);
+  --accent-shadow-soft: inset 0 1px 0 oklch(1 0 0 / 0.08), 0 1px 2px oklch(0 0 0 / 0.28);
+  }
+
+/* Bumps every Tailwind text-* size up slightly in one place, since they're all rem-based relative
+   to this — cleaner than hunting down and bumping each text-xs/sm/base/etc. class individually
+   across every screen. ~6% (16px -> ~17px) reads as "slightly", not a redesign. */
+html {
+  /* A percentage, not a px value: this stays relative to whatever default text size the browser
+     is set to, so raising it in browser or OS settings scales the whole app.
+     --text-scale carries iOS Dynamic Type on top of that — Safari applies the system Text Size
+     setting to nothing but the -apple-system-body keyword, so it has to be measured and fed in.
+     See lib/dynamicType.ts (and the pre-paint copy in index.html). */
+  font-size: calc(106% * var(--text-scale, 1));
+}
+
+/* A flat single-color expanse is a big part of why the app reads as empty. Two very soft,
+   accent-tinted washes (top-left warm, bottom-right cool) give the page some depth without
+   becoming a "look at me" gradient. Fixed so it stays put while content scrolls over it, and
+   tied to --accent so it re-tints with the user's chosen color instead of being a fixed hue. */
+/* This app renders a lot of text it doesn't control — model explanations, OCR transcriptions,
+   deck and category names, uploaded file names. A single unbroken run (a URL, a chemical formula,
+   two words fused by bad OCR) has nothing to break on and pushes the page wider than the screen.
+   On iOS that widens the *layout viewport*, which is why a `fixed` element sized from it — the tab
+   bar — came out a different width on some pages than others.
+
+   `anywhere` rather than `break-word`: only `anywhere` shrinks an element's min-content width, so
+   it also lets flex and grid children actually narrow instead of refusing to go below their
+   longest token. Ordinary text is unaffected — it still breaks at spaces first. */
+/* The base colour belongs on the root element, not just body: the browser paints the canvas —
+   everything outside the page box, including the area behind an iPhone's status bar and the
+   overscroll rubber-band — from the root's background. Leaving it unset is what left a blank
+   strip above the page on iOS. */
+html {
+  background: var(--bg);
+}
+
+body {
+  /* `clip`, not `hidden`: it stops the sideways overflow a mid-animation tab slide creates
+     without turning the body into a scroll container, which `hidden` would do — and that would
+     quietly break sticky positioning and scroll anchoring elsewhere. */
+  overflow-x: clip;
+  overflow-wrap: anywhere;
+  background: transparent;
+  color: var(--text);
+}
+
+/* The accent washes ride on a fixed *element* rather than `background-attachment: fixed`, which
+   iOS Safari has never handled properly — it detaches the image from the viewport and clips it,
+   which is what cut the glow off partway down the screen. A fixed pseudo-element is the same
+   effect by a mechanism every browser agrees on, and with viewport-fit=cover it reaches into the
+   safe areas the status bar sits over. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 15% -5%, color-mix(in oklab, var(--accent) 8%, transparent), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 95% 105%, color-mix(in oklab, var(--accent) 6%, transparent), transparent 70%);
+}
+
+/* ...but not on interface chrome. A button's label is text we wrote and sized the control for,
+   never an unbounded string, so `anywhere` there buys nothing and costs a lot: in a tight flex
+   row it let labels break mid-word ("Direct" -> "Dire/ct") instead of keeping the control at its
+   natural width. Content text keeps `anywhere` from the rule above. */
+button,
+select,
+option,
+label {
+  overflow-wrap: normal;
+}
+
+/* Kills the ~300ms delay iOS keeps in reserve for a possible double-tap-to-zoom, and removes
+   the grey flash iOS paints over a tapped element. Both make a tap feel like it registered late
+   even when the handler already ran. `manipulation` keeps pinch-zoom, only double-tap zoom goes. */
+button,
+select,
+input,
+a,
+.cursor-pointer {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Touch gets its own press state. The block below is behind `hover: hover`, so on a phone there
+   was no feedback at all between finger-down and the screen changing — the tap read as ignored,
+   and any delay after it read as the app being slow. Deliberately instant (no transition): a
+   press confirmation that eases in is the exact thing that feels laggy. */
+@media (hover: none) {
+  button:not(:disabled):not(.pill-option):active,
+  .cursor-pointer:active {
+    transform: scale(0.97);
+    filter: brightness(0.94);
+  }
+}
+
+/* Sliding selection indicator — shared by the tab bar and the segmented controls in Settings.
+
+   The selection is one pill that travels between options rather than a background that blinks on
+   and off per button. An instant cut is the wrong choice for a control you tap constantly, and a
+   moving object also tells you *which way* you just went.
+
+   Only the travel overshoots (the >1 control point), and only gently — it should read as the pill
+   carrying momentum into its stop, not as a bounce. While it travels TabBar stretches it along the
+   direction of motion and relaxes that before it lands; squash-and-stretch is what makes it read
+   as something with weight rather than a rectangle being repositioned.
+
+   Three properties, three curves, and deliberately NOT one `transform`:
+   - translate: the travel, with the overshoot.
+   - scale: the stretch. Its timing comes from custom properties TabBar sets per direction, because
+     a bulge and its relaxation are not the same gesture: the bulge should arrive quickly, while
+     letting go of it is a slow settle. One shared duration can only serve one of them — slow
+     enough to relax naturally is too slow to ever reach full stretch before it's released.
+   - width: the four labels differ in length, so the pill resizes as it moves — but on a curve with
+     no overshoot, because an overshooting width visibly pumps the pill's edges.
+   Sharing `transform` between travel and stretch meant relaxing the stretch rewrote the property
+   mid-flight and restarted the travel on the overshoot curve, producing a second overshoot and a
+   snap back at the end. */
+.sliding-pill {
+  transition:
+    translate 400ms cubic-bezier(0.33, 1.16, 0.45, 1),
+    scale var(--pill-scale-ms, 400ms) var(--pill-scale-ease, ease-out),
+    width 400ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms linear;
+}
+
+.pill-option {
+  transition:
+    color 200ms ease,
+    transform 220ms cubic-bezier(0.34, 1.45, 0.5, 1);
+}
+
+/* A press on a pill option bulges outward instead of shrinking. Everything else in the app is a
+   button you push *into* the page; these are the controls where the surface is meant to swell
+   under the finger, which is what makes them feel touchable rather than painted on. */
+@media (hover: none) {
+  .pill-option:active {
+    transform: scale(1.08);
+  }
+}
+
+/* Someone who has asked the OS for less motion gets the same interface with none of the travel —
+   the pill still moves, it just arrives immediately. */
+@media (prefers-reduced-motion: reduce) {
+  .sliding-pill,
+  .pill-option {
+    transition: none;
+  }
+
+  .pill-option:active {
+    transform: none;
+  }
+}
+
+/* Universal, subtle hover/press feedback — covers every button plus the handful of non-<button>
+   elements (deck tiles, the CSV drop zone, the accent swatches) that act like one via cursor-pointer.
+   Kept to transform + filter (never touching color/background/box-shadow) so it layers cleanly on
+   top of whatever state-driven styling — highlight glow, accent fill, etc. — an element already has.
+   Skipped on touch devices: a lingering ":hover" after a tap there just looks like a stuck press. */
+@media (hover: hover) {
+  button:not(:disabled),
+  .cursor-pointer {
+    transition: transform 120ms ease, filter 120ms ease;
+  }
+
+  button:not(:disabled):hover,
+  .cursor-pointer:hover {
+    transform: translateY(-1px);
+    filter: brightness(0.97);
+  }
+
+  button:not(:disabled):active,
+  .cursor-pointer:active {
+    transform: translateY(0);
+    filter: brightness(0.94);
+  }
+}
+
+/* Word-by-word karaoke in the voice focus view. Each word of the sentence being spoken is one
+   span carrying this animation with a computed per-word delay — the whole sweep is scheduled up
+   front when the sentence's audio starts, and CSS runs it without a single JS timer. `both` does
+   double duty: before its delay a word holds the 0% frame (dim, sitting low), after finishing it
+   holds 100% (lit, settled) — so the three visual states of a word need no state machine at all.
+
+   The motion: a word rises through its moment of being spoken and settles back to the baseline.
+   The lift is transient on purpose — leaving every spoken word permanently raised would displace
+   half the line and read as broken typography rather than emphasis. */
+.focus-word,
+.focus-word-idle {
+  display: inline-block;
+  white-space: pre;
+}
+/* A word the voice hasn't reached. Matches the animation's 0% frame exactly, so adding
+   .focus-word when it's spoken continues from where this left off rather than jumping. */
+.focus-word-idle {
+  color: rgb(255 255 255 / 0.2);
+  transform: translateY(0.12em);
+}
+.focus-word {
+  animation: focus-word-pop 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes focus-word-pop {
+  0% {
+    color: rgb(255 255 255 / 0.2);
+    transform: translateY(0.12em);
+    text-shadow: none;
+  }
+  55% {
+    color: #fff;
+    transform: translateY(-0.07em);
+    text-shadow: 0 0 24px color-mix(in oklab, var(--accent) 70%, transparent);
+  }
+  100% {
+    color: #fff;
+    transform: translateY(0);
+    text-shadow: 0 0 12px color-mix(in oklab, var(--accent) 28%, transparent);
+  }
+}
+
+/* Same sweep, no vertical motion — the light-up alone still tracks the voice. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes focus-word-pop {
+    0% { color: rgb(255 255 255 / 0.2); text-shadow: none; }
+    100% { color: #fff; text-shadow: none; }
+  }
+  .focus-word { animation-timing-function: ease; }
+}
+
+/* iOS Safari zooms the entire page when you focus a form control whose text renders under 16px —
+   and it never zooms back out, so the page just stays enlarged until you pinch it back yourself.
+   Every control here is text-sm, which the 106% root above scales to ~14.8px: under the line.
+   Raising the floor to 16px on iOS phones is the fix that keeps pinch-zoom working; the
+   alternative (maximum-scale=1 on the viewport) stops the zoom by disabling zooming for
+   everyone, including people who need it.
+   Scoped with the -webkit-touch-callout probe (true only on iOS/iPadOS) and a phone-width query,
+   since no other platform has the bug and iPad's larger viewport doesn't trigger it. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 1023px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+}
+
+
+/* At large Dynamic Type the five tab captions can't sit side by side — they truncate to "Ho…",
+   "Car…", which reads as damage rather than as text. Past the threshold the bar shows icons
+   only, drawn bigger: that's more legible than a clipped word and gives a larger tap target,
+   and each button keeps its name for screen readers via aria-label. The heading at the top of
+   every screen still says where you are, at the user's chosen size. */
+html[data-text-scale='large'] .tab-label {
+  display: none;
+}
+html[data-text-scale='large'] .pill-option svg {
+  width: 23px;
+  height: 23px;
+}
+
+
+/* Voice mode only. Sentences arrive from the network mid-reply and used to appear instantly,
+   which reads as a blink against a stage where everything else moves. Each line drifts up as it
+   fades, so the eye is drawn to arriving text rather than startled by it. Runs once, on mount:
+   React only creates a node for a sentence when it actually arrives, so nothing re-animates
+   when the highlight moves on. */
+@keyframes focus-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* Block-level lines (a whole past turn) can lift as they fade. */
+.focus-line {
+  animation: focus-line-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Sentences inside the live reply are inline, and transforms don't apply to inline boxes —
+   forcing inline-block to enable one would stop a long sentence wrapping mid-line and shove it
+   onto its own. So these fade without the lift; they're mid-paragraph, where movement would be
+   the wrong signal anyway. */
+.focus-line-inline {
+  animation: focus-line-fade 420ms ease both;
+}
+@keyframes focus-line-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the fade — it's what makes arrival legible — but drop the movement. */
+  @keyframes focus-line-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+
+/* Tab switches move in the direction you travelled — the screen you're arriving at enters from
+   the side the tab bar's pill just slid toward. Deliberately a short offset rather than a
+   full-screen push: a tab bar promises every destination is one tap away, and animating a
+   three-tab jump as a longer journey would quietly contradict that. Intermediate tabs are never
+   rendered on the way past (they'd mount real work — the tutor tab opens a session).
+   `both` fill, and every keyframe ends at translate 0, so no transform survives the animation to
+   trap `position: fixed` descendants afterwards. */
+/* Both end at `none`, not `translateX(0)`: a zero transform is still a transform, and any
+   transform makes the element a containing block for `position: fixed` descendants — which would
+   leave the calendar's exam sheet positioned against this wrapper instead of the viewport. The
+   `backwards` fill below says the same thing twice on purpose; neither alone is worth trusting
+   for a bug that would only show up in a modal someone opens later. */
+@keyframes tab-enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(52px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tab-enter-left {
+  from {
+    opacity: 0;
+    transform: translateX(-52px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tab-enter-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.tab-enter-right {
+  animation: tab-enter-right 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.tab-enter-left {
+  animation: tab-enter-left 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.tab-enter-fade {
+  animation: tab-enter-fade 180ms ease backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the change legible, drop the travel. */
+  .tab-enter-right,
+  .tab-enter-left {
+    animation: tab-enter-fade 140ms ease backwards;
+  }
+}

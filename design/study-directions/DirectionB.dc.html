@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Space Grotesk', system-ui, sans-serif; }
+    a { color: oklch(0.55 0.2 265); }
+    a:hover { color: oklch(0.45 0.2 265); }
+  </style>
+</helmet>
+<div style="width:480px;height:760px;background:oklch(0.985 0.003 90);color:oklch(0.18 0.01 260);display:flex;flex-direction:column;padding:36px 32px;position:relative;overflow:hidden">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="oklch(0.5 0.01 260)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      <span style="font-size:13px;color:oklch(0.5 0.01 260);letter-spacing:0.01em">Back</span>
+    </div>
+    <span style="font-size:12px;color:oklch(0.6 0.01 260);letter-spacing:0.02em">Card 7 of 12</span>
+  </div>
+
+  <div style="height:2px;background:oklch(0.9 0.005 90);margin-bottom:36px;position:relative">
+    <div style="position:absolute;left:0;top:0;height:100%;width:58%;background:oklch(0.55 0.2 265)"></div>
+  </div>
+
+  <div style="margin-bottom:20px">
+    <span style="font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:oklch(0.5 0.01 260)">Cell Biology</span>
+  </div>
+
+  <div style="font-size:26px;font-weight:500;line-height:1.35;letter-spacing:-0.01em;color:oklch(0.14 0.01 260);margin-bottom:32px">
+    What organelle is responsible for producing ATP through cellular respiration?
+  </div>
+
+  <div style="height:1px;background:oklch(0.88 0.005 90);margin-bottom:24px"></div>
+
+  <div style="margin-bottom:24px">
+    <div style="font-size:12px;color:oklch(0.55 0.01 260);margin-bottom:8px">Your answer</div>
+    <div style="font-size:16px;font-weight:400;line-height:1.5;color:oklch(0.3 0.01 260)">the mitochondria</div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <span style="font-size:13px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:oklch(0.55 0.15 150);background:oklch(0.94 0.04 150);padding:5px 14px;border-radius:100px">Good</span>
+  </div>
+
+  <div style="font-size:14px;line-height:1.65;color:oklch(0.45 0.01 260);flex:1">
+    Correct — matches the reference answer closely.
+  </div>
+
+  <div style="display:flex;gap:16px;margin-bottom:24px">
+    <div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:50%;background:oklch(0.55 0.19 25)"></div><span style="font-size:10px;color:oklch(0.55 0.01 260);letter-spacing:0.02em">Forgot</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:50%;background:oklch(0.68 0.15 60)"></div><span style="font-size:10px;color:oklch(0.55 0.01 260);letter-spacing:0.02em">Hard</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:50%;background:oklch(0.55 0.15 150)"></div><span style="font-size:10px;color:oklch(0.55 0.01 260);letter-spacing:0.02em">Good</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:50%;background:oklch(0.55 0.2 265)"></div><span style="font-size:10px;color:oklch(0.55 0.01 260);letter-spacing:0.02em">Easy</span></div>
+  </div>
+
+  <button style="width:100%;padding:16px;border:none;border-radius:2px;background:oklch(0.18 0.01 260);color:oklch(0.98 0 0);font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer">Next →</button>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+services:
+  db:
+    image: docker.io/postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pipcards
+      POSTGRES_PASSWORD: pipcards
+      POSTGRES_DB: pipcards
+    ports:
+      - "5432:5432"
+    volumes:
+      - pipcards_db_data:/var/lib/postgresql/data
+
+volumes:
+  pipcards_db_data:
