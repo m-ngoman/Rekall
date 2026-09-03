@@ -10,13 +10,19 @@ from app.models.base import Base, UUIDPKMixin
 
 
 class UsageEventType(str, enum.Enum):
-    """The features the admin dashboard reports on.
+    """The features the admin dashboard reports on, plus the two meters that cost real money.
 
     A plain `String` column backs this rather than a Postgres enum (the pattern every other model
     here uses) precisely because this list is expected to grow: adding a value to a PG enum is a
     migration that can't run inside a transaction, and that is a silly price to pay for adding a
     row label to a metrics table. Unknown values read back fine — the dashboard falls back to the
     raw key for anything it has no label for.
+
+    The first six answer "is anyone using this". The last two answer "what did that cost", which
+    is a different question with a stricter standard: a dashboard can round, a bill cannot. They
+    are separate event types rather than a `count` on the turn events because `count` means one
+    thing across the whole table (see UsageEvent.count) and characters-of-speech is not the same
+    kind of quantity as cards-generated.
     """
 
     card_review = "card_review"
@@ -25,6 +31,11 @@ class UsageEventType(str, enum.Enum):
     notes_written = "notes_written"
     tutor_text_turn = "tutor_text_turn"
     tutor_voice_turn = "tutor_voice_turn"
+
+    # Billing meters. Text is effectively free at this scale and deliberately unmetered — these
+    # two are the whole cost model, TTS being the larger half.
+    tts_characters = "tts_characters"
+    stt_seconds = "stt_seconds"
 
 
 class UsageEvent(UUIDPKMixin, Base):
@@ -54,6 +65,11 @@ class UsageEvent(UUIDPKMixin, Base):
     # How many things the one use produced: cards from a generation run, files in an upload batch.
     # For events that don't produce anything countable (a review, a tutor turn) it stays 1, so
     # "rows" always means "times used" and "sum(count)" always means "items produced".
+    #
+    # The two billing meters read the same way with a different noun: characters of speech for
+    # tts_characters, whole seconds of audio for stt_seconds. Same rule — one row per use,
+    # sum(count) is the quantity — which is why they are their own event types instead of
+    # overloading the count on a turn.
     count: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
     # No TimestampMixin: an append-only row is never updated, so an `updated_at` column would be a

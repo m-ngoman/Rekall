@@ -17,6 +17,7 @@ import uuid
 
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
+from starlette.requests import HTTPConnection
 
 from app.config import settings
 from app.models import User, UserTier
@@ -41,12 +42,18 @@ def _dev_user(db: Session) -> User:
     return user
 
 
-def current_user_or_none(request: Request, db: Session) -> User | None:
-    """The signed-in user, or None. Never raises — for callers that need to branch on it."""
+def current_user_or_none(conn: HTTPConnection, db: Session) -> User | None:
+    """The signed-in user, or None. Never raises — for callers that need to branch on it.
+
+    Takes an HTTPConnection rather than a Request so the live-transcribe websocket can use it:
+    both Request and WebSocket derive from it and both carry the signed session cookie, and a
+    websocket that proxies a paid STT provider needs to know whose usage it is just as much as
+    any route does.
+    """
     if not _oauth_configured():
         return _dev_user(db)
 
-    raw = request.session.get(SESSION_USER_KEY)
+    raw = conn.session.get(SESSION_USER_KEY)
     if not raw:
         return None
     try:

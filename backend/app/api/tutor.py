@@ -8,11 +8,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.auth import get_current_user
+from app.core.auth import current_user_or_none, get_current_user
 from app.core.settings_store import get_settings_row, require_ai
 from app.core.sse import sse_event
 from app.core.usage import record
-from app.db import get_db
+from app.db import SessionLocal, get_db
 from app.models import TutorMessage, TutorMessageRole, TutorSession, UsageEventType
 from app.schemas import TutorSessionCreate, TutorSessionOut, TutorSessionUpdate, TutorVoiceOut, VoiceTurnTextRequest
 from app.services.live_stt import relay as relay_live_stt
@@ -203,7 +203,14 @@ def _stream_reply(
                 "images — let them know and ask them to describe it instead.]",
             }
 
+    # Characters actually sent to the synthesizer, accumulated across the turn. TTS is billed per
+    # character, and a turn is several `speak` calls because the reply is spoken sentence by
+    # sentence — so this is summed here and recorded once, rather than a row per sentence.
+    spoken_chars = 0
+
     def speak(sentence: str) -> str:
+        nonlocal spoken_chars
+        spoken_chars += len(sentence)
         audio_wav, word_timings = synthesize_timed(sentence, session.voice_id)
         return sse_event(
             "sentence",
@@ -270,6 +277,10 @@ def _stream_reply(
         session.user_id,
         UsageEventType.tutor_voice_turn if synth else UsageEventType.tutor_text_turn,
     )
+    # Only when something was actually synthesized: a voice turn whose reply came back empty
+    # billed nothing, and a zero-count row would say it did.
+    if spoken_chars:
+        record(db, session.user_id, UsageEventType.tts_characters, count=spoken_chars)
     db.commit()
 
     # Periodically let the tutor write to its own memory file. Scheduled before `done` is yielded
@@ -307,13 +318,51 @@ async def live_transcribe(websocket: WebSocket, sample_rate: int = 16000) -> Non
     """Proxies mic audio to Deepgram's real-time STT and relays transcript events back — see
     app/services/live_stt.py for why this is backend-proxied rather than a direct browser
     connection, and frontend/src/hooks/useMicRecorder.ts for the client side.
+
+    Signed in and voice-enabled, checked before the handshake is accepted. This endpoint spends
+    money on someone else's key with every second it carries, so it is gated exactly like the
+    routes around it — closing before `accept()` rejects the upgrade outright rather than opening
+    a socket only to hang up on it.
+
+    Sessions are opened around the two database moments and closed immediately, rather than held
+    for the life of the connection: a voice conversation runs for minutes and the pool is small,
+    so a held session would be a connection doing nothing for the whole call.
     """
-    await websocket.accept()
+    db = SessionLocal()
     try:
-        await relay_live_stt(websocket, sample_rate)
+        user = current_user_or_none(websocket, db)
+        if user is None:
+            await websocket.close(code=1008)
+            return
+        try:
+            require_ai(db, user.id, "voice")
+        except HTTPException:
+            # require_ai speaks HTTP; a websocket can only answer with a close code. Caught rather
+            # than re-implemented so the toggle keeps exactly one definition.
+            await websocket.close(code=1008)
+            return
+        user_id = user.id
+    finally:
+        db.close()
+
+    await websocket.accept()
+    relayed = None
+    try:
+        relayed = await relay_live_stt(websocket, sample_rate)
     except WebSocketDisconnect:
         pass
     finally:
+        # Whatever was carried before the disconnect was still billed by the provider, so it is
+        # recorded even when the connection ended badly. Whole seconds: a fractional row would
+        # imply a precision the count column doesn't have.
+        seconds = int(relayed.seconds) if relayed else 0
+        if seconds:
+            meter = SessionLocal()
+            try:
+                record(meter, user_id, UsageEventType.stt_seconds, count=seconds)
+                meter.commit()
+            finally:
+                meter.close()
         try:
             await websocket.close()
         except RuntimeError:
