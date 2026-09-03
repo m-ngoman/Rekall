@@ -190,3 +190,46 @@ differently than the mock does. A fixture artifact, not a defect.
 
 **Still different on desktop, deliberately left:** the mock puts the card's subtopic top-right in
 the Study header; the app keeps it above the question as on mobile.
+
+---
+
+## Full-coverage audit (2026-09-03, third pass)
+
+Both passes above were spot checks. The mock comparison only ever covered the **eight screens the
+design bundle drew**, but the type-scale and line-height changes are global — so the five screens
+the bundle explicitly excluded (Write cards, Import, Generate, Onboarding, Admin) plus the exam
+sheet and the note editor had been changed and never once rendered.
+
+`audit.mjs` closes that: **15 screens × 2 viewports × 2 themes = 60 states**, each checked for
+horizontal overflow, elements escaping the viewport, text clipped without an ellipsis, JS errors,
+5xx responses, and blank renders. `contact.py` tiles the shots into one sheet per screen so all
+four states can be looked at together.
+
+Result: **60/60 clean, nothing unreachable.** Every screen was then eyeballed on its contact sheet.
+
+### Two bugs found in the checks themselves
+
+Worth recording, because both produced confident-looking wrong answers:
+
+- The first clipping check flagged calendar exam labels and note titles. Those `truncate` **by
+  design** — the spec asks for exactly that. Now skipped when `text-overflow: ellipsis` is set.
+- `check-on-accent.mjs` originally compared colours by parsing the numbers out of
+  `getComputedStyle().color`. Chromium returns `oklch(...)` verbatim for these, so a tolerance of
+  12 was comparing lightness (0–1) against hue (0–360) and matched almost any two colours. It
+  "found" three violations that did not exist. It now paints each colour to a 1×1 canvas and
+  compares real sRGB, **and carries a self-test**: plant a white-on-accent button and confirm the
+  check catches it. Without that self-test a passing run says nothing.
+
+With the fixed check: `--accent` resolves to `rgb(184,80,41)`, `.on-accent` to `rgb(23,12,9)`, and
+no accent-filled element anywhere has the wrong text colour. The "never white on accent" rule holds.
+
+### Coverage that is still missing
+
+- **SignInScreen** cannot be reached from the fixture: it only renders when OAuth is configured and
+  no session exists, and the fixture backend runs with OAuth off so the dev user is always signed
+  in. It was checked against the live site instead, which is the signed-out page.
+- Every check runs against **fixture data**. Real decks have different name lengths, and an account
+  with no upcoming exam takes the no-exam Home path and the Tutor starter fallback — code paths
+  read but never rendered.
+- The audit proves screens do not *break*. It does not prove they look right; that came from
+  reading the contact sheets, which is still a human judgement made at thumbnail scale.
