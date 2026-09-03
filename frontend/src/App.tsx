@@ -114,10 +114,13 @@ export default function App() {
               {showAdmin ? (
                 <div className="truncate text-[1.375rem] font-bold tracking-tight lg:text-[1.75rem]">Admin</div>
               ) : tab === 'home' ? (
-                <>
+                // Phone only. The sidebar already carries the wordmark at desktop widths, and
+                // the design draws no second one in the content area — it read as the page
+                // having been labelled twice.
+                <span className="flex items-center gap-2.5 lg:hidden">
                   <Logo size={22} />
                   <span className="text-[0.9375rem] font-bold text-[var(--text-muted)]">Rekall</span>
-                </>
+                </span>
               ) : (
                 <div className="truncate text-[1.375rem] font-bold tracking-tight lg:text-[1.75rem]">{TAB_TITLES[tab]}</div>
               )}

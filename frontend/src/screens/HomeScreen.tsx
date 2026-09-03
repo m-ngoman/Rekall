@@ -59,7 +59,11 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props)
   }
 
   return (
-    <div className="flex flex-col gap-8 pt-2">
+    // Two columns from lg, the way the design lays Home out: the countdown and the exam rows on
+    // the left, the deck list as a rail beside it rather than a band underneath. The `contents`
+    // wrapper keeps the phone a single flex column with the same gap-8 rhythm.
+    <div className="flex flex-col gap-8 pt-2 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start lg:gap-x-16 lg:gap-y-8">
+      <div className="contents lg:flex lg:flex-col lg:gap-8">
       <div className="flex flex-col">
         {next ? (
           <>
@@ -94,12 +98,12 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props)
         {startDeck && dueToday > 0 ? (
           <button
             onClick={() => onStudy(startDeck.id)}
-            className="on-accent mt-5 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold"
+            className="on-accent mt-5 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold lg:w-auto lg:self-start lg:px-10 lg:py-3"
           >
             Start today's {dueToday}
           </button>
         ) : (
-          <div className="mt-5 rounded-[var(--r-full)] border border-[var(--rule)] py-4 text-center text-[0.9375rem] font-semibold text-[var(--text-muted)]">
+          <div className="mt-5 rounded-[var(--r-full)] border border-[var(--rule)] py-4 text-center text-[0.9375rem] font-semibold text-[var(--text-muted)] lg:self-start lg:px-10 lg:py-3">
             Nothing due. Come back tomorrow.
           </div>
         )}
@@ -120,9 +124,13 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props)
         </div>
       )}
 
+      </div>
+
       <div>
         <div className="mb-3 text-[0.9375rem] font-bold">Decks</div>
-        <div className="flex flex-col gap-2 lg:grid lg:grid-cols-3 lg:gap-3">
+        {/* One per row in the rail — a three-up grid only made sense while this was a full-width
+            band under the countdown. */}
+        <div className="flex flex-col gap-2 lg:gap-2.5">
           {[...active, ...paused].map((deck) => (
             <DeckTile key={deck.id} deck={deck} onClick={() => onStudy(deck.id)} />
           ))}
