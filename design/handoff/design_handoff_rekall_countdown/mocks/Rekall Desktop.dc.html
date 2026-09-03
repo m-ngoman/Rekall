@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+  <script src="./image-slot.js"></script>
+  <style>
+    :root {
+      --accent-pick: oklch(0.7 0.145 40);
+      --bg: oklch(0.97 0.012 75); --surface: oklch(1 0 0); --rule: oklch(0.9 0.014 75);
+      --text: oklch(0.26 0.02 50); --text-muted: oklch(0.52 0.02 50);
+      --accent: oklch(from var(--accent-pick) 0.56 c h);
+      --accent-dim: color-mix(in oklab, var(--accent) 22%, transparent);
+      --on-accent: oklch(from var(--accent) 0.17 0.02 h);
+      --r-sm: 6px; --r-md: 14px; --r-full: 999px;
+      --grade-forgot: oklch(0.62 0.16 25); --grade-hard: oklch(0.72 0.16 55); --grade-good: oklch(0.62 0.155 145);
+    }
+    :root[data-theme='dark'] {
+      --bg: oklch(0.19 0.014 50); --surface: oklch(0.23 0.015 50); --rule: oklch(0.3 0.014 50);
+      --text: oklch(0.94 0.01 60); --text-muted: oklch(0.64 0.014 55);
+      --accent: var(--accent-pick);
+      --grade-forgot: oklch(0.68 0.17 25); --grade-hard: oklch(0.76 0.16 55); --grade-good: oklch(0.68 0.16 145);
+    }
+    html, body { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important; }
+    html, body { margin: 0; background: oklch(0.13 0.008 50); font-family: 'Nunito', system-ui, sans-serif; font-weight: 500; color: var(--text); }
+    a { color: var(--text); } a:hover { color: var(--accent); }
+    button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  </style>
+</helmet>
+
+<div style="display:flex; flex-direction:column; gap:56px; padding:56px; align-items:center;">
+
+  <!-- HOME -->
+  <div data-screen-label="Home" style="display:flex; width:1280px; height:800px; border-radius:var(--r-md); background:var(--bg); border:1px solid oklch(0.36 0.01 50); overflow:hidden; box-sizing:border-box;">
+    <nav aria-label="Main" style="display:flex; flex-direction:column; width:240px; flex-shrink:0; padding:18px; box-sizing:border-box; background:var(--surface); border-right:1px solid var(--rule);">
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 10px 28px; font-size:18px; font-weight:700; letter-spacing:-0.01em;"><span style="display:block; width:24px; height:24px; border-radius:var(--r-full); background:var(--text-muted);"></span>Rekall</div>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <button aria-current="page" style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); background:var(--accent-dim); color:var(--accent); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11l10-8 10 8"></path><path d="M4.5 10.5V19a1 1 0 0 0 1 1h4v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5h4a1 1 0 0 0 1-1v-8.5"></path></svg>Home</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="14" height="14" rx="3"></rect><path d="M3 7v13a1 1 0 0 0 1 1h13" opacity="0.55"></path></svg>Cards</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path><circle cx="12" cy="15.5" r="1.1" fill="currentColor" stroke="none"></circle></svg>Calendar</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="3"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>Notes</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"></path><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle></svg>Tutor</button>
+      </div>
+      <div style="flex:1;"></div>
+      <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--surface)"></circle></svg>Settings</button>
+    </nav>
+
+    <main style="flex:1; min-width:0; padding:40px 48px; box-sizing:border-box; display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:64px; align-content:start;">
+      <div>
+        <div style="font-size:24px; font-weight:700; line-height:1.3;">Organic Chemistry II</div>
+        <div style="display:flex; align-items:baseline; gap:16px; margin-top:8px;">
+          <span style="font-family:'Barlow Condensed', sans-serif; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-0.01em; line-height:0.85; font-size:224px; color:var(--accent);">{{ daysLeft }}</span>
+          <span style="font-size:20px; font-weight:600; color:var(--text-muted);">days</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:10px; margin-top:28px;">
+          <span style="font-family:'Barlow Condensed', sans-serif; font-weight:600; font-variant-numeric:tabular-nums; line-height:0.85; font-size:40px;">41</span>
+          <span style="font-size:16px; font-weight:600; color:var(--text-muted);">cards due today</span>
+        </div>
+        <button style="display:block; margin-top:24px; padding:16px 36px; border-radius:var(--r-full); background:var(--accent); color:var(--on-accent); font-size:17px; font-weight:700;">Start today's 41</button>
+        <div style="margin-top:40px; max-width:420px; border-top:1px solid var(--rule);">
+          <button style="display:flex; width:100%; justify-content:space-between; align-items:baseline; gap:16px; padding:14px 0; border-bottom:1px solid var(--rule);"><span style="font-size:15px; font-weight:600;">Pharmacology</span><span style="font-size:14px; color:var(--text-muted);">in 16 days</span></button>
+          <button style="display:flex; width:100%; justify-content:space-between; align-items:baseline; gap:16px; padding:14px 0; border-bottom:1px solid var(--rule);"><span style="font-size:15px; font-weight:600;">Statistics</span><span style="font-size:14px; color:var(--text-muted);">in 40 days</span></button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:15px; font-weight:700; margin-bottom:12px; padding-top:6px;">Decks</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <sc-for list="{{ decks }}" as="deck" hint-placeholder-count="4">
+            <div role="button" tabindex="0" style="display:flex; align-items:center; gap:14px; padding:16px 18px; border-radius:var(--r-md); background:var(--surface); opacity: {{ deck.opacity }};">
+              <div style="min-width:0; flex:1;">
+                <div style="font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ deck.name }}</div>
+                <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">{{ deck.status }}</div>
+              </div>
+              <div style="font-size:13px; color:var(--text-muted); flex-shrink:0;">{{ deck.total }} cards</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- CALENDAR -->
+  <div data-screen-label="Calendar" style="display:flex; width:1280px; height:800px; border-radius:var(--r-md); background:var(--bg); border:1px solid oklch(0.36 0.01 50); overflow:hidden; box-sizing:border-box;">
+    <nav aria-label="Main" style="display:flex; flex-direction:column; width:240px; flex-shrink:0; padding:18px; box-sizing:border-box; background:var(--surface); border-right:1px solid var(--rule);">
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 10px 28px; font-size:18px; font-weight:700; letter-spacing:-0.01em;"><span style="display:block; width:24px; height:24px; border-radius:var(--r-full); background:var(--text-muted);"></span>Rekall</div>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11l10-8 10 8"></path><path d="M4.5 10.5V19a1 1 0 0 0 1 1h4v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5h4a1 1 0 0 0 1-1v-8.5"></path></svg>Home</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="14" height="14" rx="3"></rect><path d="M3 7v13a1 1 0 0 0 1 1h13" opacity="0.55"></path></svg>Cards</button>
+        <button aria-current="page" style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); background:var(--accent-dim); color:var(--accent); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path><circle cx="12" cy="15.5" r="1.1" fill="currentColor" stroke="none"></circle></svg>Calendar</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="3"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>Notes</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"></path><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle></svg>Tutor</button>
+      </div>
+      <div style="flex:1;"></div>
+      <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--surface)"></circle></svg>Settings</button>
+    </nav>
+
+    <main style="flex:1; min-width:0; padding:40px 48px; box-sizing:border-box; display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:56px; align-content:start;">
+      <div>
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-size:28px; font-weight:700; letter-spacing:-0.01em;">Calendar</div>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:17px; font-weight:700; margin-right:8px;">September 2026</span>
+            <button aria-label="Previous month" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>
+            <button aria-label="Next month" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+            <button style="margin-left:8px; padding:10px 18px; border-radius:var(--r-full); background:var(--accent); color:var(--on-accent); font-size:14px; font-weight:700;">Add exam</button>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:24px; margin-bottom:10px;">
+          <span style="font-size:13px; color:var(--text-muted);">Gauge on each day is its card load</span>
+          <span style="display:flex; align-items:flex-end; gap:6px; font-size:12px; line-height:1; color:var(--text-muted);">
+            <span style="display:block; width:6px; height:6px; border-radius:3px; background:var(--accent-dim);"></span><span>{{ minLoad }}</span>
+            <span style="display:block; width:6px; height:16px; border-radius:3px; background:var(--accent);"></span><span>{{ maxLoad }}</span>
+          </span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(7,minmax(0,1fr));">
+          <div style="padding-bottom:8px; font-size:11px; font-weight:700; letter-spacing:0.04em; color:var(--text-muted); padding-left:10px;">MO</div>
+          <div style="padding-bottom:8px; font-size:11px; font-weight:700; letter-spacing:0.04em; color:var(--text-muted); padding-left:10px;">TU</div>
+          <div style="padding-bottom:8px; font-size:11px; font-weight:700; letter-spacing:0.04em; color:var(--text-muted); padding-left:10px;">WE</div>
+          <div style="padding-bottom:8px; font-size:11px; font-weight:700; letter-spacing:0.04em; color:var(--text-muted); padding-left:10px;">TH</div>
+          <div style="padding-bottom:8px; font-size:11px; font-weight:700; letter-spacing:0.04em; color:var(--text-muted); padding-left:10px;">FR</div>
+          <div style="padding-bottom:8px; font-size:11px; font-weight:700; letter-spacing:0.04em; color:var(--text-muted); padding-left:10px;">SA</div>
+          <div style="padding-bottom:8px; font-size:11px; font-weight:700; letter-spacing:0.04em; color:var(--text-muted); padding-left:10px;">SU</div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; padding-top:4px; border-top:1px solid var(--rule);">
+          <sc-for list="{{ cells }}" as="cell" hint-placeholder-count="42">
+            <div role="button" tabindex="0" aria-label="{{ cell.label }}" style="position:relative; display:flex; flex-direction:column; min-width:0; height:76px; padding:8px 22px 8px 10px; box-sizing:border-box; border-radius:var(--r-sm); background:var(--surface); opacity: {{ cell.opacity }};">
+              <sc-if value="{{ cell.isToday }}" hint-placeholder-val="{{ false }}">
+                <span aria-hidden="true" style="position:absolute; left:0; top:8px; bottom:8px; width:2px; background:var(--accent); border-radius:1px;"></span>
+              </sc-if>
+              <!-- Load gauge on the right edge: taller and brighter = more cards. Full height is the month's heaviest day. -->
+              <div aria-hidden="true" style="position:absolute; right:8px; top:8px; bottom:8px; width:6px; display:flex; align-items:flex-end; border-radius:3px; background:var(--bg);">
+                <sc-if value="{{ cell.hasBar }}" hint-placeholder-val="{{ true }}">
+                  <span style="display:block; width:100%; height: {{ cell.barWidth }}; border-radius:3px; background: {{ cell.barColor }};"></span>
+                </sc-if>
+              </div>
+              <span style="display:block; font-size:15px; line-height:1; font-weight: {{ cell.weight }}; color: {{ cell.color }}; font-variant-numeric:tabular-nums;">{{ cell.day }}</span>
+              <sc-if value="{{ cell.hasBar }}" hint-placeholder-val="{{ true }}">
+                <span style="display:block; margin-top:6px; font-size:12px; line-height:1; color:var(--text-muted); font-variant-numeric:tabular-nums; white-space:nowrap;">{{ cell.count }} cards</span>
+              </sc-if>
+              <sc-if value="{{ cell.exam }}" hint-placeholder-val="{{ false }}">
+                <button title="{{ cell.exam }}" style="margin-top:auto; display:block; width:100%; min-width:0; font-size:12px; font-weight:700; line-height:1.2; color:var(--accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ cell.exam }}</button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="padding-top:6px;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px;">
+          <span style="font-size:18px; font-weight:700; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Organic Chemistry II</span>
+          <span style="font-size:14px; color:var(--text-muted); flex-shrink:0;">Tue 6 Oct</span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:12px; margin-top:6px;">
+          <span style="font-family:'Barlow Condensed', sans-serif; font-weight:600; font-variant-numeric:tabular-nums; line-height:0.85; font-size:96px; color:var(--accent);">{{ daysLeft }}</span>
+          <span style="font-size:16px; font-weight:600; color:var(--text-muted);">days</span>
+        </div>
+        <div style="margin-top:14px; font-size:14px; color:var(--text-muted);">{{ cardsBefore }} cards before it</div>
+
+        <div style="margin-top:36px; font-size:15px; font-weight:700; margin-bottom:4px;">Coming up</div>
+        <div style="border-top:1px solid var(--rule);">
+          <button style="display:flex; width:100%; justify-content:space-between; align-items:baseline; gap:16px; padding:14px 0; border-bottom:1px solid var(--rule);"><span style="font-size:15px; font-weight:600;">Pharmacology</span><span style="font-size:14px; color:var(--text-muted); white-space:nowrap;">Fri 18 Sep, in 16 days</span></button>
+          <button style="display:flex; width:100%; justify-content:space-between; align-items:baseline; gap:16px; padding:14px 0; border-bottom:1px solid var(--rule);"><span style="font-size:15px; font-weight:600;">Organic Chemistry II</span><span style="font-size:14px; color:var(--text-muted); white-space:nowrap;">Tue 6 Oct, in 34 days</span></button>
+          <button style="display:flex; width:100%; justify-content:space-between; align-items:baseline; gap:16px; padding:14px 0; border-bottom:1px solid var(--rule);"><span style="font-size:15px; font-weight:600;">Statistics</span><span style="font-size:14px; color:var(--text-muted); white-space:nowrap;">Mon 12 Oct, in 40 days</span></button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- CARDS -->
+  <div data-screen-label="Cards" style="display:flex; width:1280px; height:800px; border-radius:var(--r-md); background:var(--bg); border:1px solid oklch(0.36 0.01 50); overflow:hidden; box-sizing:border-box;">
+    <nav aria-label="Main" style="display:flex; flex-direction:column; width:240px; flex-shrink:0; padding:18px; box-sizing:border-box; background:var(--surface); border-right:1px solid var(--rule);">
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 10px 28px; font-size:18px; font-weight:700; letter-spacing:-0.01em;"><span style="display:block; width:24px; height:24px; border-radius:var(--r-full); background:var(--text-muted);"></span>Rekall</div>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11l10-8 10 8"></path><path d="M4.5 10.5V19a1 1 0 0 0 1 1h4v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5h4a1 1 0 0 0 1-1v-8.5"></path></svg>Home</button>
+        <button aria-current="page" style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); background:var(--accent-dim); color:var(--accent); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="14" height="14" rx="3"></rect><path d="M3 7v13a1 1 0 0 0 1 1h13" opacity="0.55"></path></svg>Cards</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path><circle cx="12" cy="15.5" r="1.1" fill="currentColor" stroke="none"></circle></svg>Calendar</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="3"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>Notes</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"></path><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle></svg>Tutor</button>
+      </div>
+      <div style="flex:1;"></div>
+      <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--surface)"></circle></svg>Settings</button>
+    </nav>
+
+    <main style="flex:1; min-width:0; padding:40px 48px; box-sizing:border-box; display:grid; grid-template-columns:320px minmax(0,1fr); gap:56px; align-content:start;">
+      <div>
+        <div style="font-size:28px; font-weight:700; letter-spacing:-0.01em;">Your Cards</div>
+        <div style="margin-top:24px; border-radius:var(--r-md); background:var(--surface); overflow:hidden;">
+          <button style="display:flex; width:100%; align-items:center; gap:14px; padding:16px 18px; box-sizing:border-box;">
+            <span style="color:var(--text-muted); display:flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></span>
+            <span style="flex:1; min-width:0;"><span style="display:block; font-size:15px; font-weight:700;">Write your own</span><span style="display:block; font-size:13px; color:var(--text-muted); margin-top:2px;">Type questions and answers yourself</span></span>
+          </button>
+          <div style="height:1px; background:var(--rule); margin-left:52px;"></div>
+          <button style="display:flex; width:100%; align-items:center; gap:14px; padding:16px 18px; box-sizing:border-box;">
+            <span style="color:var(--text-muted); display:flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span>
+            <span style="flex:1; min-width:0;"><span style="display:block; font-size:15px; font-weight:700;">Import CSV</span><span style="display:block; font-size:13px; color:var(--text-muted); margin-top:2px;">From a spreadsheet or export</span></span>
+          </button>
+          <div style="height:1px; background:var(--rule); margin-left:52px;"></div>
+          <button style="display:flex; width:100%; align-items:center; gap:14px; padding:16px 18px; box-sizing:border-box;">
+            <span style="color:var(--text-muted); display:flex;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"></path></svg></span>
+            <span style="flex:1; min-width:0;"><span style="display:block; font-size:15px; font-weight:700;">Generate with AI</span><span style="display:block; font-size:13px; color:var(--text-muted); margin-top:2px;">From photos of your notes or a PDF</span></span>
+          </button>
+        </div>
+      </div>
+      <div style="padding-top:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px;">
+          <span style="font-size:15px; font-weight:700;">Your Library</span>
+          <span style="font-size:13px; color:var(--text-muted);">4 decks, 1,127 cards</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
+          <sc-for list="{{ decks }}" as="deck" hint-placeholder-count="4">
+            <div role="button" tabindex="0" style="display:flex; flex-direction:column; gap:18px; padding:18px 12px 12px 18px; border-radius:var(--r-md); background:var(--surface); opacity: {{ deck.opacity }};">
+              <div style="min-width:0;">
+                <div style="font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ deck.name }}</div>
+                <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">{{ deck.status }}</div>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                <span style="font-size:13px; color:var(--text-muted);">{{ deck.total }} cards</span>
+                <span style="display:flex;">
+                  <button aria-label="Edit deck" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button>
+                  <button aria-label="Delete deck" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"></path></svg></button>
+                </span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- NOTES -->
+  <div data-screen-label="Notes" style="display:flex; width:1280px; height:800px; border-radius:var(--r-md); background:var(--bg); border:1px solid oklch(0.36 0.01 50); overflow:hidden; box-sizing:border-box;">
+    <nav aria-label="Main" style="display:flex; flex-direction:column; width:240px; flex-shrink:0; padding:18px; box-sizing:border-box; background:var(--surface); border-right:1px solid var(--rule);">
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 10px 28px; font-size:18px; font-weight:700; letter-spacing:-0.01em;"><span style="display:block; width:24px; height:24px; border-radius:var(--r-full); background:var(--text-muted);"></span>Rekall</div>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11l10-8 10 8"></path><path d="M4.5 10.5V19a1 1 0 0 0 1 1h4v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5h4a1 1 0 0 0 1-1v-8.5"></path></svg>Home</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="14" height="14" rx="3"></rect><path d="M3 7v13a1 1 0 0 0 1 1h13" opacity="0.55"></path></svg>Cards</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path><circle cx="12" cy="15.5" r="1.1" fill="currentColor" stroke="none"></circle></svg>Calendar</button>
+        <button aria-current="page" style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); background:var(--accent-dim); color:var(--accent); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="3"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>Notes</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"></path><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle></svg>Tutor</button>
+      </div>
+      <div style="flex:1;"></div>
+      <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--surface)"></circle></svg>Settings</button>
+    </nav>
+
+    <main style="flex:1; min-width:0; padding:40px 48px; box-sizing:border-box;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:24px;">
+        <div style="font-size:28px; font-weight:700; letter-spacing:-0.01em;">Notes</div>
+        <div style="display:flex; gap:8px; width:520px;">
+          <label style="flex:1; display:flex; align-items:center; gap:10px; padding:0 14px; height:44px; border-radius:var(--r-sm); background:var(--surface); color:var(--text-muted);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+            <input type="search" placeholder="Search your notes" style="flex:1; min-width:0; border:0; background:transparent; font:inherit; font-size:15px; color:var(--text); outline:none;">
+          </label>
+          <button style="height:44px; padding:0 18px; border-radius:var(--r-full); background:var(--accent); color:var(--on-accent); font-size:14px; font-weight:700; flex-shrink:0;">Add notes</button>
+        </div>
+      </div>
+
+      <!-- Notes are recognised by what's on them, not what they're called: big preview, one-line title. -->
+      <div style="margin-top:32px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px;">
+          <span style="font-size:15px; font-weight:700;">Organic Chemistry II</span>
+          <span style="font-size:13px; color:var(--text-muted);">3 notes</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px;">
+          <sc-for list="{{ ochemNotes }}" as="note" hint-placeholder-count="3">
+            <button style="display:flex; flex-direction:column; min-width:0; border-radius:var(--r-md); background:var(--surface); overflow:hidden;">
+              <span style="display:block; width:100%; aspect-ratio:4/3; background:var(--bg); position:relative;"><image-slot id="desk-note-{{ note.slot }}" shape="rect" placeholder="photo of the note" style="width:100%; height:100%; position:absolute; inset:0;"></image-slot></span>
+              <span style="display:flex; width:100%; align-items:baseline; justify-content:space-between; gap:10px; padding:12px 14px; box-sizing:border-box;">
+                <span style="min-width:0; font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ note.title }}</span>
+                <span style="font-size:12px; color:var(--text-muted); flex-shrink:0;">{{ note.date }}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="margin-top:32px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px;">
+          <span style="font-size:15px; font-weight:700;">Pharmacology</span>
+          <span style="font-size:13px; color:var(--text-muted);">1 note</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px;">
+          <button style="display:flex; flex-direction:column; min-width:0; border-radius:var(--r-md); background:var(--surface); overflow:hidden;">
+            <!-- A PDF has no photo, so its first page stands in: the text the AI read, set small, cropped. -->
+            <span style="display:block; width:100%; aspect-ratio:4/3; padding:14px 16px 0; box-sizing:border-box; background:color-mix(in oklab, var(--surface) 55%, var(--bg)); border-bottom:1px solid var(--rule); overflow:hidden; position:relative; text-align:left;">
+              <span style="display:block; font-size:9px; line-height:1.55; color:var(--text-muted); overflow:hidden;">Week 4 — Autonomic pharmacology<br>Beta blockers: propranolol (non-selective), atenolol and metoprolol (β1-selective). Selectivity matters in asthma: β2 blockade risks bronchospasm, so avoid non-selective agents.<br>Contraindications: asthma, severe bradycardia, heart block, uncontrolled heart failure. Caution with diabetes (masks hypoglycaemia).<br>Adverse effects: fatigue, cold extremities, bradycardia, vivid dreams (lipophilic agents cross the BBB)…</span>
+              <span aria-hidden="true" style="position:absolute; left:0; right:0; bottom:0; height:32px; background:linear-gradient(to bottom, transparent, color-mix(in oklab, var(--surface) 55%, var(--bg)));"></span>
+            </span>
+            <span style="display:flex; width:100%; align-items:baseline; justify-content:space-between; gap:10px; padding:12px 14px; box-sizing:border-box;">
+              <span style="min-width:0; font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Week 4 lecture slides</span>
+              <span style="font-size:12px; color:var(--text-muted); flex-shrink:0; white-space:nowrap;">PDF, 28 Aug</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- TUTOR -->
+  <div data-screen-label="Tutor" style="display:flex; width:1280px; height:800px; border-radius:var(--r-md); background:var(--bg); border:1px solid oklch(0.36 0.01 50); overflow:hidden; box-sizing:border-box;">
+    <nav aria-label="Main" style="display:flex; flex-direction:column; width:240px; flex-shrink:0; padding:18px; box-sizing:border-box; background:var(--surface); border-right:1px solid var(--rule);">
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 10px 28px; font-size:18px; font-weight:700; letter-spacing:-0.01em;"><span style="display:block; width:24px; height:24px; border-radius:var(--r-full); background:var(--text-muted);"></span>Rekall</div>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11l10-8 10 8"></path><path d="M4.5 10.5V19a1 1 0 0 0 1 1h4v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5h4a1 1 0 0 0 1-1v-8.5"></path></svg>Home</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="14" height="14" rx="3"></rect><path d="M3 7v13a1 1 0 0 0 1 1h13" opacity="0.55"></path></svg>Cards</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path><circle cx="12" cy="15.5" r="1.1" fill="currentColor" stroke="none"></circle></svg>Calendar</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="3"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>Notes</button>
+        <button aria-current="page" style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); background:var(--accent-dim); color:var(--accent); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"></path><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle></svg>Tutor</button>
+      </div>
+      <div style="flex:1;"></div>
+      <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--surface)"></circle></svg>Settings</button>
+    </nav>
+
+    <main style="flex:1; min-width:0; padding:40px 48px; box-sizing:border-box; display:flex; flex-direction:column;">
+      <div style="font-size:28px; font-weight:700; letter-spacing:-0.01em;">Tutor</div>
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; width:640px; margin:0 auto;">
+        <div style="font-size:24px; font-weight:700; line-height:1.3;">What are we working on?</div>
+        <p style="margin:8px 0 0; font-size:15px; line-height:1.5; color:var(--text-muted);">Type, attach a photo of your notes, or press the mic and talk. It keeps listening until you press again.</p>
+        <div style="margin-top:28px; border-top:1px solid var(--rule);">
+          <button style="display:flex; width:100%; justify-content:space-between; align-items:center; gap:16px; padding:16px 0; border-bottom:1px solid var(--rule); box-sizing:border-box;"><span style="font-size:15px; font-weight:600;">Quiz me on my weak cards</span><span style="font-size:13px; color:var(--text-muted); flex-shrink:0;">12 below 70%</span></button>
+          <button style="display:flex; width:100%; justify-content:space-between; align-items:center; gap:16px; padding:16px 0; border-bottom:1px solid var(--rule); box-sizing:border-box;"><span style="font-size:15px; font-weight:600;">Explain a concept I keep missing</span></button>
+          <button style="display:flex; width:100%; justify-content:space-between; align-items:center; gap:16px; padding:16px 0; border-bottom:1px solid var(--rule); box-sizing:border-box;"><span style="font-size:15px; font-weight:600;">Help me plan for Organic Chemistry II</span><span style="font-size:13px; color:var(--text-muted); flex-shrink:0;"><span style="font-family:'Barlow Condensed', sans-serif; font-weight:600; font-size:16px; color:var(--text);">{{ daysLeft }}</span> days</span></button>
+        </div>
+      </div>
+      <div style="width:640px; margin:0 auto;">
+        <div style="display:flex; align-items:flex-end; gap:10px;">
+          <div style="flex:1; display:flex; align-items:center; gap:6px; min-height:52px; padding:4px 4px 4px 16px; border-radius:var(--r-md); background:var(--surface); box-sizing:border-box;">
+            <input placeholder="Ask the tutor" style="flex:1; min-width:0; border:0; background:transparent; font:inherit; font-size:15px; color:var(--text); outline:none;">
+            <button aria-label="Attach a photo" style="width:44px; height:44px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2.5"></rect><path d="M3 16l5-5 4 4 3-3 6 6"></path><circle cx="8" cy="9.5" r="1.5"></circle></svg></button>
+          </div>
+          <button aria-label="Talk to the tutor" style="width:52px; height:52px; display:flex; align-items:center; justify-content:center; flex-shrink:0; border-radius:var(--r-full); background:var(--accent); color:var(--on-accent);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+        </div>
+        <div style="display:flex; gap:16px; margin-top:12px; font-size:12px; color:var(--text-muted);">
+          <button style="font-size:12px; color:var(--text-muted);">Socratic</button>
+          <button style="font-size:12px; color:var(--text-muted);">Voice: Ada</button>
+          <button style="font-size:12px; color:var(--text-muted);">Memory</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- STUDY (no sidebar: a session takes the whole screen, same as the current app) -->
+  <div data-screen-label="Study" style="display:flex; width:1280px; height:800px; border-radius:var(--r-md); background:var(--bg); border:1px solid oklch(0.36 0.01 50); overflow:hidden; box-sizing:border-box;">
+    <main style="flex:1; min-width:0; padding:40px 48px; box-sizing:border-box; display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:72px; align-content:start;">
+      <div>
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <button style="display:flex; align-items:center; gap:6px; margin-left:-8px; padding:0 8px; height:40px; border-radius:var(--r-sm); font-size:15px; font-weight:600; color:var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>Organic Chemistry II</button>
+          <span style="font-size:13px; color:var(--text-muted);">Substitution reactions</span>
+        </div>
+        <div style="height:3px; margin-top:12px; background:var(--rule); border-radius:2px; overflow:hidden;"><div style="height:100%; width:34%; background:var(--accent);"></div></div>
+
+        <div style="margin-top:56px; max-width:640px; font-size:32px; font-weight:700; line-height:1.3; text-wrap:pretty;">Why does an SN1 reaction give a racemic mixture when the substrate is a single enantiomer?</div>
+
+        <div style="margin-top:36px; max-width:640px; border-radius:var(--r-md); background:var(--surface); padding:18px 20px; min-height:160px; box-sizing:border-box;">
+          <div style="font-size:17px; line-height:1.55;">The leaving group goes first, so you get a planar carbocation. The nucleophile can attack from either face equally, so</div>
+          <span aria-hidden="true" style="display:inline-block; width:2px; height:20px; vertical-align:text-bottom; background:var(--accent);"></span>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px; margin-top:20px;">
+          <button style="padding:16px 32px; border-radius:var(--r-full); background:var(--accent); color:var(--on-accent); font-size:17px; font-weight:700;">Check my answer</button>
+          <span style="font-size:13px; color:var(--text-muted);">⌘ Enter</span>
+        </div>
+      </div>
+
+      <div style="padding-top:8px;">
+        <div style="display:flex; align-items:baseline; gap:8px;">
+          <span style="font-family:'Barlow Condensed', sans-serif; font-weight:600; font-variant-numeric:tabular-nums; line-height:0.85; font-size:96px;">27</span>
+          <span style="font-size:16px; font-weight:600; color:var(--text-muted);">left</span>
+        </div>
+        <div style="margin-top:28px; border-top:1px solid var(--rule);">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; padding:14px 0; border-bottom:1px solid var(--rule);"><span style="font-size:15px; font-weight:600;">Done</span><span style="font-size:14px; color:var(--text-muted);">14</span></div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; padding:14px 0; border-bottom:1px solid var(--rule);"><span style="font-size:15px; font-weight:600;">Right first time</span><span style="font-size:14px; color:var(--text-muted);">12 of 14</span></div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; padding:14px 0; border-bottom:1px solid var(--rule);"><span style="font-size:15px; font-weight:600;">Exam</span><span style="font-size:14px; color:var(--text-muted);"><span style="font-family:'Barlow Condensed', sans-serif; font-weight:600; font-size:16px; color:var(--text);">{{ daysLeft }}</span> days</span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- STUDY: graded -->
+  <div data-screen-label="Study, graded" style="display:flex; width:1280px; height:800px; border-radius:var(--r-md); background:var(--bg); border:1px solid oklch(0.36 0.01 50); overflow:hidden; box-sizing:border-box;">
+    <main style="flex:1; min-width:0; padding:40px 48px; box-sizing:border-box; display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:72px; align-content:start;">
+      <div>
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <button style="display:flex; align-items:center; gap:6px; margin-left:-8px; padding:0 8px; height:40px; border-radius:var(--r-sm); font-size:15px; font-weight:600; color:var(--text-muted);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>Organic Chemistry II</button>
+          <span style="font-size:13px; color:var(--text-muted);">Substitution reactions</span>
+        </div>
+        <div style="height:3px; margin-top:12px; background:var(--rule); border-radius:2px; overflow:hidden;"><div style="height:100%; width:37%; background:var(--accent);"></div></div>
+
+        <div style="margin-top:48px; max-width:640px; font-size:24px; font-weight:700; line-height:1.3; text-wrap:pretty;">Why does an SN1 reaction give a racemic mixture when the substrate is a single enantiomer?</div>
+
+        <div style="margin-top:40px; display:flex; align-items:flex-end; gap:20px;">
+          <div style="display:flex; align-items:baseline; gap:6px; color:var(--grade-good);">
+            <span style="font-family:'Barlow Condensed', sans-serif; font-weight:600; font-variant-numeric:tabular-nums; line-height:0.85; font-size:112px;">4</span>
+            <span style="font-family:'Barlow Condensed', sans-serif; font-weight:600; line-height:0.85; font-size:40px; opacity:0.7;">/5</span>
+          </div>
+          <div style="padding-bottom:6px;">
+            <div style="font-size:20px; font-weight:700; color:var(--grade-good);">Good</div>
+            <div style="font-size:14px; color:var(--text-muted); margin-top:2px;">Back in 6 days</div>
+          </div>
+        </div>
+        <div style="margin-top:20px; max-width:640px; display:flex; gap:4px;" aria-hidden="true">
+          <span style="flex:1; height:3px; border-radius:2px; background:var(--grade-good);"></span>
+          <span style="flex:1; height:3px; border-radius:2px; background:var(--grade-good);"></span>
+          <span style="flex:1; height:3px; border-radius:2px; background:var(--grade-good);"></span>
+          <span style="flex:1; height:3px; border-radius:2px; background:var(--grade-good);"></span>
+          <span style="flex:1; height:3px; border-radius:2px; background:var(--rule);"></span>
+        </div>
+        <p style="margin:20px 0 0; max-width:640px; font-size:17px; line-height:1.55;">Right mechanism and right reason. You had the planar carbocation and equal-face attack. The point you skipped is naming it: loss of stereochemistry at the reacting carbon, so the product is a 50:50 mix of both enantiomers.</p>
+
+        <div style="display:flex; align-items:center; gap:16px; margin-top:32px;">
+          <button style="padding:16px 32px; border-radius:var(--r-full); background:var(--accent); color:var(--on-accent); font-size:17px; font-weight:700;">Next card, 26 left</button>
+          <span style="font-size:13px; color:var(--text-muted);">Enter</span>
+        </div>
+      </div>
+
+      <div style="padding-top:8px;">
+        <div style="display:flex; align-items:baseline; gap:8px;">
+          <span style="font-family:'Barlow Condensed', sans-serif; font-weight:600; font-variant-numeric:tabular-nums; line-height:0.85; font-size:96px;">26</span>
+          <span style="font-size:16px; font-weight:600; color:var(--text-muted);">left</span>
+        </div>
+        <div style="margin-top:28px; border-top:1px solid var(--rule); padding-top:14px;">
+          <div style="font-size:13px; font-weight:600; color:var(--text-muted);">You wrote</div>
+          <p style="margin:6px 0 0; font-size:14px; line-height:1.5; color:var(--text-muted);">The leaving group goes first, so you get a planar carbocation. The nucleophile can attack from either face equally, so both configurations form.</p>
+        </div>
+        <div style="margin-top:20px; border-top:1px solid var(--rule); padding-top:14px;">
+          <div style="font-size:13px; font-weight:600; color:var(--text-muted);">Model answer</div>
+          <p style="margin:6px 0 0; font-size:14px; line-height:1.5; color:var(--text-muted);">Ionisation gives a planar, achiral carbocation; the nucleophile attacks either face with equal probability, so stereochemistry at that carbon is lost and both enantiomers form in equal amounts.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- SETTINGS -->
+  <div data-screen-label="Settings" style="display:flex; width:1280px; height:800px; border-radius:var(--r-md); background:var(--bg); border:1px solid oklch(0.36 0.01 50); overflow:hidden; box-sizing:border-box;">
+    <nav aria-label="Main" style="display:flex; flex-direction:column; width:240px; flex-shrink:0; padding:18px; box-sizing:border-box; background:var(--surface); border-right:1px solid var(--rule);">
+      <div style="display:flex; align-items:center; gap:10px; padding:8px 10px 28px; font-size:18px; font-weight:700; letter-spacing:-0.01em;"><span style="display:block; width:24px; height:24px; border-radius:var(--r-full); background:var(--text-muted);"></span>Rekall</div>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11l10-8 10 8"></path><path d="M4.5 10.5V19a1 1 0 0 0 1 1h4v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5h4a1 1 0 0 0 1-1v-8.5"></path></svg>Home</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="14" height="14" rx="3"></rect><path d="M3 7v13a1 1 0 0 0 1 1h13" opacity="0.55"></path></svg>Cards</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path><circle cx="12" cy="15.5" r="1.1" fill="currentColor" stroke="none"></circle></svg>Calendar</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="3"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>Notes</button>
+        <button style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); color:var(--text-muted); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"></path><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="10.5" r="1" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none"></circle></svg>Tutor</button>
+      </div>
+      <div style="flex:1;"></div>
+      <button aria-current="page" style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-full); background:var(--accent-dim); color:var(--accent); font-size:14px; font-weight:700;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--surface)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--surface)"></circle></svg>Settings</button>
+    </nav>
+
+    <main style="flex:1; min-width:0; padding:40px 48px; box-sizing:border-box;">
+      <div style="font-size:28px; font-weight:700; letter-spacing:-0.01em;">Settings</div>
+      <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px 40px; margin-top:24px; align-items:start;">
+        <div>
+          <div style="font-size:15px; font-weight:700; margin-bottom:8px;">Appearance</div>
+          <div style="border-radius:var(--r-md); background:var(--surface); padding:0 18px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:8px 0;">
+              <span style="font-size:15px; font-weight:600;">Theme</span>
+              <div role="radiogroup" style="display:flex; padding:2px; border-radius:var(--r-sm); background:var(--bg);">
+                <button role="radio" aria-checked="false" style="padding:6px 12px; border-radius:4px; font-size:13px; font-weight:600; color:var(--text-muted);">System</button>
+                <button role="radio" aria-checked="false" style="padding:6px 12px; border-radius:4px; font-size:13px; font-weight:600; color:var(--text-muted);">Light</button>
+                <button role="radio" aria-checked="true" style="padding:6px 12px; border-radius:4px; font-size:13px; font-weight:700; background:var(--surface); color:var(--text);">Dark</button>
+              </div>
+            </div>
+            <div style="height:1px; background:var(--rule);"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:8px 0;">
+              <span style="font-size:15px; font-weight:600;">Accent</span>
+              <div style="display:flex; gap:10px;">
+                <button aria-label="Ember" aria-pressed="true" style="width:28px; height:28px; border-radius:var(--r-full); background:oklch(0.7 0.145 40); outline:2px solid var(--text); outline-offset:2px;"></button>
+                <button aria-label="Moss" style="width:28px; height:28px; border-radius:var(--r-full); background:oklch(0.7 0.145 145);"></button>
+                <button aria-label="Sky" style="width:28px; height:28px; border-radius:var(--r-full); background:oklch(0.7 0.145 250);"></button>
+                <button aria-label="Rose" style="width:28px; height:28px; border-radius:var(--r-full); background:oklch(0.7 0.145 340);"></button>
+                <button aria-label="Custom colour" style="width:28px; height:28px; border-radius:var(--r-full); border:1.5px dashed var(--text-muted); color:var(--text-muted); font-size:14px; font-weight:700; display:flex; align-items:center; justify-content:center; box-sizing:border-box;">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="font-size:15px; font-weight:700; margin:24px 0 8px;">Voice</div>
+          <div style="border-radius:var(--r-md); background:var(--surface); padding:0 18px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:8px 0;">
+              <span style="font-size:15px; font-weight:600;">Push to talk</span>
+              <button role="switch" aria-checked="false" style="position:relative; width:44px; height:26px; flex-shrink:0; border-radius:var(--r-full); background:var(--rule);"><span style="position:absolute; left:3px; top:3px; width:20px; height:20px; border-radius:var(--r-full); background:var(--text-muted);"></span></button>
+            </div>
+            <div style="height:1px; background:var(--rule);"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:8px 0;">
+              <span style="font-size:15px; font-weight:600;">Playback speed</span>
+              <div role="radiogroup" style="display:flex; padding:2px; border-radius:var(--r-sm); background:var(--bg);">
+                <button role="radio" aria-checked="false" style="padding:6px 10px; border-radius:4px; font-size:13px; font-weight:600; color:var(--text-muted);">0.75x</button>
+                <button role="radio" aria-checked="true" style="padding:6px 10px; border-radius:4px; font-size:13px; font-weight:700; background:var(--surface); color:var(--text);">1x</button>
+                <button role="radio" aria-checked="false" style="padding:6px 10px; border-radius:4px; font-size:13px; font-weight:600; color:var(--text-muted);">1.25x</button>
+                <button role="radio" aria-checked="false" style="padding:6px 10px; border-radius:4px; font-size:13px; font-weight:600; color:var(--text-muted);">1.5x</button>
+              </div>
+            </div>
+            <div style="height:1px; background:var(--rule);"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:8px 0;">
+              <span style="font-size:15px; font-weight:600;">Mic sensitivity</span>
+              <div style="display:flex; align-items:center; gap:2px;">
+                <button aria-label="Decrease" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted); font-size:18px;">−</button>
+                <span style="min-width:36px; text-align:center; font-family:'Barlow Condensed', sans-serif; font-weight:600; font-size:20px; font-variant-numeric:tabular-nums;">25</span>
+                <button aria-label="Increase" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted); font-size:18px;">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="font-size:15px; font-weight:700; margin:24px 0 8px;">Account</div>
+          <div style="border-radius:var(--r-md); background:var(--surface); padding:0 18px;">
+            <div style="display:flex; align-items:center; gap:14px; min-height:64px; padding:10px 0;">
+              <span style="display:block; width:40px; height:40px; border-radius:var(--r-full); background:var(--rule);"></span>
+              <span style="flex:1; min-width:0;"><span style="display:block; font-size:15px; font-weight:700;">Maya Ngoman</span><span style="display:block; font-size:13px; color:var(--text-muted);">maya@example.com</span></span>
+              <button style="font-size:14px; font-weight:700; color:var(--text-muted); padding:8px 0;">Sign out</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:15px; font-weight:700; margin-bottom:8px;">Study</div>
+          <div style="border-radius:var(--r-md); background:var(--surface); padding:0 18px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:8px 0;">
+              <span style="font-size:15px; font-weight:600;">New cards per day</span>
+              <div style="display:flex; align-items:center; gap:2px;">
+                <button aria-label="Decrease" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted); font-size:18px;">−</button>
+                <span style="min-width:36px; text-align:center; font-family:'Barlow Condensed', sans-serif; font-weight:600; font-size:20px; font-variant-numeric:tabular-nums;">20</span>
+                <button aria-label="Increase" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted); font-size:18px;">+</button>
+              </div>
+            </div>
+            <div style="height:1px; background:var(--rule);"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:8px 0;">
+              <span style="font-size:15px; font-weight:600;">Session size</span>
+              <div style="display:flex; align-items:center; gap:2px;">
+                <button aria-label="Decrease" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted); font-size:18px;">−</button>
+                <span style="min-width:36px; text-align:center; font-size:14px; font-weight:600; color:var(--text-muted); white-space:nowrap;">No limit</span>
+                <button aria-label="Increase" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted); font-size:18px;">+</button>
+              </div>
+            </div>
+            <div style="height:1px; background:var(--rule);"></div>
+            <div style="padding:14px 0;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+                <span style="font-size:15px; font-weight:600;">Grading</span>
+                <div role="radiogroup" style="display:flex; padding:2px; border-radius:var(--r-sm); background:var(--bg);">
+                  <button role="radio" aria-checked="false" style="padding:6px 12px; border-radius:4px; font-size:13px; font-weight:600; color:var(--text-muted);">Lenient</button>
+                  <button role="radio" aria-checked="true" style="padding:6px 12px; border-radius:4px; font-size:13px; font-weight:700; background:var(--surface); color:var(--text);">Balanced</button>
+                  <button role="radio" aria-checked="false" style="padding:6px 12px; border-radius:4px; font-size:13px; font-weight:600; color:var(--text-muted);">Strict</button>
+                </div>
+              </div>
+              <p style="margin:8px 0 0; font-size:13px; line-height:1.45; color:var(--text-muted);">Wrong answers always count as forgotten. A half-remembered answer counts as hard, and comes back sooner.</p>
+            </div>
+            <div style="height:1px; background:var(--rule);"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:8px 0;">
+              <span style="font-size:15px; font-weight:600;">Target retention</span>
+              <div style="display:flex; align-items:center; gap:2px;">
+                <button aria-label="Decrease" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted); font-size:18px;">−</button>
+                <span style="min-width:44px; text-align:center; font-family:'Barlow Condensed', sans-serif; font-weight:600; font-size:20px; font-variant-numeric:tabular-nums;">90%</span>
+                <button aria-label="Increase" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:var(--text-muted); font-size:18px;">+</button>
+              </div>
+            </div>
+            <div style="height:1px; background:var(--rule);"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:8px 0;">
+              <span style="font-size:15px; font-weight:600;">Maximum interval</span>
+              <div role="radiogroup" style="display:flex; padding:2px; border-radius:var(--r-sm); background:var(--bg);">
+                <button role="radio" aria-checked="true" style="padding:6px 12px; border-radius:4px; font-size:13px; font-weight:700; background:var(--surface); color:var(--text);">None</button>
+                <button role="radio" aria-checked="false" style="padding:6px 12px; border-radius:4px; font-size:13px; font-weight:600; color:var(--text-muted);">1 mo</button>
+                <button role="radio" aria-checked="false" style="padding:6px 12px; border-radius:4px; font-size:13px; font-weight:600; color:var(--text-muted);">3 mo</button>
+                <button role="radio" aria-checked="false" style="padding:6px 12px; border-radius:4px; font-size:13px; font-weight:600; color:var(--text-muted);">1 yr</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="font-size:15px; font-weight:700; margin:24px 0 8px;">AI features</div>
+          <div style="border-radius:var(--r-md); background:var(--surface); padding:0 18px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:8px 0;">
+              <span style="font-size:15px; font-weight:600;">All AI features</span>
+              <button role="switch" aria-checked="true" style="position:relative; width:44px; height:26px; flex-shrink:0; border-radius:var(--r-full); background:var(--accent);"><span style="position:absolute; left:21px; top:3px; width:20px; height:20px; border-radius:var(--r-full); background:var(--on-accent);"></span></button>
+            </div>
+            <div style="height:1px; background:var(--rule);"></div>
+            <button style="display:flex; width:100%; align-items:center; justify-content:space-between; min-height:52px; padding:8px 0; box-sizing:border-box;">
+              <span style="font-size:15px; font-weight:600;">Choose individually</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark' | 'light'&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;oklch(0.7 0.145 40)&quot;,&quot;oklch(0.7 0.145 145)&quot;,&quot;oklch(0.7 0.145 250)&quot;,&quot;oklch(0.7 0.145 340)&quot;],&quot;default&quot;:&quot;oklch(0.7 0.145 40)&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;}}">
+class Component extends DCLogic {
+  applyTheme() {
+    document.documentElement.dataset.theme = this.props.theme ?? 'dark';
+    document.documentElement.style.setProperty('--accent-pick', this.props.accent ?? 'oklch(0.7 0.145 40)');
+  }
+  componentDidMount() { this.applyTheme(); }
+  componentDidUpdate() { this.applyTheme(); }
+  // Same mock scheduling as the mobile page. Today = Wed 2 Sep 2026.
+  load(t) {
+    if (t < 0) return 9;
+    let n = 0;
+    if (t <= 34) n += 6 + t * 0.9;
+    if (t <= 16) n += 5 + t * 1.1;
+    if (t > 34) n += 2;
+    n += 3;
+    n *= 1 + 0.18 * Math.sin(t * 2.1);
+    return Math.round(n);
+  }
+  renderVals() {
+    const today = new Date(2026, 8, 2);
+    const exams = { '2026-09-18': 'Pharmacology', '2026-10-06': 'Organic Chem II' };
+    const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const raw = Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(2026, 7, 31 + i);
+      const t = Math.round((d - today) / 86400000);
+      return { d, t, count: this.load(t) };
+    });
+    const max = Math.max(...raw.map((r) => r.count));
+    const cells = raw.map(({ d, t, count }) => {
+      const k = iso(d);
+      const isToday = t === 0;
+      const inMonth = d.getMonth() === 8;
+      const mix = Math.round((count / max) * 100);
+      return {
+        day: d.getDate(), isToday, count, hasBar: count > 0,
+        barWidth: `${Math.max(12, mix)}%`,
+        barColor: `color-mix(in oklab, var(--accent) ${mix}%, var(--accent-dim))`,
+        opacity: t < 0 ? 0.45 : inMonth ? 1 : 0.35,
+        weight: isToday ? 700 : 600,
+        color: isToday ? 'var(--accent)' : 'var(--text)',
+        exam: exams[k] ?? false,
+        label: `${k}, ${count} cards${exams[k] ? ', ' + exams[k] : ''}`,
+      };
+    });
+    const future = raw.filter((r) => r.t >= 0).map((r) => r.count);
+    return {
+      cells, daysLeft: 34, minLoad: Math.min(...future), maxLoad: max,
+      cardsBefore: raw.filter((r) => r.t >= 0 && r.t <= 34).reduce((s, r) => s + r.count, 0),
+      decks: [
+        { name: 'Organic Chemistry II', status: '18 left today', total: 612, opacity: 1 },
+        { name: 'Pharmacology', status: '23 left today', total: 240, opacity: 1 },
+        { name: 'Statistics', status: 'Done for today', total: 180, opacity: 1 },
+        { name: 'Anatomy', status: 'Exam passed. Study anytime.', total: 95, opacity: 0.6 },
+      ],
+      ochemNotes: [
+        { slot: 'sn1', title: 'SN1 vs SN2 mechanisms', preview: 'Rate law, stereochemistry, solvent effects. SN1 goes via carbocation so tertiary substrates favour it…', date: '1 Sep' },
+        { slot: 'arom', title: 'Aromaticity rules', preview: "Hückel 4n+2, planar, cyclic, fully conjugated. Antiaromatic if 4n. Benzene, cyclopentadienyl anion…", date: '30 Aug' },
+        { slot: 'board', title: 'Lecture 12 board photo', preview: 'E1/E2 elimination — Zaitsev vs Hofmann products, bulky base favours the less substituted alkene.', date: '26 Aug' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

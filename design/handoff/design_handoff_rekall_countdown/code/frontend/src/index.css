@@ -1,0 +1,257 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------------------------------------
+   Tokens. Seven colours, three radii, two faces. Nothing else is a token.
+
+   --accent-pick is the user's raw choice (written to the root element by useSettings / the boot
+   script in index.html). --accent is what the UI actually uses: identical to the pick in dark,
+   pulled down to L 0.56 in light so a mid-lightness accent still clears 4.5:1 on a pale page.
+   Components never read --accent-pick.
+   ---------------------------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --accent-pick: oklch(0.7 0.145 40);
+
+  --bg: oklch(0.97 0.012 75);
+  --surface: oklch(1 0 0);
+  --rule: oklch(0.9 0.014 75);
+  --text: oklch(0.26 0.02 50);
+  --text-muted: oklch(0.52 0.02 50);
+  --accent: oklch(from var(--accent-pick) 0.56 c h);
+  --accent-dim: color-mix(in oklab, var(--accent) 22%, transparent);
+
+  --r-sm: 6px;
+  --r-md: 14px;
+  --r-full: 999px;
+
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --font-display: 'Barlow Condensed', 'Nunito', system-ui, sans-serif;
+
+  /* Grading feedback colours (Study screen) — out of scope for this pass, kept as they were. */
+  --grade-forgot: oklch(0.62 0.16 25);
+  --grade-forgot-bg: oklch(0.95 0.05 25);
+  --grade-hard: oklch(0.72 0.16 55);
+  --grade-hard-bg: oklch(0.95 0.05 55);
+  --grade-good: oklch(0.62 0.155 145);
+  --grade-good-bg: oklch(0.95 0.04 145);
+  --streak: oklch(0.72 0.16 55);
+
+  /* DEPRECATED aliases so screens not yet on the new tokens (Cards, Notes, Tutor, Settings,
+     Study) keep rendering. Remove each alias as its screen is migrated. No new uses. */
+  --bg-card: var(--surface);
+  --text-secondary: var(--text-muted);
+  --ring-track: var(--rule);
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --accent-shadow: none;
+  --accent-shadow-soft: none;
+  --highlight-shadow: inset 0 0 0 1px var(--accent-dim);
+}
+
+@supports not (color: oklch(from red l c h)) {
+  :root {
+    --accent: var(--accent-pick);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: oklch(0.19 0.014 50);
+  --surface: oklch(0.23 0.015 50);
+  --rule: oklch(0.3 0.014 50);
+  --text: oklch(0.94 0.01 60);
+  --text-muted: oklch(0.64 0.014 55);
+  --accent: var(--accent-pick);
+
+  --grade-forgot: oklch(0.68 0.17 25);
+  --grade-forgot-bg: oklch(0.3 0.08 25);
+  --grade-hard: oklch(0.76 0.16 55);
+  --grade-hard-bg: oklch(0.32 0.08 55);
+  --grade-good: oklch(0.68 0.16 145);
+  --grade-good-bg: oklch(0.28 0.06 145);
+  --streak: oklch(0.76 0.16 55);
+}
+
+html {
+  font-size: calc(106% * var(--text-scale, 1));
+  background: var(--bg);
+}
+
+body {
+  overflow-x: clip;
+  overflow-wrap: anywhere;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+
+/* Numerals that carry the app: days to the exam, cards due, cards left, retention. Applied by
+   the four places that are allowed to be loud and nowhere else. */
+.numeral {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.01em;
+  line-height: 0.85;
+}
+
+/* Text on an accent fill: near-black tinted toward the accent's own hue, so it holds ≥6:1 on an
+   L 0.56–0.70 accent in either theme without introducing an eighth colour. */
+.on-accent {
+  color: oklch(0.17 0.015 50);
+  color: oklch(from var(--accent) 0.17 0.02 h);
+}
+
+/* Keyboard focus. One ring, everywhere, drawn outside the control so it never fights a fill. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+button,
+select,
+option,
+label {
+  overflow-wrap: normal;
+}
+
+button,
+select,
+input,
+a,
+.cursor-pointer {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Press feedback is instant in both directions — a confirmation that eases in reads as lag. */
+@media (hover: none) {
+  button:not(:disabled):not(.pill-option):active,
+  .cursor-pointer:active {
+    filter: brightness(0.9);
+  }
+}
+@media (hover: hover) {
+  button:not(:disabled):hover,
+  .cursor-pointer:hover {
+    filter: brightness(1.06);
+  }
+  button:not(:disabled):active,
+  .cursor-pointer:active {
+    filter: brightness(0.92);
+  }
+}
+
+/* The nav's selection pill travels between options. Kept: it tells you which way you went, which
+   a cut cannot. This and the load-bar drain are the only two things in the app that move. */
+.sliding-pill {
+  transition:
+    translate var(--pill-move-ms, 400ms) var(--pill-move-ease, cubic-bezier(0.33, 1.16, 0.45, 1)),
+    width var(--pill-move-ms, 400ms) var(--pill-move-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    scale var(--pill-scale-ms, 400ms) var(--pill-scale-ease, ease-out),
+    opacity 160ms linear;
+}
+.pill-option {
+  transition: color 200ms ease;
+}
+
+/* Load bars in the calendar. A vertical tick beside the day number; height and brightness both
+   encode count, and a key above the grid names the scale. A bar drains (to
+   zero height) when the cards it stood for have been reviewed or the exam has passed — the one
+   moment of motion in the app. Appearing or growing is instant. */
+.load-bar {
+  width: 3px;
+  transform-origin: center bottom;
+}
+.load-bar[data-drain='true'] {
+  transition: transform 320ms cubic-bezier(0.4, 0, 1, 1), opacity 320ms linear;
+  transform: scaleY(0);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sliding-pill,
+  .pill-option,
+  .load-bar[data-drain='true'] {
+    transition: none;
+  }
+}
+
+/* Word-by-word karaoke in the voice focus view (Tutor). Untouched by this pass. */
+.focus-word,
+.focus-word-idle {
+  display: inline-block;
+  white-space: pre;
+}
+.focus-word-idle {
+  color: rgb(255 255 255 / 0.2);
+  transform: translateY(0.12em);
+}
+.focus-word {
+  animation: focus-word-pop 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes focus-word-pop {
+  0% { color: rgb(255 255 255 / 0.2); transform: translateY(0.12em); }
+  55% { color: #fff; transform: translateY(-0.07em); }
+  100% { color: #fff; transform: translateY(0); }
+}
+@keyframes focus-line-in {
+  from { opacity: 0; transform: translateY(0.35em); }
+  to { opacity: 1; transform: none; }
+}
+.focus-line {
+  animation: focus-line-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.focus-line-inline {
+  animation: focus-line-fade 420ms ease both;
+}
+@keyframes focus-line-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes focus-word-pop {
+    0% { color: rgb(255 255 255 / 0.2); }
+    100% { color: #fff; }
+  }
+  @keyframes focus-line-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .focus-word { animation-timing-function: ease; }
+}
+
+/* Tab switches are instant. The classes remain so nothing else has to change; they do nothing. */
+.tab-enter-right,
+.tab-enter-left,
+.tab-enter-fade {
+  animation: none;
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 1023px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+}
+
+html[data-text-scale='large'] .tab-label {
+  display: none;
+}
+html[data-text-scale='large'] .pill-option svg {
+  width: 23px;
+  height: 23px;
+}
