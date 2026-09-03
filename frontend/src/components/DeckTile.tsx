@@ -13,6 +13,11 @@ interface Props {
 /** The one thing in Rekall that is allowed to be a card: an actual deck. Surface fill, medium
  * radius, no border, no badges — the counts are text, and the accent stays out of it. */
 export default function DeckTile({ deck, onClick, onEdit, onDelete }: Props) {
+  // The library's tiles carry actions and sit two-up on a desktop grid, where a single row can't
+  // hold a long deck name, a count and two buttons without truncating. Those stack instead: name
+  // and status on top, count and actions on their own row beneath. Home's tiles have no actions
+  // and stay a single row at every width, which is what the design draws.
+  const hasActions = Boolean(onEdit || onDelete)
   const left = deck.due + deck.new
   const status = deck.exam_paused
     ? 'Exam passed. Study anytime.'
@@ -23,8 +28,8 @@ export default function DeckTile({ deck, onClick, onEdit, onDelete }: Props) {
   return (
     <div
       className={`flex cursor-pointer items-center gap-2.5 rounded-[var(--r-md)] bg-[var(--surface)] px-4 py-3.5 ${
-        deck.exam_paused ? 'opacity-60' : ''
-      }`}
+        hasActions ? 'lg:flex-col lg:items-stretch lg:gap-2' : ''
+      } ${deck.exam_paused ? 'opacity-60' : ''}`}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -35,13 +40,16 @@ export default function DeckTile({ deck, onClick, onEdit, onDelete }: Props) {
         }
       }}
     >
-      <div className="min-w-0 flex-1">
+      <div className={`min-w-0 flex-1 ${hasActions ? 'lg:flex-none' : ''}`}>
         <div className="truncate text-[0.9375rem] font-bold">{deck.name}</div>
         <div className="mt-0.5 text-[0.8125rem] text-[var(--text-muted)]">{status}</div>
       </div>
-      <div className="flex-shrink-0 text-[0.8125rem] text-[var(--text-muted)]">
-        {deck.total} card{deck.total === 1 ? '' : 's'}
-      </div>
+      {/* `contents` on the phone so the count and the actions stay direct children of the row;
+          from `lg` the wrapper becomes the second line and spaces them apart. */}
+      <div className={hasActions ? 'contents lg:flex lg:items-center lg:justify-between' : 'contents'}>
+        <div className="flex-shrink-0 text-[0.8125rem] text-[var(--text-muted)]">
+          {deck.total} card{deck.total === 1 ? '' : 's'}
+        </div>
       {/* The two actions ride together with no gap between them and overhang the tile's right
           padding. Each keeps its full 44px touch target; what's reclaimed is the dead space
           around the 16px glyphs, which is what was truncating deck names on a 390px phone. */}
@@ -78,6 +86,7 @@ export default function DeckTile({ deck, onClick, onEdit, onDelete }: Props) {
           )}
         </div>
       )}
+      </div>
     </div>
   )
 }

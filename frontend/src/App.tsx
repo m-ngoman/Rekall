@@ -90,7 +90,11 @@ export default function App() {
   if (studyDeckId) {
     return (
       <div className="min-h-screen text-[var(--text)]">
-        <main className="mx-auto max-w-xl px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))]">
+        {/* Study is its own branch with no sidebar — the session is the whole screen. It needs a
+            wider desktop cap than the tabbed shell's: the design lays it out as a ~750px card
+            column beside a 360px rail with 72px between them, which simply doesn't fit in the
+            max-w-xl this used to inherit at every width. */}
+        <main className="mx-auto max-w-xl px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))] lg:max-w-7xl lg:px-10">
           <StudyScreen deckId={studyDeckId} onExit={exitStudy} aiGrading={settings?.ai_grading ?? true} />
         </main>
       </div>

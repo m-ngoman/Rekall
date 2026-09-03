@@ -980,7 +980,11 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
 
   return (
     <div className="flex flex-col">
-      <div className={`flex flex-col gap-5 pb-64 ${enterClass ?? ''}`}>
+      {/* 640px, the width the design draws the tutor column at, and the same width the composer
+          below is capped to so the two share an edge. Without it the starter rows and the chat
+          log stretch the full content area on a desktop and a row's meta ends up a thousand
+          pixels from the text it belongs to. */}
+      <div className={`mx-auto flex w-full max-w-[640px] flex-col gap-5 pb-64 ${enterClass ?? ''}`}>
         {messages.length === 0 ? (
           /* Was a single centered line of grey text on an otherwise blank screen. The starter
              prompts do real work beyond filling space: a blank tutor box gives no clue what it's
@@ -1103,7 +1107,7 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
           sidebar's width on desktop (lg:left-60) so it centers within the content area, not the
           full window; bottom-24 on mobile clears the floating tab bar underneath it. */}
       <div className={`fixed inset-x-0 bottom-24 z-20 flex justify-center px-5 lg:bottom-6 lg:left-60 lg:px-10 ${enterClass ?? ''}`}>
-        <div className="flex w-full max-w-xl flex-col gap-1.5 rounded-[var(--r-md)] bg-[var(--surface)] p-2 lg:max-w-2xl">
+        <div className="flex w-full max-w-xl flex-col gap-1.5 rounded-[var(--r-md)] bg-[var(--surface)] p-2 lg:max-w-[640px]">
           {pendingImage && !voiceModeActive && (
             <div className="flex items-center gap-2 px-2 pt-1">
               <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-[var(--r-sm)]">

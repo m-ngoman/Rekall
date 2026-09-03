@@ -52,6 +52,10 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
   const [relearn, setRelearn] = useState<Set<string>>(new Set())
   // Self-assessment only: the answer is fetched on demand, so null means 'not revealed yet'.
   const [revealed, setRevealed] = useState<string | null>(null)
+  // The reference answer shown in the desktop rail once a card has been graded. Same on-demand
+  // endpoint as `revealed` — the queue payload deliberately withholds answers so it can't leak
+  // them before the cards are attempted, and that stays true whichever way we ask for one.
+  const [modelAnswer, setModelAnswer] = useState<string | null>(null)
   const [exams, setExams] = useState<Exam[]>([])
 
   useEffect(() => {
@@ -77,6 +81,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
     setResult(null)
     setStreamedExplanation('')
     setRevealed(null)
+    setModelAnswer(null)
     setQueue((prevQueue) => {
       if (prevQueue.length === 0) {
         setCurrent(null)
@@ -96,6 +101,11 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
   const applyResult = (res: ReviewResult, card: StudyCard) => {
     setResult(res)
     setPhase('graded')
+    // Only the desktop rail shows this, but it's fetched either way: the request is small and
+    // gating it on a media query would make the rail pop in a beat late on a resize.
+    revealAnswer(card.id)
+      .then((r) => setModelAnswer(r.answer))
+      .catch(() => {})
     setStats((s) => ({ ...s, correct: s.correct + (res.grade >= 3 ? 1 : 0) }))
     if (res.grade === 1 && !relearn.has(card.id)) {
       setRelearn((prev) => new Set(prev).add(card.id))
@@ -139,8 +149,10 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
           </svg>
           <span className="truncate">{deckName || 'Back'}</span>
         </button>
+        {/* Phone only: on a wide screen the count is the rail's headline instead, at four times
+            this size, and having it in both places would say the same thing twice. */}
         {left > 0 && (
-          <div className="flex flex-shrink-0 items-baseline gap-1.5">
+          <div className="flex flex-shrink-0 items-baseline gap-1.5 lg:hidden">
             <span className="numeral text-[1.75rem]">{left}</span>
             <span className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">left</span>
           </div>
@@ -207,10 +219,59 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
   const gradeColor = result ? GRADE_COLOR[result.grade] ?? GRADE_COLOR[1] : undefined
   const score = result?.score ?? null
 
-  return (
-    <div className="flex flex-col gap-10">
-      {header}
+  /** The desktop rail. Wide screens have room the phone doesn't, and the design spends it on the
+   * things you want beside the card rather than under it: how much is left, and — once a card is
+   * graded — what you wrote next to what the card actually says. Hidden below `lg`, where every
+   * one of these has its own place in the single column. */
+  const rail = (
+    <aside className="hidden lg:flex lg:flex-col lg:gap-6">
+      {left > 0 && (
+        <div className="flex items-baseline gap-2">
+          <span className="numeral text-[6rem]">{left}</span>
+          <span className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">left</span>
+        </div>
+      )}
 
+      {graded ? (
+        <div className="flex flex-col gap-5">
+          <div className="border-t border-[var(--rule)] pt-3">
+            <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">You wrote</div>
+            <p className="mt-1.5 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">{answer || <em>Nothing</em>}</p>
+          </div>
+          {modelAnswer && (
+            <div className="border-t border-[var(--rule)] pt-3">
+              <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">Model answer</div>
+              <p className="mt-1.5 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">{modelAnswer}</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        // Answering: the session so far. Not shown once graded, where the card itself is the
+        // subject and these numbers would compete with the score.
+        <div className="border-t border-[var(--rule)]">
+          {[
+            { label: 'Done', value: `${stats.done}` },
+            { label: 'Right first time', value: `${stats.correct} of ${stats.done}` },
+            ...(nextExam ? [{ label: 'Exam', value: `${daysUntil(nextExam.date)} days` }] : []),
+          ].map(({ label, value }) => (
+            <div key={label} className="flex items-baseline justify-between gap-4 border-b border-[var(--rule)] py-2.5">
+              <span className="text-[0.8125rem] text-[var(--text-muted)]">{label}</span>
+              <span className="text-[0.8125rem] font-semibold">{value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </aside>
+  )
+
+  return (
+    <div className="flex flex-col gap-10 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-x-[4.5rem] lg:gap-y-10">
+      <div className="lg:col-span-2">{header}</div>
+
+      {/* The card's own column. On a phone this contents-collapses so its children stay direct
+          children of the page's flex column and keep the gap-10 rhythm; from `lg` it becomes the
+          grid's first cell, with the rail beside it. */}
+      <div className="contents lg:flex lg:flex-col lg:gap-10">
       <div>
         {current.subtopic && <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">{current.subtopic}</div>}
         <div className={`mt-2 font-bold leading-snug [text-wrap:pretty] ${graded ? 'text-[1.125rem]' : 'text-[1.5rem] lg:text-[2rem]'}`}>{current.question}</div>
@@ -273,7 +334,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
             {streamedExplanation}
             {phase === 'grading' && <span className="ml-0.5 inline-block h-[18px] w-[2px] align-text-bottom bg-[var(--accent)]" />}
           </p>
-          <div className="mt-5 border-t border-[var(--rule)] pt-3">
+          <div className="mt-5 border-t border-[var(--rule)] pt-3 lg:hidden">
             <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">You wrote</div>
             <p className="mt-1.5 line-clamp-3 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">{answer || <em>Nothing</em>}</p>
           </div>
@@ -306,21 +367,27 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
           </div>
         )
       ) : phase === 'answering' || phase === 'grading' ? (
-        <div>
+        <div className="lg:flex lg:items-center lg:gap-4">
           <button
             onClick={handleSubmit}
             disabled={phase === 'grading'}
-            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
+            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50 lg:w-auto lg:px-8 lg:py-3"
           >
             {phase === 'grading' ? 'Checking' : 'Check my answer'}
           </button>
-          <div className="mt-3 hidden text-center text-[0.8125rem] text-[var(--text-muted)] lg:block">⌘ Enter also checks</div>
+          <div className="mt-3 hidden text-[0.8125rem] text-[var(--text-muted)] lg:mt-0 lg:block">⌘ Enter also checks</div>
         </div>
       ) : (
-        <button onClick={advance} className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold">
+        <button
+          onClick={advance}
+          className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold lg:w-auto lg:self-start lg:px-8 lg:py-3"
+        >
           {queue.length > 0 ? `Next card, ${queue.length} left` : 'Finish'}
         </button>
       )}
+      </div>
+
+      {rail}
     </div>
   )
 }
