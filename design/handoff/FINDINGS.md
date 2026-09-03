@@ -165,3 +165,28 @@ All 32 comparison sheets re-rendered.
 **Known fixture artifact, not an app bug:** the Notes screenshots show one broken-image tile.
 `seed_fixture.py` creates an `image` note with `storage_path=None`, so there is no file for
 `/api/notes/{id}/file` to serve. Give it a real file if that tile ever needs to be judged.
+
+---
+
+## Desktop pass (2026-09-03, later)
+
+The section above was written from a mobile-only comparison. `measure.mjs` probed Home at 390px
+only, and of the 16 desktop sheets just two (Home, Calendar) had actually been looked at — so the
+claim that all eight screens matched on desktop was an extrapolation, not a finding. Going through
+the desktop sheets properly turned up three real gaps, all now fixed.
+
+| # | Gap | Fix |
+|---|---|---|
+| D1 | **Study had no desktop layout at all.** The design specifies `grid-cols-[1fr_360px]` with a rail holding the 96px cards-left numeral, "You wrote" and "Model answer"; the app rendered one full-width column and had no model answer anywhere. Root cause was in the shell, not the screen: `App.tsx` renders Study in its own branch capped at `max-w-xl` (576px) with no `lg:` override, so a 360px rail could never have fit. | Widened that branch to `lg:max-w-7xl lg:px-10`, added the two-column grid and the rail, and fetched the reference answer via the existing on-demand `revealAnswer` endpoint (the queue payload still withholds answers). Buttons go compact at `lg`. |
+| D2 | **Deck names truncated at 2-up in the library** ("Organic Ch…"). The design uses a different tile on desktop: name and status on top, count and actions on their own row beneath. | `DeckTile` stacks from `lg` **when it has actions**. Home's tiles have none and stay a single row at every width, which is what the design draws. |
+| D3 | **Tutor stretched full-bleed**, putting a row's meta ~1000px from its text. The mock's column measures 640px. | `max-w-[640px]` on the content column, and the composer's cap moved from `lg:max-w-2xl` (672px) to the same 640px so the two share an edge. |
+
+Measured off the mock rather than guessed: its Tutor rows are exactly 640px and its Study grid is
+`750px 360px` with a 72px gap.
+
+**Checked and *not* a problem:** Notes looked 2-up against the mock's 3-across, but `lg:grid-cols-4`
+is present and correct — `seed_fixture.py` just distributes the four notes across categories
+differently than the mock does. A fixture artifact, not a defect.
+
+**Still different on desktop, deliberately left:** the mock puts the card's subtopic top-right in
+the Study header; the app keeps it above the question as on mobile.
