@@ -71,7 +71,10 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props)
               {next.name}
             </button>
             <div className="mt-1 flex items-baseline gap-3">
-              <span className="numeral text-[8.5rem] text-[var(--accent)]" aria-label={`${daysLeft} days until ${next.name}`}>
+              {/* 136px on a phone, 224px from lg — the design scales the countdown with the
+                  screen rather than keeping one size, and it is the headline of the whole app.
+                  Both numbers are measured off the mock's own Home boards. */}
+              <span className="numeral text-[8.5rem] text-[var(--accent)] lg:text-[14rem]" aria-label={`${daysLeft} days until ${next.name}`}>
                 {daysLeft}
               </span>
               <span className="text-[1.0625rem] font-semibold text-[var(--text-muted)]">
