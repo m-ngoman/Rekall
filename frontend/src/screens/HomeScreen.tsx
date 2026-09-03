@@ -1,6 +1,5 @@
 import { getDashboard, listDecks, listExams } from '../api'
 import DeckTile from '../components/DeckTile'
-import Logo from '../components/Logo'
 import { useCachedResource } from '../hooks/useCachedResource'
 import { daysUntil, formatCountdown } from '../lib/dates'
 import type { Dashboard, Deck, Exam } from '../types'
@@ -11,8 +10,8 @@ interface Props {
   onOpenExams: () => void
 }
 
-const CIRCUMFERENCE = 2 * Math.PI * 39
-
+/** Home is the countdown: the next exam, the days left, the cards due today, one button.
+ * No greeting, no ring, no streak, no totals — the number is the whole message. */
 export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props) {
   const [decks] = useCachedResource<Deck[]>('decks', listDecks, () => [])
   const [exams] = useCachedResource<Exam[]>('exams', listExams, () => [])
@@ -23,191 +22,112 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props)
   }))
 
   if (decks === null || dashboard === null) {
-    return <p className="text-sm text-[var(--text-secondary)]">Loading…</p>
+    return <p className="text-sm text-[var(--text-muted)]">Loading…</p>
   }
 
-  const pct = dashboard.goal_today > 0 ? Math.min(1, dashboard.reviewed_today / dashboard.goal_today) : 1
-  const remaining = Math.max(0, dashboard.goal_today - dashboard.reviewed_today)
-
-  // Paused decks (all their exams passed) are off the daily plate: excluded from the Due/New sums
-  // so these tiles agree with the server-filtered goal ring, and listed after the active decks.
   const active = decks.filter((d) => !d.exam_paused)
   const paused = decks.filter((d) => d.exam_paused)
+  const dueToday = Math.max(0, dashboard.goal_today - dashboard.reviewed_today)
 
-  // A deck cramming for the nearest exam wins "Jump back in"; otherwise the old due>new order.
-  const withWork = active.filter((d) => d.due > 0 || d.new > 0)
-  const nearestExamDeck = withWork
-    .filter((d) => d.next_exam)
-    .sort((a, b) => a.next_exam!.date.localeCompare(b.next_exam!.date))[0]
-  const jumpBackTo =
-    nearestExamDeck ?? active.find((d) => d.due > 0) ?? active.find((d) => d.new > 0) ?? active[0] ?? decks[0]
-
-  const totalCards = decks.reduce((sum, d) => sum + d.total, 0)
-  const totalDue = active.reduce((sum, d) => sum + d.due, 0)
-  const totalNew = active.reduce((sum, d) => sum + d.new, 0)
-
-  const upcomingExams = (exams ?? [])
+  const upcoming = (exams ?? [])
     .filter((e) => daysUntil(e.date) >= 0)
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 3)
+  const next = upcoming[0]
+  const rest = upcoming.slice(1, 4)
+  const daysLeft = next ? daysUntil(next.date) : null
+
+  // The deck to open when "Start" is tapped: the one cramming for the nearest exam, else the one
+  // with the most waiting. Study sessions are per deck, so Home has to pick.
+  const withWork = active.filter((d) => d.due > 0 || d.new > 0)
+  const startDeck =
+    (next && withWork.find((d) => next.deck_ids.includes(d.id))) ??
+    withWork.sort((a, b) => b.due + b.new - (a.due + a.new))[0]
 
   if (decks.length === 0) {
     return (
-      <div
-        className="flex flex-col items-center gap-5 rounded-[20px] bg-[var(--bg-card)] px-8 py-16 text-center"
-        style={{ boxShadow: 'var(--shadow-md)' }}
-      >
-        <Logo size={92} />
-        <div>
-          <div className="mb-1.5 text-lg font-extrabold">Welcome to Rekall</div>
-          <p className="mx-auto max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
-            Rekall quizzes you on your own notes and checks what you actually wrote or said — not
-            just whether you tapped "I knew it". Start by getting some cards in.
-          </p>
-        </div>
-        <button
-          onClick={onGoToCards}
-          className="mt-1 rounded-xl px-6 py-3 text-sm font-bold text-[oklch(0.99_0.005_90)]"
-          style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow)' }}
-        >
-          Add cards →
+      <div className="flex flex-col gap-5 pt-6">
+        <div className="text-[1.375rem] font-bold leading-snug">Nothing to remember yet.</div>
+        <p className="max-w-sm text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+          Rekall quizzes you on your own notes and checks what you actually wrote. Add cards, link
+          them to an exam date, and every card gets scheduled before the day.
+        </p>
+        <button onClick={onGoToCards} className="on-accent self-start rounded-[var(--r-full)] bg-[var(--accent)] px-6 py-3.5 text-[0.9375rem] font-bold">
+          Add cards
         </button>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <div className="flex items-center gap-5 rounded-[20px] bg-[var(--bg-card)] p-5 lg:p-6" style={{ boxShadow: 'var(--shadow-md)' }}>
-          <div className="relative h-[92px] w-[92px] flex-shrink-0 lg:h-[104px] lg:w-[104px]">
-            <svg width="100%" height="100%" viewBox="0 0 92 92">
-              <circle cx="46" cy="46" r="39" fill="none" stroke="var(--ring-track)" strokeWidth="10" />
-              <circle
-                cx="46"
-                cy="46"
-                r="39"
-                fill="none"
-                stroke="var(--accent)"
-                strokeWidth="10"
-                strokeLinecap="round"
-                strokeDasharray={`${pct * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
-                transform="rotate(-90 46 46)"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-xl font-extrabold leading-none">{dashboard.reviewed_today}</span>
-              <span className="text-[0.625rem] font-semibold text-[var(--text-secondary)]">of {dashboard.goal_today}</span>
-            </div>
-          </div>
-          <div className="flex-1">
-            <div className="mb-1 flex items-center gap-1.5">
-              <svg width="16" height="16" viewBox="0 0 24 24">
-                <path
-                  fill="var(--streak)"
-                  d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c0-1-1-2-1-2 2 1 3 3 3 5a5 5 0 0 1-10 0c0-5 3-6 5-11z"
-                />
-              </svg>
-              <span className="text-[0.9375rem] font-bold">{dashboard.streak_days}-day streak</span>
-            </div>
-            <div className="text-[0.8125rem] leading-relaxed text-[var(--text-secondary)]">
-              {remaining > 0
-                ? `You're on a roll — ${remaining} more card${remaining > 1 ? 's' : ''} to hit today's goal.`
-                : 'All caught up for today. Nice work!'}
-            </div>
-          </div>
-        </div>
-
-        {/* Was desktop-only, which had it backwards — one-tap resume matters most on mobile. */}
-        {jumpBackTo && (
-          <div className="flex flex-col justify-center gap-2.5 rounded-[20px] bg-[var(--bg-card)] p-5 lg:p-6" style={{ boxShadow: 'var(--shadow-md)' }}>
-            <div className="text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)]">Jump back in</div>
-            <div className="text-lg font-extrabold">{jumpBackTo.name}</div>
-            <div className="mb-1.5 text-[0.84375rem] text-[var(--text-secondary)]">
-              {jumpBackTo.due} due · {jumpBackTo.new} new
-            </div>
-            <button
-              onClick={() => onStudy(jumpBackTo.id)}
-              className="self-start rounded-xl px-5 py-2.5 text-sm font-bold text-[oklch(0.99_0.005_90)]"
-              style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow)' }}
-            >
-              Study now →
+    <div className="flex flex-col gap-8 pt-2">
+      <div className="flex flex-col">
+        {next ? (
+          <>
+            <button onClick={onOpenExams} className="self-start text-left text-[1.25rem] font-bold leading-snug">
+              {next.name}
             </button>
-          </div>
+            <div className="mt-1 flex items-baseline gap-3">
+              <span className="numeral text-[8.5rem] text-[var(--accent)]" aria-label={`${daysLeft} days until ${next.name}`}>
+                {daysLeft}
+              </span>
+              <span className="text-[1.0625rem] font-semibold text-[var(--text-muted)]">
+                {daysLeft === 1 ? 'day' : 'days'}
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="text-[1.25rem] font-bold leading-snug">No exam on the calendar</div>
+            <button onClick={onOpenExams} className="mt-1 self-start text-left text-[0.9375rem] font-semibold text-[var(--text-muted)] underline decoration-[var(--rule)] underline-offset-4">
+              Add one and every card gets scheduled before the day
+            </button>
+          </>
         )}
-      </div>
 
-      {/* At-a-glance totals across every deck — the deck list below answers "which one", this
-          answers "how much is on my plate overall", which nothing else on the page did. */}
-      <div className="grid grid-cols-4 gap-2.5 lg:gap-4">
-        <StatTile label="Decks" value={decks.length} />
-        <StatTile label="Cards" value={totalCards} />
-        <StatTile label="Due" value={totalDue} accent={totalDue > 0 ? 'var(--grade-forgot)' : undefined} />
-        <StatTile label="New" value={totalNew} accent={totalNew > 0 ? 'var(--accent)' : undefined} />
-      </div>
-
-      <div>
-        <div className="mb-3 flex items-baseline justify-between">
-          <span className="text-base font-extrabold">Exams</span>
-          <button onClick={onOpenExams} className="text-xs font-bold text-[var(--accent)]">
-            Calendar →
-          </button>
+        <div className="mt-5 flex items-baseline gap-2">
+          <span className="numeral text-[2rem]">{dueToday}</span>
+          <span className="text-[0.9375rem] font-semibold text-[var(--text-muted)]">
+            {dueToday === 1 ? 'card due today' : 'cards due today'}
+          </span>
         </div>
-        {upcomingExams.length === 0 ? (
+
+        {startDeck && dueToday > 0 ? (
           <button
-            onClick={onOpenExams}
-            className="w-full rounded-[16px] border border-dashed border-[var(--ring-track)] px-4 py-4 text-center text-sm font-semibold text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--accent)_5%,transparent)]"
+            onClick={() => onStudy(startDeck.id)}
+            className="on-accent mt-5 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold"
           >
-            + Add an exam date — linked decks get every card in before the day
+            Start today's {dueToday}
           </button>
         ) : (
-          <div className="flex flex-col gap-2">
-            {upcomingExams.map((e) => {
-              const days = daysUntil(e.date)
-              return (
-                <button
-                  key={e.id}
-                  onClick={onOpenExams}
-                  className="flex items-center gap-3 rounded-[16px] border border-[var(--ring-track)] px-4 py-3 text-left hover:bg-[color-mix(in_oklab,var(--accent)_5%,transparent)]"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[0.9375rem] font-bold">{e.name}</div>
-                    <div className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                      {e.deck_ids.length} deck{e.deck_ids.length === 1 ? '' : 's'} linked
-                    </div>
-                  </div>
-                  <span
-                    className="flex-shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-bold"
-                    style={{ color: 'var(--accent)', background: 'color-mix(in oklab, var(--accent) 14%, var(--bg-card))' }}
-                  >
-                    {formatCountdown(days)}
-                  </span>
-                </button>
-              )
-            })}
+          <div className="mt-5 rounded-[var(--r-full)] border border-[var(--rule)] py-4 text-center text-[0.9375rem] font-semibold text-[var(--text-muted)]">
+            Nothing due. Come back tomorrow.
           </div>
         )}
       </div>
 
+      {rest.length > 0 && (
+        <div className="border-t border-[var(--rule)]">
+          {rest.map((e) => (
+            <button
+              key={e.id}
+              onClick={onOpenExams}
+              className="flex w-full items-baseline justify-between gap-4 border-b border-[var(--rule)] py-3.5 text-left"
+            >
+              <span className="min-w-0 truncate text-[0.9375rem] font-semibold">{e.name}</span>
+              <span className="flex-shrink-0 text-[0.875rem] text-[var(--text-muted)]">{formatCountdown(daysUntil(e.date))}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div>
-        <div className="mb-3 text-base font-extrabold">Your Decks</div>
-        <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-3 lg:gap-4">
-          {[...active, ...paused].map((deck, i) => (
-            <DeckTile key={deck.id} deck={deck} index={i} onClick={() => onStudy(deck.id)} />
+        <div className="mb-3 text-[0.9375rem] font-bold">Decks</div>
+        <div className="flex flex-col gap-2 lg:grid lg:grid-cols-3 lg:gap-3">
+          {[...active, ...paused].map((deck) => (
+            <DeckTile key={deck.id} deck={deck} onClick={() => onStudy(deck.id)} />
           ))}
         </div>
       </div>
-    </div>
-  )
-}
-
-function StatTile({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  return (
-    <div className="rounded-[14px] border border-[var(--ring-track)] px-3 py-3 text-center lg:py-4">
-      <div className="text-xl font-extrabold leading-none lg:text-2xl" style={accent ? { color: accent } : undefined}>
-        {value}
-      </div>
-      <div className="mt-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{label}</div>
     </div>
   )
 }

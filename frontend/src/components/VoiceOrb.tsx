@@ -90,7 +90,9 @@ export default function VoiceOrb({ state, getAnalyser, size = 200 }: Props) {
       for (let i = 0; i < BAND_COUNT; i++) avg += bands[i]
       avg /= BAND_COUNT
 
-      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#c17a45'
+      // Read the accent off the canvas's own `color` rather than the raw custom property: in the
+      // light theme --accent is a relative-colour expression, and this is the resolved colour.
+      const accent = getComputedStyle(canvas).color
 
       // outer glow
       const glowR = baseR + 25 * scale + avg * 41 * scale
@@ -168,5 +170,5 @@ export default function VoiceOrb({ state, getAnalyser, size = 200 }: Props) {
     return () => cancelAnimationFrame(raf)
   }, [size, scale])
 
-  return <canvas ref={canvasRef} style={{ width: size, height: size }} />
+  return <canvas ref={canvasRef} style={{ width: size, height: size, color: 'var(--accent)' }} />
 }

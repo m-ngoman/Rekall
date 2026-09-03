@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.bugs import router as bugs_router
 from app.api.cards import router as cards_router
@@ -40,6 +41,7 @@ app.include_router(memory_router)
 app.include_router(notes_router)
 app.include_router(settings_router)
 app.include_router(bugs_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")

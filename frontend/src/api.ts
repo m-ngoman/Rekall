@@ -1,4 +1,5 @@
 import type {
+  AdminStats,
   Card,
   Dashboard,
   Deck,
@@ -369,6 +370,29 @@ export function getNote(id: string): Promise<NoteDetail> {
   return request(`/notes/${id}`)
 }
 
+/** A note written in the app rather than uploaded. Only called once there's something to keep —
+ * the editor doesn't create a row for a note that was opened and abandoned. Either a category id
+ * or a new category's name files it, as with uploadNotes. */
+export function createTextNote(
+  input: { title: string; text: string; deckId: string | null; deckName?: string },
+): Promise<NoteDetail> {
+  return request('/notes/text', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: input.title.trim() || null,
+      text: input.text,
+      deck_id: input.deckId,
+      deck_name: input.deckName?.trim() ?? '',
+    }),
+  })
+}
+
+/** Saves the editor's title and body together. One call, not two, so the two fields can't be
+ * left half-saved if the second request fails. deck_id is omitted so this can't refile. */
+export function saveNoteContent(id: string, title: string, text: string): Promise<Note> {
+  return request(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify({ title, text }) })
+}
+
 export function deleteNote(id: string): Promise<void> {
   return request(`/notes/${id}`, { method: 'DELETE' })
 }
@@ -467,6 +491,12 @@ export async function getMe(): Promise<Me | null> {
     if (e instanceof NotSignedIn) return null
     throw e
   }
+}
+
+/** Aggregate usage counts for the owner dashboard. 404s for every other account, so callers
+ * should only reach this behind `me.is_owner`. `days` sets the length of the daily series. */
+export function getAdminStats(days = 30): Promise<AdminStats> {
+  return request(`/admin/stats?days=${days}`)
 }
 
 export function logout(): Promise<{ ok: boolean }> {

@@ -64,3 +64,24 @@ def get_current_user(request: Request, db: Session) -> User:
     if user is None:
         raise HTTPException(401, "Not signed in")
     return user
+
+
+def is_owner(user: User) -> bool:
+    """Adam's own account, and only if OWNER_EMAIL is configured — an unset value must never
+    match, or every deployment's first user would inherit the owner-only features."""
+    return bool(settings.owner_email) and user.email.lower() == settings.owner_email.lower()
+
+
+def require_owner(request: Request, db: Session) -> User:
+    """The gate on every owner-only endpoint — the bug inbox and the admin dashboard.
+
+    Lives here rather than beside either of them because it is a question about *identity*, and
+    two API modules needing it would otherwise have to import one another.
+
+    404, not 403: to anyone else these endpoints don't exist, and saying "forbidden" would
+    advertise that they do.
+    """
+    user = get_current_user(request, db)
+    if not is_owner(user):
+        raise HTTPException(404, "Not found")
+    return user

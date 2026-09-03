@@ -11,15 +11,20 @@ from app.models.base import Base, TimestampMixin, UUIDPKMixin
 class NoteFileType(str, enum.Enum):
     image = "image"
     pdf = "pdf"
+    # Written in the app rather than uploaded. There is no original file, so `storage_path` is
+    # NULL and `ocr_text` holds the note itself instead of a reading of something else.
+    text = "text"
 
 
 class Note(UUIDPKMixin, TimestampMixin, Base):
-    """Digital copy of a single uploaded page of notes — written both by the Notes tab's own
-    upload and as a byproduct of deck generation (see app/api/notes.py). `storage_path` points at
-    the original file on local disk; `ocr_text` holds that one file's markdown transcription, from
-    its own vision call, which is what the notes search queries and what tutor-mode RAG grounding
-    will eventually read. It is nullable because a transcription failure shouldn't stop the file
-    itself from being saved.
+    """One note: a digital copy of an uploaded page (written both by the Notes tab's own upload and
+    as a byproduct of deck generation, see app/api/notes.py) or a note typed straight into the
+    app. `storage_path` points at the original file on local disk, or is NULL for a typed note.
+    `ocr_text` holds the markdown body — for an upload, that file's transcription from its own
+    vision call; for a typed note, what the user wrote — and is what the notes search queries and
+    what tutor-mode RAG grounding will eventually read. It is nullable because a transcription
+    failure shouldn't stop the file itself from being saved. The name is historical: the column
+    predates typed notes and renaming it buys nothing but a migration.
     """
 
     __tablename__ = "notes"
@@ -36,7 +41,7 @@ class Note(UUIDPKMixin, TimestampMixin, Base):
     title: Mapped[str | None] = mapped_column(String, nullable=True)
 
     file_type: Mapped[NoteFileType] = mapped_column(Enum(NoteFileType, name="note_file_type"))
-    storage_path: Mapped[str] = mapped_column(String)  # URI into the (non-text-only) blob storage layer
+    storage_path: Mapped[str | None] = mapped_column(String, nullable=True)  # local path; NULL for typed notes
     ocr_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     owner: Mapped["User"] = relationship(back_populates="notes")

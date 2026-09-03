@@ -26,32 +26,30 @@ export default function MemoryPicker({ notes, onAdd, onDelete }: Props) {
   }
 
   return (
-    <div className="w-80 rounded-[18px] bg-[var(--bg-card)] p-5" style={{ boxShadow: 'var(--shadow-lg)' }}>
-      <div className="mb-1 text-sm font-bold">Memory</div>
-      <p className="mb-3.5 text-xs text-[var(--text-secondary)]">
+    <div className="w-80 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4">
+      <div className="mb-1 text-[0.9375rem] font-bold">Memory</div>
+      <p className="mb-3.5 text-xs text-[var(--text-muted)]">
         What the tutor remembers about you across sessions. Notes marked <span className="font-bold">auto</span> are
         ones it wrote itself — delete any that are wrong.
       </p>
 
       {notes === null ? (
-        <p className="text-xs text-[var(--text-secondary)]">Loading…</p>
+        <p className="text-xs text-[var(--text-muted)]">Loading…</p>
       ) : notes.length === 0 ? (
-        <p className="mb-3 text-xs text-[var(--text-secondary)]">No notes yet — add one below.</p>
+        <p className="mb-3 text-xs text-[var(--text-muted)]">No notes yet — add one below.</p>
       ) : (
         <div className="mb-3 flex max-h-52 flex-col gap-1.5 overflow-y-auto">
           {notes.map((n) => (
-            <div key={n.id} className="flex items-start gap-2 rounded-2xl bg-[var(--bg)] px-3 py-2.5">
+            <div key={n.id} className="flex items-start gap-2 rounded-[var(--r-sm)] bg-[var(--bg)] px-3 py-2.5">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[0.625rem] font-bold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>
-                    {CATEGORY_LABELS[n.category]}
-                  </span>
+                  <span className="text-[0.6875rem] font-bold text-[var(--text-muted)]">{CATEGORY_LABELS[n.category]}</span>
                   {/* The tutor's own inferences are marked, not hidden: writing them without an
                       approval step is only fair if you can see which ones it made up. */}
                   {n.source === 'auto' && (
                     <span
-                      className="rounded-full px-1.5 py-px text-[0.5625rem] font-bold uppercase tracking-wide text-[var(--text-secondary)]"
-                      style={{ background: 'var(--ring-track)' }}
+                      className="rounded-[var(--r-full)] px-1.5 py-px text-[0.625rem] font-bold text-[var(--text-muted)]"
+                      style={{ background: 'var(--rule)' }}
                       title="Written by the tutor from your conversations"
                     >
                       auto
@@ -63,7 +61,7 @@ export default function MemoryPicker({ notes, onAdd, onDelete }: Props) {
               <button
                 onClick={() => onDelete(n.id)}
                 aria-label="Delete note"
-                className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)]"
+                className="-mr-1 -mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-sm)] text-[var(--text-muted)]"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
@@ -74,11 +72,11 @@ export default function MemoryPicker({ notes, onAdd, onDelete }: Props) {
         </div>
       )}
 
-      <div className="flex flex-col gap-2 border-t border-[var(--bg)] pt-3">
+      <div className="flex flex-col gap-2 border-t border-[var(--rule)] pt-3">
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as MemoryCategory)}
-          className="rounded-xl bg-[var(--bg)] px-3 py-2 text-xs outline-none"
+          className="rounded-[var(--r-sm)] bg-[var(--bg)] px-3 py-2 text-xs"
         >
           <option value="preference">Preference — how you like to learn</option>
           <option value="gap">Gap — something you keep struggling with</option>
@@ -91,12 +89,11 @@ export default function MemoryPicker({ notes, onAdd, onDelete }: Props) {
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
             placeholder="Add a note…"
-            className="min-w-0 flex-1 rounded-xl bg-[var(--bg)] px-3 py-2 text-xs outline-none"
+            className="min-w-0 flex-1 rounded-[var(--r-sm)] bg-[var(--bg)] px-3 py-2 text-xs"
           />
           <button
             onClick={handleAdd}
-            className="flex-shrink-0 rounded-xl px-3 py-2 text-xs font-bold text-[oklch(0.99_0.005_90)]"
-            style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow)' }}
+            className="on-accent flex-shrink-0 rounded-[var(--r-full)] bg-[var(--accent)] px-3.5 py-2 text-xs font-bold"
           >
             Add
           </button>

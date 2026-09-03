@@ -1,9 +1,6 @@
-/** Calendar-date helpers for exam dates (`YYYY-MM-DD` strings).
- *
- * Everything here works in *local* time on purpose: an exam date is a day on the user's own
- * calendar. The one trap is `new Date('YYYY-MM-DD')`, which the spec says to parse as UTC
- * midnight — west of Greenwich that renders as the previous day. So: always split and construct.
- */
+/** Calendar-date helpers for exam dates (`YYYY-MM-DD` strings). Everything is *local* time on
+ * purpose — an exam date is a day on the user's own calendar. Never `new Date('YYYY-MM-DD')`,
+ * which parses as UTC midnight and renders as the previous day west of Greenwich. */
 
 export function parseISODate(iso: string): Date {
   const [y, m, d] = iso.split('-').map(Number)
@@ -22,7 +19,7 @@ export function daysUntil(iso: string): number {
   return Math.round((parseISODate(iso).getTime() - today.getTime()) / 86_400_000)
 }
 
-/** "in 12 days" / "tomorrow" / "today" / "passed" — for the exam rows on Home. */
+/** "in 12 days" / "tomorrow" / "today" / "passed" — for exam rows. */
 export function formatCountdown(days: number): string {
   if (days < 0) return 'passed'
   if (days === 0) return 'today'
@@ -42,4 +39,12 @@ export function formatMonth(year: number, month: number): string {
 /** "Mon, Sep 1" — the sheet's human echo of the date being edited. */
 export function formatDayLong(iso: string): string {
   return parseISODate(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+/** "Tue 6 Oct" — the date beside a countdown, where the number already carries the urgency. */
+export function formatDayShort(iso: string): string {
+  const d = parseISODate(iso)
+  const wd = d.toLocaleDateString(undefined, { weekday: 'short' })
+  const mo = d.toLocaleDateString(undefined, { month: 'short' })
+  return `${wd} ${d.getDate()} ${mo}`
 }

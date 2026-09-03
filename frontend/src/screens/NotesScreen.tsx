@@ -1,7 +1,10 @@
-import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from 'react'
-import { createDeck, deleteNote, getNote, listDecks, listNotes, moveNote, noteFileUrl, renameDeck, renameNote, uploadNotes } from '../api'
+import { type ChangeEvent, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react'
+import { createDeck, createTextNote, deleteNote, getNote, listDecks, listNotes, moveNote, noteFileUrl, renameDeck, saveNoteContent, uploadNotes } from '../api'
+
+// The editor is ProseMirror plus a markdown parser — about half the app again — and most visits
+// never open a note, so it stays out of the main bundle until one does.
+const MarkdownEditor = lazy(() => import('../components/MarkdownEditor'))
 import { getCached, setCached, useCachedResource } from '../hooks/useCachedResource'
-import ActionCard from '../components/ActionCard'
 import { useCategoryDrag } from '../hooks/useCategoryDrag'
 import type { Deck, Note, NoteDetail } from '../types'
 
@@ -43,14 +46,6 @@ const LIBRARY_ICON = (
   </svg>
 )
 
-const ADD_NOTES_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M19 12.5V19a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
-    <path d="M9 9h4M9 13h6M9 17h4" />
-    <path d="M18 2.5v6M21 5.5h-6" />
-  </svg>
-)
-
 const FOLDER_ICON = (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17.5z" />
@@ -63,9 +58,27 @@ const PENCIL_ICON = (
   </svg>
 )
 
+const BACK_CHEVRON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M15 18l-6-6 6-6" />
+  </svg>
+)
+const BACK_CLASS = '-ml-2 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]'
+
 /** Unfiled isn't a deck, so it has no id — the empty string stands in for it as a drop target and
  * as a `<select>` value, and converts back to `null` at the API boundary. */
 const UNFILED_KEY = ''
+
+/** Where a note being written will be filed once there's something to save. `deckName` without a
+ * `deckId` is a category that doesn't exist yet — the create call makes it. */
+interface Draft {
+  deckId: string | null
+  deckName: string
+}
+
+function kindLabel(fileType: Note['file_type']): string {
+  return fileType === 'pdf' ? 'PDF' : fileType === 'image' ? 'Photo' : 'Note'
+}
 
 interface Group {
   key: string
@@ -74,7 +87,9 @@ interface Group {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  const d = new Date(iso)
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return d.toLocaleDateString(undefined, sameYear ? { day: 'numeric', month: 'short' } : { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
@@ -90,6 +105,8 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
   const [cachedDecks, setDecks] = useCachedResource<Deck[]>('decks', listDecks, () => [])
   const decks = cachedDecks ?? []
   const [adding, setAdding] = useState(false)
+  // A note being written that hasn't been saved yet. Becomes `openNote` on its first save.
+  const [composing, setComposing] = useState<Draft | null>(null)
   const [justAdded, setJustAdded] = useState<{ count: number; deckName: string } | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [creatingCategory, setCreatingCategory] = useState(false)
@@ -152,18 +169,21 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
     }
   }
 
-  /** Applied to the open note and to the list behind it, so backing out doesn't show the old name
-   * for a beat. On failure both are put back from the server rather than guessed at. */
-  const handleRenameNote = async (noteId: string, title: string) => {
-    const next = title.trim() || null
-    setOpenNote((prev) => (prev && prev.id === noteId ? { ...prev, title: next } : prev))
-    setNotes((prev) => prev?.map((n) => (n.id === noteId ? { ...n, title: next } : n)) ?? null)
-    try {
-      await renameNote(noteId, title)
-    } catch {
-      setError('Could not rename that note.')
-      setReloadKey((k) => k + 1)
-    }
+  /** The editor saved: keep the tile behind it current so backing out doesn't show a stale
+   * name or preview for a beat. */
+  const handleSaved = (saved: Note) => {
+    setNotes((prev) => prev?.map((n) => (n.id === saved.id ? { ...n, title: saved.title, preview: saved.preview } : n)) ?? null)
+  }
+
+  /** First save of a note being written. From here on the editor patches it like any other. */
+  const handleCreate = async (draft: Draft, title: string, text: string): Promise<NoteDetail> => {
+    const created = await createTextNote({ title, text, deckId: draft.deckId, deckName: draft.deckName })
+    setNotes((prev) => [created, ...(prev ?? [])])
+    setOpenNote(created)
+    setComposing(null)
+    // A category named in the draft was just made server-side; the list needs to know about it.
+    if (!draft.deckId && draft.deckName.trim()) setReloadKey((k) => k + 1)
+    return created
   }
 
   const handleRenameCategory = async (deckId: string, name: string) => {
@@ -190,8 +210,15 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
     }
   }
 
+  /** A typed note left with nothing in it isn't worth a tile. No confirm: there's nothing to lose. */
+  const handleDiscard = (id: string) => {
+    setOpenNote(null)
+    setNotes((prev) => prev?.filter((n) => n.id !== id) ?? null)
+    deleteNote(id).catch(() => {})
+  }
+
+  /** The editor has already asked. */
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this note? Cards already generated from it are kept.')) return
     try {
       await deleteNote(id)
       setOpenNote(null)
@@ -201,13 +228,23 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
     }
   }
 
-  if (openNote) {
+  if (openNote || composing) {
+    // One mount for the whole visit: a draft turning into a saved note must not remount the
+    // editor mid-sentence, so the key is fixed rather than the note's id. Opening a different
+    // note always passes through the list first, which unmounts this.
     return (
-      <NoteDetailView
+      <NoteEditorView
+        key="editor"
         note={openNote}
-        onBack={() => setOpenNote(null)}
-        onDelete={() => handleDelete(openNote.id)}
-        onRename={(title) => handleRenameNote(openNote.id, title)}
+        draft={composing}
+        onBack={() => {
+          setOpenNote(null)
+          setComposing(null)
+        }}
+        onDelete={openNote ? () => handleDelete(openNote.id) : undefined}
+        onDiscard={handleDiscard}
+        onCreate={(title, text) => handleCreate(composing ?? { deckId: null, deckName: '' }, title, text)}
+        onSaved={handleSaved}
       />
     )
   }
@@ -217,6 +254,11 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
       <AddNotesPanel
         decks={decks}
         onCancel={() => setAdding(false)}
+        onWrite={(draft) => {
+          setAdding(false)
+          setQuery('')
+          setComposing(draft)
+        }}
         onAdded={(count, deckName) => {
           setAdding(false)
           setJustAdded({ count, deckName })
@@ -249,89 +291,65 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
-      <ActionCard
-        onClick={() => {
-          setJustAdded(null)
-          setAdding(true)
-        }}
-        title="Add notes"
-        description={
-          aiGeneration
-            ? 'A photo, a PDF, or a page from your notebook'
-            : 'Photos save as-is — not read into text while AI is off'
-        }
-        icon={ADD_NOTES_ICON}
-      />
+      <div className="flex gap-2">
+        <label className="flex h-11 flex-1 items-center gap-2.5 rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[var(--text-muted)]">
+          {SEARCH_ICON}
+          <input
+            value={query}
+            onChange={(e) => {
+              setJustAdded(null)
+              setQuery(e.target.value)
+            }}
+            placeholder="Search your notes"
+            className="min-w-0 flex-1 bg-transparent text-[0.9375rem] text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]"
+          />
+        </label>
+        <button
+          onClick={() => {
+            setJustAdded(null)
+            setAdding(true)
+          }}
+          title={aiGeneration ? 'Write one, or add a photo or PDF' : 'Write one, or add a photo or PDF (not read into text while AI is off)'}
+          className="on-accent h-11 flex-shrink-0 rounded-[var(--r-full)] bg-[var(--accent)] px-4 text-[0.875rem] font-bold"
+        >
+          Add notes
+        </button>
+      </div>
 
       {/* Notes are grouped by deck, not listed newest-first, so a new one can land well down the
           page — the banner is what confirms it actually arrived. */}
       {justAdded && (
         <div
-          className="rounded-2xl px-4 py-2.5 text-sm font-semibold"
+          className="rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold"
           style={{ background: 'var(--grade-good-bg)', color: 'var(--grade-good)' }}
         >
           Added {justAdded.count} note{justAdded.count === 1 ? '' : 's'} to {justAdded.deckName}.
         </div>
       )}
 
-      <div className="relative">
-        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]">
-          {SEARCH_ICON}
-        </span>
-        <input
-          value={query}
-          onChange={(e) => {
-            setJustAdded(null)
-            setQuery(e.target.value)
-          }}
-          placeholder="Search your notes…"
-          className="w-full rounded-xl bg-[var(--bg-card)] py-2.5 pl-10 pr-3.5 text-sm outline-none placeholder:text-[var(--text-secondary)]"
-          style={{ boxShadow: 'var(--shadow-sm)' }}
-        />
-      </div>
-
       {error && (
-        <div className="rounded-2xl px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
+        <div className="rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
           {error}
         </div>
       )}
 
       {notes === null ? (
-        <p className="text-sm text-[var(--text-secondary)]">Loading…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
       ) : notes.length === 0 && searching ? (
-        <div className="rounded-[16px] border border-dashed border-[var(--ring-track)] p-10 text-center">
-          <p className="text-sm text-[var(--text-secondary)]">No notes match "{query.trim()}".</p>
+        <div className="rounded-[var(--r-md)] border border-dashed border-[var(--rule)] p-10 text-center">
+          <p className="text-sm text-[var(--text-muted)]">No notes match "{query.trim()}".</p>
         </div>
       ) : (
         <>
           {notes.length === 0 && (
-            <div
-              className="flex flex-col items-center gap-4 rounded-[20px] bg-[var(--bg-card)] px-8 py-16 text-center"
-              style={{ boxShadow: 'var(--shadow-md)' }}
-            >
-              <div
-                className="flex h-14 w-14 items-center justify-center rounded-2xl"
-                style={{
-                  background: 'color-mix(in oklab, var(--accent) 15%, var(--bg-card))',
-                  color: 'var(--accent)',
-                  boxShadow: 'var(--highlight-shadow)',
-                }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="4" y="3" width="16" height="18" rx="3" />
-                  <path d="M8 8h8M8 12h8M8 16h5" />
-                </svg>
-              </div>
-              <div>
-                <div className="mb-1.5 text-lg font-extrabold">No notes yet</div>
-                <p className="mx-auto max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
-                  Use <span className="font-bold">Add notes</span> above and your photo or PDF is kept here with the
-                  text the AI read from it, so you can search it later. Notes you turn into flashcards from the Cards
-                  tab land here too.
-                </p>
-              </div>
-              <button onClick={onGoToCards} className="mt-1 text-sm font-bold" style={{ color: 'var(--accent)' }}>
-                Or generate flashcards from notes →
+            <div className="pt-4">
+              <div className="text-[1.25rem] font-bold leading-snug">No notes yet</div>
+              <p className="mt-1.5 max-w-md text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+                Write a note here, or add a photo or PDF and it's kept with the text the AI read from it, so you
+                can search it later. Notes you turn into flashcards from the Cards tab land here too.
+              </p>
+              <button onClick={onGoToCards} className="mt-4 text-[0.9375rem] font-semibold underline decoration-[var(--rule)] underline-offset-4">
+                Generate flashcards from notes instead
               </button>
             </div>
           )}
@@ -339,13 +357,12 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
           {(notes.length > 0 || hasCategories) && (
             <>
               <div className="flex items-baseline justify-between">
-                <span className="text-base font-extrabold">Categories</span>
+                <span className="text-[0.9375rem] font-bold">Categories</span>
                 <button
                   onClick={() => setCreatingCategory(true)}
-                  className="text-xs font-bold"
-                  style={{ color: 'var(--accent)' }}
+                  className="text-[0.8125rem] font-bold text-[var(--text-muted)]"
                 >
-                  + New category
+                  New category
                 </button>
               </div>
 
@@ -380,15 +397,8 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
           hitting this. */}
       {drag && (
         <div
-          className="pointer-events-none fixed z-50 max-w-[60vw] truncate rounded-xl px-3.5 py-2 text-xs font-bold"
-          style={{
-            left: drag.x,
-            top: drag.y,
-            transform: 'translate(-50%, -140%)',
-            background: 'var(--bg-card)',
-            color: 'var(--accent)',
-            boxShadow: 'var(--shadow-lg)',
-          }}
+          className="pointer-events-none fixed z-50 max-w-[60vw] truncate rounded-[var(--r-sm)] border border-[var(--rule)] px-3.5 py-2 text-xs font-bold"
+          style={{ left: drag.x, top: drag.y, transform: 'translate(-50%, -140%)', background: 'var(--surface)', color: 'var(--text)' }}
         >
           {drag.label}
         </div>
@@ -397,8 +407,8 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
   )
 }
 
-/** Laid out to match the Cards tab's generator panel — same "Add to / File under" select above the
- * same three source buttons, same staged file list, same primary action at the bottom.
+/** Writing is the first option and the only accent on the page; uploading is the rest of it.
+ * Both file under the same category choice, made once at the top.
  *
  * Files are staged rather than uploaded the moment they're picked. Each one costs a vision call,
  * so a mis-tap would otherwise burn a request and leave a junk note to clean up; staging also
@@ -410,10 +420,12 @@ const NEW_CATEGORY = '__new_category__'
 
 function AddNotesPanel({
   decks,
+  onWrite,
   onAdded,
   onCancel,
 }: {
   decks: Deck[]
+  onWrite: (draft: Draft) => void
   onAdded: (count: number, deckName: string) => void
   onCancel: () => void
 }) {
@@ -426,6 +438,15 @@ function AddNotesPanel({
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const libraryInputRef = useRef<HTMLInputElement>(null)
   const pdfInputRef = useRef<HTMLInputElement>(null)
+
+  const naming = deckId === NEW_CATEGORY
+
+  /** The category as the API wants it: an id, a name to create, or neither. Null when the user
+   * picked "new category" and hasn't named it. */
+  const filing = (): Draft | null => {
+    if (naming) return newCategory.trim() ? { deckId: null, deckName: newCategory.trim() } : null
+    return { deckId: deckId || null, deckName: decks.find((d) => d.id === deckId)?.name ?? '' }
+  }
 
   const addFiles = (e: ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? [])
@@ -440,13 +461,19 @@ function AddNotesPanel({
     setError(null)
   }
 
-  const handleAdd = async () => {
-    if (files.length === 0) {
-      setError('Add at least one photo or PDF first.')
+  const handleWrite = () => {
+    const draft = filing()
+    if (!draft) {
+      setError('Give the new category a name, or pick an existing one.')
       return
     }
-    const naming = deckId === NEW_CATEGORY
-    if (naming && !newCategory.trim()) {
+    onWrite(draft)
+  }
+
+  const handleAdd = async () => {
+    if (files.length === 0) return
+    const draft = filing()
+    if (!draft) {
       setError('Give the new category a name, or pick an existing one.')
       return
     }
@@ -454,11 +481,8 @@ function AddNotesPanel({
     setError(null)
     try {
       // NEW_CATEGORY is a UI-only sentinel; the API sees a real id or a name, never both.
-      await uploadNotes(files, naming ? null : deckId || null, naming ? newCategory : '')
-      onAdded(
-        files.length,
-        naming ? newCategory.trim() : (decks.find((d) => d.id === deckId)?.name ?? UNFILED),
-      )
+      await uploadNotes(files, draft.deckId, draft.deckId ? '' : draft.deckName)
+      onAdded(files.length, draft.deckName || UNFILED)
     } catch {
       setError('Could not upload that — check the file and try again.')
     } finally {
@@ -468,25 +492,21 @@ function AddNotesPanel({
 
   return (
     <div>
-      <button onClick={onCancel} disabled={busy} className="mb-4 text-sm font-semibold text-[var(--text-secondary)]">
-        ← Back to notes
+      <button onClick={onCancel} disabled={busy} className={`${BACK_CLASS} mb-4`}>
+        {BACK_CHEVRON}
+        Notes
       </button>
-      <p className="mb-5 text-sm text-[var(--text-secondary)]">
-        Photos or PDFs of your notes are kept here alongside the text the AI reads out of them, so you can search
-        them later. This doesn't make any flashcards — the Cards tab does that.
-      </p>
 
       <div className="mb-5">
-        <div className="mb-2 text-xs font-bold text-[var(--text-secondary)]">File under</div>
+        <div className="mb-2 text-[0.8125rem] font-semibold text-[var(--text-muted)]">File under</div>
         <select
           value={deckId}
           onChange={(e) => setDeckId(e.target.value)}
           disabled={busy}
-          className="w-full rounded-xl bg-[var(--bg-card)] px-3.5 py-2.5 text-sm outline-none"
-          style={{ boxShadow: 'var(--shadow-sm)' }}
+          className="h-11 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[0.9375rem] outline-none"
         >
           <option value="">{UNFILED}</option>
-          <option value={NEW_CATEGORY}>New category — I'll name it</option>
+          <option value={NEW_CATEGORY}>New category, I'll name it</option>
           {decks.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
@@ -494,7 +514,7 @@ function AddNotesPanel({
           ))}
         </select>
 
-        {deckId === NEW_CATEGORY && (
+        {naming && (
           <input
             autoFocus
             value={newCategory}
@@ -502,31 +522,44 @@ function AddNotesPanel({
             disabled={busy}
             placeholder="Category name"
             maxLength={80}
-            className="mt-2 w-full rounded-xl bg-[var(--bg-card)] px-3.5 py-2.5 text-sm outline-none"
-            style={{ boxShadow: 'var(--shadow-sm)' }}
+            className="mt-2 h-11 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[0.9375rem] outline-none placeholder:text-[var(--text-muted)]"
           />
         )}
       </div>
+
+      <button
+        onClick={handleWrite}
+        disabled={busy}
+        className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
+      >
+        Write a note
+      </button>
+
+      <div className="mb-3 mt-7 text-[0.8125rem] font-semibold text-[var(--text-muted)]">Or add photos and PDFs</div>
+      <p className="mb-3 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">
+        Each file is kept with the text the AI reads out of it. This doesn't make any flashcards — the Cards tab
+        does that.
+      </p>
 
       <div className="mb-3 grid grid-cols-3 gap-2.5">
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={addFiles} />
         <input ref={libraryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={addFiles} />
         <input ref={pdfInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={addFiles} />
 
-        <SourceButton disabled={busy} onClick={() => cameraInputRef.current?.click()} icon={CAMERA_ICON} label="Take Photo" />
-        <SourceButton disabled={busy} onClick={() => libraryInputRef.current?.click()} icon={LIBRARY_ICON} label="Library" />
-        <SourceButton disabled={busy} onClick={() => pdfInputRef.current?.click()} icon={PDF_ICON} label="PDF" />
+        <SourceButton disabled={busy} onClick={() => cameraInputRef.current?.click()} icon={CAMERA_ICON} label="Take a photo" />
+        <SourceButton disabled={busy} onClick={() => libraryInputRef.current?.click()} icon={LIBRARY_ICON} label="Choose photos" />
+        <SourceButton disabled={busy} onClick={() => pdfInputRef.current?.click()} icon={PDF_ICON} label="Choose a PDF" />
       </div>
 
       {files.length > 0 && (
-        <div className="mb-5 flex flex-col gap-1.5">
+        <div className="mb-5 border-t border-[var(--rule)]">
           {files.map((f, i) => (
-            <div key={`${f.name}-${f.size}`} className="flex items-center justify-between rounded-xl bg-[var(--bg-card)] px-3.5 py-2.5" style={{ boxShadow: 'var(--shadow-sm)' }}>
-              <span className="truncate text-xs font-semibold text-[var(--text-secondary)]">{f.name}</span>
+            <div key={`${f.name}-${f.size}`} className="flex items-center justify-between gap-3 border-b border-[var(--rule)] py-3">
+              <span className="truncate text-[0.9375rem] font-semibold">{f.name}</span>
               <button
                 onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
                 disabled={busy}
-                className="ml-2 flex-shrink-0 text-xs font-bold text-[var(--grade-forgot)]"
+                className="flex-shrink-0 text-[0.875rem] font-semibold text-[var(--text-muted)]"
               >
                 Remove
               </button>
@@ -536,23 +569,22 @@ function AddNotesPanel({
       )}
 
       {error && (
-        <div className="mb-5 rounded-2xl px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
+        <div className="mb-5 rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
           {error}
         </div>
       )}
 
-      <button
-        onClick={handleAdd}
-        disabled={busy || files.length === 0}
-        className="w-full rounded-xl bg-[var(--accent)] py-3.5 text-sm font-bold text-[oklch(0.99_0.005_90)] disabled:opacity-50"
-        style={{ boxShadow: 'var(--accent-shadow)' }}
-      >
-        {busy
-          ? 'Reading your notes…'
-          : files.length === 0
-            ? 'Add notes →'
-            : `Add ${files.length} note${files.length === 1 ? '' : 's'} →`}
-      </button>
+      {/* Secondary on purpose: the accent on this page is already spent on writing. Absent until
+          there's something staged, since a button for zero files says nothing. */}
+      {files.length > 0 && (
+        <button
+          onClick={handleAdd}
+          disabled={busy}
+          className="w-full rounded-[var(--r-full)] border border-[var(--rule)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
+        >
+          {busy ? 'Reading your notes' : `Add ${files.length} note${files.length === 1 ? '' : 's'}`}
+        </button>
+      )}
     </div>
   )
 }
@@ -584,15 +616,8 @@ function CategoryGroup({
   return (
     <div
       data-drop-key={group.key}
-      className="rounded-[16px] p-1 transition-colors"
-      style={
-        isDropTarget
-          ? {
-              background: 'color-mix(in oklab, var(--accent) 10%, transparent)',
-              boxShadow: 'inset 0 0 0 2px var(--accent)',
-            }
-          : undefined
-      }
+      className="-mx-2 rounded-[var(--r-md)] px-2 pb-2 transition-colors"
+      style={isDropTarget ? { background: 'var(--accent-dim)' } : undefined}
     >
       {renaming && onRename ? (
         <CategoryNameInput
@@ -605,33 +630,33 @@ function CategoryGroup({
           onCancel={() => setRenaming(false)}
         />
       ) : (
-        <div className="mb-2.5 flex items-baseline justify-between gap-2 px-2 pt-1">
+        <div className="mb-3 flex items-baseline justify-between gap-2 pt-1">
           <div className="flex min-w-0 items-baseline gap-1.5">
-            <span className="truncate text-base font-extrabold">{group.name}</span>
+            <span className="truncate text-[0.9375rem] font-bold">{group.name}</span>
             {onRename && (
               <button
                 onClick={() => setRenaming(true)}
                 aria-label={`Rename ${group.name}`}
-                className="flex-shrink-0 self-center text-[var(--text-secondary)]"
+                className="flex-shrink-0 self-center text-[var(--text-muted)]"
               >
                 {PENCIL_ICON}
               </button>
             )}
           </div>
-          <span className="flex-shrink-0 text-xs font-semibold text-[var(--text-secondary)]">
+          <span className="flex-shrink-0 text-[0.8125rem] text-[var(--text-muted)]">
             {group.notes.length} note{group.notes.length === 1 ? '' : 's'}
           </span>
         </div>
       )}
 
       {group.notes.length === 0 ? (
-        <div className="mx-1 mb-1 rounded-[12px] border border-dashed border-[var(--ring-track)] px-4 py-6 text-center">
-          <p className="text-xs text-[var(--text-secondary)]">
-            {dragging ? 'Drop here to file it under this category' : 'No notes filed here yet'}
+        <div className="border-t border-[var(--rule)] py-4">
+          <p className="text-[0.8125rem] text-[var(--text-muted)]">
+            {dragging ? 'Drop here to file it under this category' : 'Nothing filed here yet. Drag a note in, or pick a category from its menu.'}
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
           {group.notes.map((note) => (
             <NoteTile
               key={note.id}
@@ -639,7 +664,7 @@ function CategoryGroup({
               categories={categories}
               onOpen={() => onOpenNote(note.id)}
               onMove={(dropKey) => onMoveNote(note.id, dropKey)}
-              onGrab={onGrabNote(note.id, note.preview.slice(0, 40) || 'Note')}
+              onGrab={onGrabNote(note.id, note.title ?? (note.preview.slice(0, 40) || 'Note'))}
             />
           ))}
         </div>
@@ -665,58 +690,55 @@ function NoteTile({
     <div
       onClick={onOpen}
       onPointerDown={onGrab}
-      className="flex cursor-pointer items-start gap-3.5 rounded-[16px] border border-[var(--ring-track)] p-4 text-left transition-colors hover:bg-[color-mix(in_oklab,var(--accent)_5%,transparent)]"
+      className="flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-[var(--r-md)] bg-[var(--surface)] text-left"
     >
+      {/* The preview is the tile. A photo shows itself; a PDF shows the text read from it, small
+          and cropped, so either kind is recognised by what's on it rather than by its name. */}
       {note.file_type === 'image' ? (
-        <img
-          src={noteFileUrl(note.id)}
-          alt=""
-          draggable={false}
-          className="h-14 w-14 flex-shrink-0 rounded-xl object-cover"
-          style={{ background: 'var(--ring-track)' }}
-        />
+        <img src={noteFileUrl(note.id)} alt="" draggable={false} className="aspect-[4/3] w-full object-cover" style={{ background: 'var(--bg)' }} />
       ) : (
         <div
-          className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl"
-          style={{ background: 'color-mix(in oklab, var(--accent) 15%, var(--bg-card))', color: 'var(--accent)' }}
+          className="relative aspect-[4/3] w-full overflow-hidden border-b border-[var(--rule)] px-3 pt-2.5"
+          style={{ background: 'color-mix(in oklab, var(--surface) 55%, var(--bg))' }}
         >
-          {PDF_ICON}
+          <p className="text-[0.5625rem] leading-[1.5] text-[var(--text-muted)]">
+            {note.preview || (note.file_type === 'text' ? 'Nothing written yet.' : 'No text was read from this file.')}
+          </p>
+          <span
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 h-7"
+            style={{ background: 'linear-gradient(to bottom, transparent, color-mix(in oklab, var(--surface) 55%, var(--bg)))' }}
+          />
         </div>
       )}
-      <div className="min-w-0 flex-1">
-        <div className="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-          {note.file_type === 'pdf' ? 'PDF' : 'Photo'} · {formatDate(note.created_at)}
-        </div>
-        {note.title && <div className="mb-0.5 truncate text-sm font-bold">{note.title}</div>}
-        {/* A named note still shows its preview, just shorter — the name says which note it is,
-            the preview says what's on it, and losing the second makes a titled note harder to
-            recognise than an untitled one. */}
-        <p className={`${note.title ? 'line-clamp-2' : 'line-clamp-3'} text-xs leading-relaxed text-[var(--text-secondary)]`}>
-          {note.preview || <em>No text was read from this file.</em>}
-        </p>
-
-        {/* The select is the path that always works — dragging is the shortcut, not the only way,
-            since it's unreachable by keyboard and awkward one-handed on a phone. Its own pointer
-            and click events stop here so opening the picker never grabs or opens the note. */}
-        <div
-          className="mt-2 flex items-center gap-1 text-[var(--text-secondary)]"
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
+      <div className="flex items-baseline justify-between gap-2 px-3 py-2.5">
+        <span className="min-w-0 truncate text-[0.8125rem] font-bold">{note.title ?? (note.preview.slice(0, 40) || 'Untitled')}</span>
+        <span className="flex-shrink-0 whitespace-nowrap text-[0.6875rem] text-[var(--text-muted)]">
+          {note.file_type === 'pdf' ? 'PDF, ' : ''}
+          {formatDate(note.created_at)}
+        </span>
+      </div>
+      {/* The select is the path that always works — dragging is the shortcut, not the only way,
+          since it's unreachable by keyboard and awkward one-handed on a phone. Its own pointer
+          and click events stop here so opening the picker never grabs or opens the note. */}
+      <div
+        className="flex items-center gap-1 border-t border-[var(--rule)] px-3 py-1.5 text-[var(--text-muted)]"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {FOLDER_ICON}
+        <select
+          value={note.deck_id ?? UNFILED_KEY}
+          onChange={(e) => onMove(e.target.value)}
+          aria-label="Move to category"
+          className="min-w-0 max-w-full cursor-pointer truncate rounded-[var(--r-sm)] bg-transparent py-0.5 text-[0.6875rem] font-semibold outline-none"
         >
-          {FOLDER_ICON}
-          <select
-            value={note.deck_id ?? UNFILED_KEY}
-            onChange={(e) => onMove(e.target.value)}
-            aria-label="Move to category"
-            className="min-w-0 max-w-full cursor-pointer truncate rounded-md bg-transparent py-0.5 text-[0.6875rem] font-semibold outline-none"
-          >
-            {categories.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+          {categories.map((c) => (
+            <option key={c.key} value={c.key}>
+              {c.name}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   )
@@ -764,8 +786,8 @@ function CategoryNameInput({
           onCancel()
         }
       }}
-      className="mb-2.5 w-full rounded-xl bg-[var(--bg-card)] px-3.5 py-2 text-sm font-bold outline-none"
-      style={{ boxShadow: 'var(--shadow-sm)' }}
+      className="mb-2.5 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 py-2 text-sm font-bold outline-none"
+     
     />
   )
 }
@@ -785,8 +807,8 @@ function SourceButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex flex-col items-center gap-1.5 rounded-[14px] bg-[var(--bg-card)] py-5 text-[var(--text-secondary)] disabled:opacity-50"
-      style={{ boxShadow: 'var(--shadow-sm)' }}
+      className="flex flex-col items-center gap-1.5 rounded-[var(--r-md)] bg-[var(--surface)] py-5 text-[var(--text-muted)] disabled:opacity-50"
+     
     >
       {icon}
       <span className="text-xs font-bold">{label}</span>
@@ -794,78 +816,203 @@ function SourceButton({
   )
 }
 
-function NoteDetailView({
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'failed'
+
+/** One editor for every note. A typed note is nothing but its text; a photo or PDF shows the
+ * original above the text the AI read out of it, and that text is just as editable — fixing a
+ * misread word here is the whole reason the transcription is markdown.
+ *
+ * Saves itself. There's no Save button because there's nothing to decide: edits go up ~1s after
+ * you stop typing, and whatever's pending is flushed when you leave or the app goes to the
+ * background. A note being written doesn't exist server-side until the first save that has
+ * something in it, so backing out of an empty draft leaves nothing behind — and a typed note
+ * that's been emptied out is discarded on the way out for the same reason. Saves are queued one
+ * behind another rather than raced: the first one is a create, and every later one needs the id
+ * it comes back with. */
+function NoteEditorView({
   note,
+  draft,
   onBack,
   onDelete,
-  onRename,
+  onDiscard,
+  onCreate,
+  onSaved,
 }: {
-  note: NoteDetail
+  note: NoteDetail | null
+  draft: Draft | null
   onBack: () => void
-  onDelete: () => void
-  onRename: (title: string) => void
+  /** Absent while the note is still a draft — there's nothing to delete yet. */
+  onDelete?: () => void
+  /** Quietly remove a typed note that's been left empty. */
+  onDiscard: (id: string) => void
+  onCreate: (title: string, text: string) => Promise<NoteDetail>
+  onSaved: (note: Note) => void
 }) {
-  const [renamingNote, setRenamingNote] = useState(false)
+  const [title, setTitle] = useState(note?.title ?? '')
+  const [text, setText] = useState(note?.ocr_text ?? '')
+  const [status, setStatus] = useState<SaveStatus>('idle')
+
+  // The save pipeline lives in refs so a debounced or unmount-time save always reads what's on
+  // screen now, not what was there when the timer was set.
+  const latest = useRef({ title, text })
+  latest.current = { title, text }
+  const persisted = useRef({ title: note?.title ?? '', text: note?.ocr_text ?? '' })
+  const noteId = useRef<string | null>(note?.id ?? null)
+  const queue = useRef<Promise<void>>(Promise.resolve())
+  const timer = useRef<number | null>(null)
+  const abandoned = useRef(false)
+  const callbacks = useRef({ onCreate, onSaved, onDiscard })
+  callbacks.current = { onCreate, onSaved, onDiscard }
+  // Only notes that are nothing but text get discarded when empty; a photo with its
+  // transcription cleared is still a photo.
+  const isTyped = note === null || note.file_type === 'text'
+
+  const cancelTimer = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current)
+    timer.current = null
+  }
+
+  /** Queue a save of whatever's current. Resolves once that save (and any before it) is done. */
+  const save = () => {
+    cancelTimer()
+    queue.current = queue.current.then(async () => {
+      if (abandoned.current) return
+      const title = latest.current.title.trim()
+      const { text } = latest.current
+      if (title === persisted.current.title && text === persisted.current.text) return
+      if (!noteId.current && !title && !text.trim()) return // an empty draft isn't a note yet
+      setStatus('saving')
+      try {
+        if (noteId.current) {
+          callbacks.current.onSaved(await saveNoteContent(noteId.current, title, text))
+        } else {
+          noteId.current = (await callbacks.current.onCreate(title, text)).id
+        }
+        persisted.current = { title, text }
+        setStatus('saved')
+      } catch {
+        setStatus('failed')
+      }
+    })
+    return queue.current
+  }
+
+  const scheduleSave = () => {
+    cancelTimer()
+    timer.current = window.setTimeout(save, 900)
+  }
+
+  const isDirty = () => latest.current.title.trim() !== persisted.current.title || latest.current.text !== persisted.current.text
+  const isEmpty = () => !latest.current.title.trim() && !latest.current.text.trim()
+
+  /** Called on the way out: a saved typed note with nothing left in it goes. */
+  const discardIfEmpty = () => {
+    if (isTyped && noteId.current && isEmpty()) {
+      abandoned.current = true
+      callbacks.current.onDiscard(noteId.current)
+      return true
+    }
+    return false
+  }
+
+  // Leaving the app on a phone can be the last thing that ever happens to this tab.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden' && isDirty()) void save()
+    }
+    document.addEventListener('visibilitychange', onHide)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      if (discardIfEmpty()) return
+      if (isDirty()) void save()
+    }
+    // save/isDirty read refs; they never go stale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleBack = async () => {
+    await queue.current // a create still in flight decides whether there's anything to discard
+    if (discardIfEmpty()) return // onDiscard closes the editor
+    if (isDirty()) {
+      await save()
+      if (isDirty() && !confirm("This note couldn't be saved. Leave anyway and lose the changes?")) return
+    }
+    abandoned.current = true
+    onBack()
+  }
+
+  const handleDelete = () => {
+    if (!onDelete || !confirm('Delete this note? Cards already generated from it are kept.')) return
+    abandoned.current = true // no point flushing edits into a note that's about to go
+    cancelTimer()
+    onDelete()
+  }
+
+  const kind = note ? kindLabel(note.file_type) : 'Note'
+  const filedUnder = note ? (note.deck_name ?? UNFILED) : draft?.deckName || UNFILED
+  const isFile = note !== null && note.file_type !== 'text'
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <button onClick={onBack} className="text-sm font-semibold text-[var(--text-secondary)]">
-          ← Back to notes
+        <button onClick={handleBack} className={BACK_CLASS}>
+          {BACK_CHEVRON}
+          Notes
         </button>
-        <button onClick={onDelete} className="text-sm font-bold" style={{ color: 'var(--grade-forgot)' }}>
-          Delete
-        </button>
-      </div>
-
-      <div>
-        {renamingNote ? (
-          <CategoryNameInput
-            initial={note.title ?? ''}
-            placeholder="Name this note"
-            allowEmpty
-            onCommit={(name) => {
-              setRenamingNote(false)
-              onRename(name)
-            }}
-            onCancel={() => setRenamingNote(false)}
-          />
-        ) : (
-          <div className="mb-1 flex items-baseline gap-1.5">
-            <span className="min-w-0 truncate text-lg font-extrabold">
-              {note.title ?? <span className="text-[var(--text-secondary)]">Untitled note</span>}
-            </span>
-            <button onClick={() => setRenamingNote(true)} aria-label="Rename note" className="flex-shrink-0 self-center text-[var(--text-secondary)]">
-              {PENCIL_ICON}
+        <div className="flex items-center gap-4 text-[0.8125rem] font-semibold">
+          {status === 'saving' && <span className="text-[var(--text-muted)]">Saving</span>}
+          {status === 'saved' && <span className="text-[var(--text-muted)]">Saved</span>}
+          {status === 'failed' && <span style={{ color: 'var(--grade-forgot)' }}>Couldn't save</span>}
+          {onDelete && (
+            <button onClick={handleDelete} className="flex h-11 items-center font-bold" style={{ color: 'var(--grade-forgot)' }}>
+              Delete
             </button>
-          </div>
-        )}
-        <div className="text-xs font-semibold text-[var(--text-secondary)]">
-          {note.deck_name ?? UNFILED} · {note.file_type === 'pdf' ? 'PDF' : 'Photo'} · {formatDate(note.created_at)}
-        </div>
-      </div>
-
-      {/* Original first, transcription second — the doc's reasoning is that the original is the
-          user's visual reference and the text is what the machine uses; when they disagree the
-          original is the source of truth, so it should be what you see first. */}
-      <div className="overflow-hidden rounded-[16px] bg-[var(--bg-card)]" style={{ boxShadow: 'var(--shadow-sm)' }}>
-        {note.file_type === 'pdf' ? (
-          <embed src={noteFileUrl(note.id)} type="application/pdf" className="h-[70vh] w-full" />
-        ) : (
-          <img src={noteFileUrl(note.id)} alt="Original note" className="max-h-[70vh] w-full object-contain" />
-        )}
-      </div>
-
-      <div>
-        <div className="mb-2 text-base font-extrabold">What the AI read</div>
-        <div className="rounded-[16px] bg-[var(--bg-card)] p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
-          {note.ocr_text?.trim() ? (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{note.ocr_text}</p>
-          ) : (
-            <p className="text-sm text-[var(--text-secondary)]">No text was read from this file.</p>
           )}
         </div>
       </div>
+
+      <div>
+        <input
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value)
+            scheduleSave()
+          }}
+          placeholder="Untitled note"
+          aria-label="Note title"
+          maxLength={200}
+          className="w-full bg-transparent text-[1.25rem] font-bold leading-tight outline-none placeholder:text-[var(--text-muted)]"
+        />
+        <div className="mt-1 text-xs font-semibold text-[var(--text-muted)]">
+          {filedUnder}, {kind}
+          {note ? `, ${formatDate(note.created_at)}` : ''}
+        </div>
+      </div>
+
+      {/* Original first, transcription second: the original is what you check against when the
+          text looks wrong, so it should be what you see first. */}
+      {isFile && (
+        <div className="overflow-hidden rounded-[var(--r-md)] bg-[var(--surface)]">
+          {note.file_type === 'pdf' ? (
+            <embed src={noteFileUrl(note.id)} type="application/pdf" className="h-[70vh] w-full" />
+          ) : (
+            <img src={noteFileUrl(note.id)} alt="Original note" className="max-h-[70vh] w-full object-contain" />
+          )}
+        </div>
+      )}
+
+      <Suspense fallback={<div className="min-h-[16rem] rounded-[var(--r-md)] bg-[var(--surface)]" />}>
+        <MarkdownEditor
+          value={text}
+          onChange={(v) => {
+            setText(v)
+            scheduleSave()
+          }}
+          label={isFile ? 'What the AI read' : undefined}
+          placeholder={isFile ? 'No text was read from this file. You can type it here.' : 'Start writing'}
+          autoFocus={note === null}
+        />
+      </Suspense>
     </div>
   )
 }

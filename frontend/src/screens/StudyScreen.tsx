@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { getStudyQueue, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
-import type { ReviewResult, StudyCard } from '../types'
+import { getStudyQueue, listExams, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
+import { daysUntil } from '../lib/dates'
+import type { Exam, ReviewResult, StudyCard } from '../types'
 
 interface Props {
   deckId: string
@@ -18,11 +19,30 @@ const SELF_GRADES = [
   { grade: 1, label: 'Forgot', token: 'forgot' },
   { grade: 2, label: 'Hard', token: 'hard' },
   { grade: 3, label: 'Good', token: 'good' },
-  { grade: 4, label: 'Easy', token: 'easy' },
+  { grade: 4, label: 'Easy', token: 'good' },
 ] as const
 
+const GRADE_LABEL: Record<number, string> = { 1: 'Forgot', 2: 'Hard', 3: 'Good', 4: 'Easy' }
+/** Grade colours are the one non-accent hue in the app: they're feedback, not decoration.
+ * Easy shares Good's green — two greens would ask the eye to tell 3 from 4, and the word does that. */
+const GRADE_COLOR: Record<number, string> = {
+  1: 'var(--grade-forgot)',
+  2: 'var(--grade-hard)',
+  3: 'var(--grade-good)',
+  4: 'var(--grade-good)',
+}
+
+/** "back in 6 days" — when the card comes round again, from its new FSRS due date. */
+function formatDue(iso: string): string {
+  const days = Math.round((new Date(iso).getTime() - Date.now()) / 86_400_000)
+  if (days <= 0) return 'Back later today'
+  if (days === 1) return 'Back tomorrow'
+  return `Back in ${days} days`
+}
+
 export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
-  const [, setQueue] = useState<StudyCard[]>([])
+  const [queue, setQueue] = useState<StudyCard[]>([])
+  const [deckName, setDeckName] = useState('')
   const [current, setCurrent] = useState<StudyCard | null>(null)
   const [answer, setAnswer] = useState('')
   const [streamedExplanation, setStreamedExplanation] = useState('')
@@ -32,9 +52,11 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
   const [relearn, setRelearn] = useState<Set<string>>(new Set())
   // Self-assessment only: the answer is fetched on demand, so null means 'not revealed yet'.
   const [revealed, setRevealed] = useState<string | null>(null)
+  const [exams, setExams] = useState<Exam[]>([])
 
   useEffect(() => {
     getStudyQueue(deckId).then((q) => {
+      setDeckName(q.deck_name)
       if (q.cards.length === 0) {
         setPhase('empty')
         return
@@ -45,6 +67,9 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
       setStats({ total: q.cards.length, done: 0, correct: 0 })
       setPhase('answering')
     })
+    listExams()
+      .then(setExams)
+      .catch(() => {})
   }, [deckId])
 
   const advance = () => {
@@ -97,114 +122,171 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
     applyResult(res, current)
   }
 
-  if (phase === 'loading') return <p className="text-sm text-[var(--text-secondary)]">Loading…</p>
+  // Cards still ahead of you, counting the one on screen. This is the number the header carries.
+  const left = queue.length + (current ? 1 : 0)
+  const nextExam = exams
+    .filter((e) => e.deck_ids.includes(deckId) && daysUntil(e.date) >= 0)
+    .sort((a, b) => a.date.localeCompare(b.date))[0]
+
+  if (phase === 'loading') return <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+
+  const header = (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <button onClick={onExit} className="-ml-2 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          <span className="truncate">{deckName || 'Back'}</span>
+        </button>
+        {left > 0 && (
+          <div className="flex flex-shrink-0 items-baseline gap-1.5">
+            <span className="numeral text-[1.75rem]">{left}</span>
+            <span className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">left</span>
+          </div>
+        )}
+      </div>
+      {/* The session's load, draining: track is everything queued, fill is what's done. */}
+      <div className="mt-2 h-[3px] overflow-hidden rounded-[2px] bg-[var(--rule)]">
+        <div className="h-full bg-[var(--accent)]" style={{ width: `${stats.total > 0 ? (stats.done / stats.total) * 100 : 0}%` }} />
+      </div>
+    </div>
+  )
 
   if (phase === 'empty') {
-    return <EndPanel icon="📭" title="Nothing due!" subtitle="All caught up. Come back later." onExit={onExit} />
+    return (
+      <div className="flex flex-col gap-10">
+        {header}
+        <div>
+          <div className="text-[1.25rem] font-bold leading-snug">Nothing due in this deck</div>
+          <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">Every card is scheduled for later. Come back when the calendar says so.</p>
+          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold">
+            Back to Home
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (phase === 'done') {
     const pct = stats.done > 0 ? Math.round((stats.correct / stats.done) * 100) : 0
     return (
-      <EndPanel
-        icon={pct >= 80 ? '🎉' : pct >= 60 ? '💪' : '📖'}
-        title="Session complete"
-        subtitle={`${stats.done} cards · ${pct}% correct`}
-        onExit={onExit}
-      />
+      <div className="flex flex-col gap-12">
+        {header}
+        <div>
+          <div className="text-[1.25rem] font-bold leading-snug">Done for today</div>
+          <div className="mt-1 flex items-baseline gap-3">
+            <span className="numeral text-[8.5rem] text-[var(--accent)]">{stats.done}</span>
+            <span className="text-[1.0625rem] font-semibold text-[var(--text-muted)]">{stats.done === 1 ? 'card' : 'cards'}</span>
+          </div>
+          <div className="mt-5 flex items-baseline gap-2">
+            <span className="numeral text-[2rem]">{pct}%</span>
+            <span className="text-[0.9375rem] font-semibold text-[var(--text-muted)]">right first time</span>
+          </div>
+          {nextExam && (
+            <div className="mt-7 border-t border-[var(--rule)]">
+              <div className="flex items-baseline justify-between gap-4 border-b border-[var(--rule)] py-3.5">
+                <span className="min-w-0 truncate text-[0.9375rem] font-semibold">{nextExam.name}</span>
+                <span className="flex-shrink-0 text-[0.875rem] text-[var(--text-muted)]">
+                  <span className="numeral text-[1rem] text-[var(--text)]">{daysUntil(nextExam.date)}</span> days left
+                </span>
+              </div>
+            </div>
+          )}
+          <button onClick={onExit} className="on-accent mt-8 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold">
+            Back to Home
+          </button>
+        </div>
+      </div>
     )
   }
 
   if (!current) return null
 
+  const graded = phase === 'graded' && result !== null
+  const gradeColor = result ? GRADE_COLOR[result.grade] ?? GRADE_COLOR[1] : undefined
+  const score = result?.score ?? null
+
   return (
-    <div>
-      <div className="mb-6 flex items-center gap-3">
-        <button onClick={onExit} className="text-sm font-bold text-[var(--text-secondary)]">
-          ← Back
-        </button>
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--ring-track)]">
-          <div
-            className="h-full rounded-full transition-all"
-            style={{ width: `${stats.total > 0 ? (stats.done / stats.total) * 100 : 0}%`, background: 'var(--accent)' }}
-          />
-        </div>
-        <span className="whitespace-nowrap text-xs font-bold text-[var(--text-secondary)]">
-          {stats.done}/{stats.total}
-        </span>
+    <div className="flex flex-col gap-10">
+      {header}
+
+      <div>
+        {current.subtopic && <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">{current.subtopic}</div>}
+        <div className={`mt-2 font-bold leading-snug [text-wrap:pretty] ${graded ? 'text-[1.125rem]' : 'text-[1.5rem] lg:text-[2rem]'}`}>{current.question}</div>
       </div>
 
-      <div className="mb-5 flex flex-col gap-5 rounded-[20px] bg-[var(--bg-card)] p-7" style={{ boxShadow: 'var(--shadow-md)' }}>
-        <div className="flex items-center gap-2">
-          {current.subtopic && (
-            <span
-              className="self-start rounded-full px-3 py-1 text-xs font-bold"
-              style={{
-                color: 'var(--accent)',
-                background: 'color-mix(in oklab, var(--accent) 15%, var(--bg-card))',
-                boxShadow: 'var(--highlight-shadow)',
-              }}
-            >
-              {current.subtopic}
-            </span>
-          )}
-          {current.is_new && (
-            <span className="rounded-full px-2.5 py-1 text-[0.625rem] font-extrabold" style={{ color: 'var(--grade-good)', background: 'var(--grade-good-bg)' }}>
-              New
-            </span>
-          )}
-        </div>
-
-        <div className="text-[1.375rem] font-bold leading-snug">{current.question}</div>
-
-        {!aiGrading ? (
-          revealed !== null && (
-            <div className="flex flex-col gap-4">
-              <div>
-                <div className="mb-1.5 text-xs font-bold text-[var(--text-secondary)]">Answer</div>
-                <div className="text-base leading-relaxed">{revealed}</div>
+      {!aiGrading ? (
+        revealed !== null && (
+          <div>
+            <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">Answer</div>
+            <div className="mt-1.5 text-[0.9375rem] leading-relaxed">{revealed}</div>
+            {/* Confirms what actually got recorded — you chose it, but seeing it land is the
+                difference between "I tapped Hard" and "Hard was saved". */}
+            {result && (
+              <div className="mt-5 text-[1.5rem] font-bold" style={{ color: gradeColor }}>
+                {GRADE_LABEL[result.grade]}
+                <span className="ml-2.5 text-[0.875rem] font-medium text-[var(--text-muted)]">{formatDue(result.due)}</span>
               </div>
-              {/* Confirms what actually got recorded — you chose it, but seeing it land is the
-                  difference between "I tapped Hard" and "Hard was saved". */}
-              {result && <GradeBadge grade={result.grade} />}
-            </div>
-          )
-        ) : phase === 'answering' ? (
-          <textarea
-            autoFocus
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit()
-            }}
-            placeholder="Type your answer… (⌘/Ctrl+Enter to submit)"
-            className="min-h-[84px] w-full rounded-2xl bg-[var(--bg)] p-4 text-sm outline-none"
-          />
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div>
-              <div className="mb-1.5 text-xs font-bold text-[var(--text-secondary)]">Your answer</div>
-              <div className="text-base">{answer || <em>(no answer)</em>}</div>
-            </div>
-            {result && <GradeBadge grade={result.grade} />}
-            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-              {streamedExplanation}
-              {phase === 'grading' && (
-                <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse rounded-sm align-middle" style={{ background: 'var(--text-secondary)' }} />
-              )}
-            </p>
+            )}
           </div>
-        )}
-      </div>
+        )
+      ) : phase === 'answering' ? (
+        <textarea
+          autoFocus
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit()
+          }}
+          placeholder="Type your answer"
+          className="min-h-[132px] w-full resize-none rounded-[var(--r-md)] bg-[var(--surface)] px-4 py-3.5 text-[0.9375rem] leading-relaxed outline-none placeholder:text-[var(--text-muted)]"
+        />
+      ) : (
+        <div>
+          {/* The score is the hero: a numeral out of 5 in its grade colour. While grading, the
+              explanation streams in first and the number lands with it. */}
+          {graded && (
+            <>
+              <div className="flex items-end gap-4" style={{ color: gradeColor }}>
+                {score !== null && (
+                  <div className="flex items-baseline gap-1">
+                    <span className="numeral text-[4.5rem]">{score}</span>
+                    <span className="numeral text-[1.75rem] opacity-70">/5</span>
+                  </div>
+                )}
+                <div className="pb-1">
+                  <div className="text-[1.0625rem] font-bold">{GRADE_LABEL[result.grade]}</div>
+                  <div className="mt-0.5 text-[0.8125rem] text-[var(--text-muted)]">{formatDue(result.due)}</div>
+                </div>
+              </div>
+              {score !== null && (
+                <div aria-hidden className="mt-4 flex gap-[3px]">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <span key={n} className="h-[3px] flex-1 rounded-[2px]" style={{ background: n <= score ? gradeColor : 'var(--rule)' }} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+          <p className={`text-[0.9375rem] leading-relaxed ${graded ? 'mt-4' : ''}`}>
+            {streamedExplanation}
+            {phase === 'grading' && <span className="ml-0.5 inline-block h-[18px] w-[2px] align-text-bottom bg-[var(--accent)]" />}
+          </p>
+          <div className="mt-5 border-t border-[var(--rule)] pt-3">
+            <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">You wrote</div>
+            <p className="mt-1.5 line-clamp-3 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">{answer || <em>Nothing</em>}</p>
+          </div>
+        </div>
+      )}
 
       {!aiGrading && phase !== 'graded' ? (
         revealed === null ? (
           <button
             onClick={async () => setRevealed((await revealAnswer(current.id)).answer)}
-            className="w-full rounded-full py-4 text-sm font-bold text-[oklch(0.99_0.005_90)]"
-            style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow)' }}
+            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold"
           >
-            Show answer
+            Show the answer
           </button>
         ) : (
           // Four buttons rather than a "did you get it?" yes/no: FSRS needs the full 1-4 spread to
@@ -215,8 +297,8 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
                 key={grade}
                 onClick={() => handleSelfGrade(grade)}
                 disabled={phase === 'grading'}
-                className="rounded-full py-4 text-sm font-bold disabled:opacity-50"
-                style={{ color: `var(--grade-${token})`, background: `var(--grade-${token}-bg)` }}
+                className="rounded-[var(--r-full)] bg-[var(--surface)] py-3.5 text-[0.875rem] font-bold disabled:opacity-50"
+                style={{ color: `var(--grade-${token})` }}
               >
                 {label}
               </button>
@@ -224,65 +306,21 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
           </div>
         )
       ) : phase === 'answering' || phase === 'grading' ? (
-        <button
-          onClick={handleSubmit}
-          disabled={phase === 'grading'}
-          className="w-full rounded-full py-4 text-sm font-bold text-[oklch(0.99_0.005_90)] disabled:opacity-50"
-          style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow)' }}
-        >
-          {phase === 'grading' ? 'Grading…' : 'Submit Answer'}
-        </button>
+        <div>
+          <button
+            onClick={handleSubmit}
+            disabled={phase === 'grading'}
+            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
+          >
+            {phase === 'grading' ? 'Checking' : 'Check my answer'}
+          </button>
+          <div className="mt-3 hidden text-center text-[0.8125rem] text-[var(--text-muted)] lg:block">⌘ Enter also checks</div>
+        </div>
       ) : (
-        <button
-          onClick={advance}
-          className="w-full rounded-full py-4 text-sm font-bold text-[oklch(0.99_0.005_90)]"
-          style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow)' }}
-        >
-          Next →
+        <button onClick={advance} className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold">
+          {queue.length > 0 ? `Next card, ${queue.length} left` : 'Finish'}
         </button>
       )}
     </div>
-  )
-}
-
-function EndPanel({
-  icon,
-  title,
-  subtitle,
-  onExit,
-}: {
-  icon: string
-  title: string
-  subtitle: string
-  onExit: () => void
-}) {
-  return (
-    <div className="rounded-[20px] bg-[var(--bg-card)] py-16 text-center" style={{ boxShadow: 'var(--shadow-md)' }}>
-      <div className="mb-4 text-5xl">{icon}</div>
-      <div className="mb-1.5 text-xl font-extrabold">{title}</div>
-      <p className="mb-7 text-sm text-[var(--text-secondary)]">{subtitle}</p>
-      <button
-        onClick={onExit}
-        className="rounded-full px-6 py-3 text-sm font-bold text-[oklch(0.99_0.005_90)]"
-        style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow)' }}
-      >
-        ← My Decks
-      </button>
-    </div>
-  )
-}
-
-function GradeBadge({ grade }: { grade: number }) {
-  const map: Record<number, { label: string; color: string; bg: string }> = {
-    1: { label: 'Forgot', color: 'var(--grade-forgot)', bg: 'var(--grade-forgot-bg)' },
-    2: { label: 'Hard', color: 'var(--grade-hard)', bg: 'var(--grade-hard-bg)' },
-    3: { label: 'Good', color: 'var(--grade-good)', bg: 'var(--grade-good-bg)' },
-    4: { label: 'Easy', color: 'var(--accent)', bg: 'color-mix(in oklab, var(--accent) 16%, var(--bg-card))' },
-  }
-  const { label, color, bg } = map[grade] ?? map[1]
-  return (
-    <span className="inline-block self-start rounded-full px-4 py-1.5 text-xs font-extrabold" style={{ background: bg, color }}>
-      {label}
-    </span>
   )
 }

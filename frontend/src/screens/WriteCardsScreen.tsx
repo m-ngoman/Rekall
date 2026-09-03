@@ -145,35 +145,37 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
 
   return (
     <div>
-      <button onClick={() => onDone(countsChanged)} className="mb-4 text-sm font-semibold text-[var(--text-secondary)]">
-        ← Back
+      <button onClick={() => onDone(countsChanged)} className="-ml-2 mb-3 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        Back
       </button>
       {locked ? (
         <div className="mb-5">
-          <div className="text-[1.375rem] font-extrabold tracking-tight">
+          <div className="text-[1.25rem] font-bold tracking-tight">
             {decks?.find((d) => d.id === deckId)?.name ?? 'Deck'}
           </div>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
             Every card in this deck. Tap the pencil to fix one, or add more below.
           </p>
         </div>
       ) : (
-        <p className="mb-5 text-sm text-[var(--text-secondary)]">
+        <p className="mb-5 text-sm text-[var(--text-muted)]">
           Type a question and the answer you'd accept as correct. Grading compares what you say or write against
           this answer, so write it the way you'd actually say it out loud.
         </p>
       )}
 
       <div className={locked ? 'hidden' : 'mb-5'}>
-        <div className="mb-2 text-xs font-bold text-[var(--text-secondary)]">Add to</div>
+        <div className="mb-2 text-[0.8125rem] font-semibold text-[var(--text-muted)]">Add to</div>
         <select
           value={deckId}
           onChange={(e) => setDeckId(e.target.value)}
           disabled={busy}
-          className="w-full rounded-xl bg-[var(--bg-card)] px-3.5 py-2.5 text-sm outline-none"
-          style={{ boxShadow: 'var(--shadow-sm)' }}
+          className="h-11 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[0.9375rem]"
         >
-          <option value={NEW_DECK}>New deck — I'll name it</option>
+          <option value={NEW_DECK}>New deck, I'll name it</option>
           {decks?.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name} ({d.total})
@@ -189,13 +191,12 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
             disabled={busy}
             placeholder="Deck name"
             maxLength={80}
-            className="mt-2 w-full rounded-xl bg-[var(--bg-card)] px-3.5 py-2.5 text-sm outline-none"
-            style={{ boxShadow: 'var(--shadow-sm)' }}
+            className="mt-2 h-11 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[0.9375rem]"
           />
         )}
       </div>
 
-      <div className="flex flex-col gap-2.5 rounded-[18px] bg-[var(--bg-card)] p-4" style={{ boxShadow: 'var(--shadow-sm)' }}>
+      <div className="flex flex-col gap-2.5 rounded-[var(--r-md)] bg-[var(--surface)] p-4">
         <Field label="Question">
           <textarea
             ref={questionRef}
@@ -209,8 +210,7 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
             disabled={busy}
             rows={2}
             placeholder="What produces ATP in a cell?"
-            className="w-full resize-none rounded-xl px-3.5 py-2.5 text-sm outline-none"
-            style={{ background: 'var(--bg)' }}
+            className="w-full resize-none rounded-[var(--r-sm)] bg-[var(--bg)] px-3.5 py-2.5 text-[0.9375rem]"
           />
         </Field>
 
@@ -224,8 +224,7 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
             disabled={busy}
             rows={2}
             placeholder="The mitochondria"
-            className="w-full resize-none rounded-xl px-3.5 py-2.5 text-sm outline-none"
-            style={{ background: 'var(--bg)' }}
+            className="w-full resize-none rounded-[var(--r-sm)] bg-[var(--bg)] px-3.5 py-2.5 text-[0.9375rem]"
           />
         </Field>
 
@@ -236,24 +235,22 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
             disabled={busy}
             maxLength={60}
             placeholder="Cell biology"
-            className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
-            style={{ background: 'var(--bg)' }}
+            className="h-11 w-full rounded-[var(--r-sm)] bg-[var(--bg)] px-3.5 text-[0.9375rem]"
           />
         </Field>
 
         {error && <p className="text-sm font-semibold text-[var(--grade-forgot)]">{error}</p>}
 
         <div className="mt-1 flex items-center justify-between">
-          <span className="text-xs text-[var(--text-secondary)]">
-            {addedCount > 0 ? `${addedCount} card${addedCount === 1 ? '' : 's'} added` : 'Ctrl+Enter to save'}
+          <span className="text-[0.8125rem] text-[var(--text-muted)]">
+            {addedCount > 0 ? `${addedCount} card${addedCount === 1 ? '' : 's'} added` : 'Ctrl+Enter also saves'}
           </span>
           <button
             onClick={handleAdd}
             disabled={!canSave}
-            className="rounded-xl px-5 py-2.5 text-sm font-bold text-[oklch(0.99_0.005_90)] disabled:opacity-45"
-            style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow)' }}
+            className="on-accent min-h-[44px] rounded-[var(--r-full)] bg-[var(--accent)] px-5 text-[0.875rem] font-bold disabled:opacity-50"
           >
-            {busy ? 'Saving…' : 'Add card'}
+            {busy ? 'Saving' : 'Add card'}
           </button>
         </div>
       </div>
@@ -261,8 +258,9 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
       {cards !== null && cards.length > 0 && (
         <div className="mt-6">
           <div className="mb-3 flex items-baseline justify-between gap-3">
-            <span className="text-base font-extrabold">
-              In this deck <span className="text-sm font-semibold text-[var(--text-secondary)]">({cards.length})</span>
+            <span className="text-[0.9375rem] font-bold">In this deck</span>
+            <span className="text-[0.8125rem] text-[var(--text-muted)]">
+              {cards.length} card{cards.length === 1 ? '' : 's'}
             </span>
           </div>
           {/* Only once a deck is big enough for scrolling to be the slower way to find a card. */}
@@ -270,14 +268,15 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search these cards…"
-              className="mb-3 w-full rounded-xl bg-[var(--bg-card)] px-3.5 py-2.5 text-sm outline-none"
-              style={{ boxShadow: 'var(--shadow-sm)' }}
+              placeholder="Search these cards"
+              className="mb-3 h-11 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[0.9375rem]"
             />
           )}
-          <div className="flex flex-col gap-2">
+          {/* One list, ruled rows: a border round every card would be a box per item, which the
+              deck tiles already avoid. */}
+          <div className="flex flex-col border-t border-[var(--rule)]">
             {visibleCards.length === 0 && (
-              <p className="py-6 text-center text-sm text-[var(--text-secondary)]">No cards match "{query}".</p>
+              <p className="py-6 text-center text-sm text-[var(--text-muted)]">No cards match "{query}".</p>
             )}
             {visibleCards.map((card) =>
               editingId === card.id ? (
@@ -290,18 +289,14 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
               ) : (
                 <div
                   key={card.id}
-                  className="flex items-start gap-3 rounded-[16px] border border-[var(--ring-track)] px-4 py-3"
+                  className="flex items-start gap-3 border-b border-[var(--rule)] py-3.5"
                 >
                   <div className="min-w-0 flex-1">
+                    {card.subtopic && <div className="mb-0.5 text-[0.8125rem] font-semibold text-[var(--text-muted)]">{card.subtopic}</div>}
                     <div className="text-[0.9375rem] font-bold">{card.question}</div>
-                    <div className="mt-0.5 text-sm text-[var(--text-secondary)]">{card.answer}</div>
-                    {card.subtopic && (
-                      <div className="mt-1 text-[0.6875rem] font-bold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>
-                        {card.subtopic}
-                      </div>
-                    )}
+                    <div className="mt-0.5 text-sm text-[var(--text-muted)]">{card.answer}</div>
                   </div>
-                  <div className="flex flex-shrink-0 items-center gap-1">
+                  <div className="-mr-2 flex flex-shrink-0 items-center">
                     <IconButton label="Edit card" onClick={() => setEditingId(card.id)}>
                       <path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z" />
                     </IconButton>
@@ -322,7 +317,7 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-bold text-[var(--text-secondary)]">{label}</span>
+      <span className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">{label}</span>
       {children}
     </label>
   )
@@ -343,11 +338,11 @@ function IconButton({
     <button
       onClick={onClick}
       aria-label={label}
-      className={`flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-secondary)] ${
-        danger ? 'hover:bg-[var(--grade-forgot-bg)] hover:text-[var(--grade-forgot)]' : 'hover:bg-[var(--bg)]'
+      className={`flex h-11 w-11 items-center justify-center rounded-[var(--r-sm)] ${
+        danger ? 'text-[var(--text-muted)] hover:text-[var(--grade-forgot)]' : 'text-[var(--text-muted)]'
       }`}
     >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         {children}
       </svg>
     </button>
@@ -372,41 +367,37 @@ function CardEditor({
   const valid = question.trim().length > 0 && answer.trim().length > 0
 
   return (
-    <div className="flex flex-col gap-2 rounded-[16px] border border-[var(--accent)] px-4 py-3">
+    <div className="flex flex-col gap-2 rounded-[var(--r-md)] bg-[var(--surface)] p-3">
       <textarea
         autoFocus
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
         rows={2}
-        className="w-full resize-none rounded-xl px-3 py-2 text-sm outline-none"
-        style={{ background: 'var(--bg)' }}
+        className="w-full resize-none rounded-[var(--r-sm)] bg-[var(--bg)] px-3 py-2 text-[0.9375rem]"
       />
       <textarea
         value={answer}
         onChange={(e) => setAnswer(e.target.value)}
         rows={2}
-        className="w-full resize-none rounded-xl px-3 py-2 text-sm outline-none"
-        style={{ background: 'var(--bg)' }}
+        className="w-full resize-none rounded-[var(--r-sm)] bg-[var(--bg)] px-3 py-2 text-[0.9375rem]"
       />
       <input
         value={subtopic}
         onChange={(e) => setSubtopic(e.target.value)}
         maxLength={60}
         placeholder="Topic (optional)"
-        className="w-full rounded-xl px-3 py-2 text-sm outline-none"
-        style={{ background: 'var(--bg)' }}
+        className="h-11 w-full rounded-[var(--r-sm)] bg-[var(--bg)] px-3 text-[0.9375rem]"
       />
       <div className="flex items-center justify-end gap-2">
-        <button onClick={onCancel} className="rounded-xl px-3.5 py-2 text-sm font-bold text-[var(--text-secondary)]">
+        <button onClick={onCancel} className="min-h-[44px] rounded-[var(--r-full)] px-3.5 text-[0.875rem] font-bold text-[var(--text-muted)]">
           Cancel
         </button>
         <button
           onClick={() => onSave({ question: question.trim(), answer: answer.trim(), subtopic: subtopic.trim() })}
           disabled={!valid}
-          className="rounded-xl px-4 py-2 text-sm font-bold text-[oklch(0.99_0.005_90)] disabled:opacity-45"
-          style={{ background: 'var(--accent)' }}
+          className="on-accent min-h-[44px] rounded-[var(--r-full)] bg-[var(--accent)] px-4 text-[0.875rem] font-bold disabled:opacity-50"
         >
-          Save
+          Save changes
         </button>
       </div>
     </div>

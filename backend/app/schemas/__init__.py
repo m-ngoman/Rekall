@@ -140,13 +140,25 @@ class SettingsUpdate(BaseModel):
 
 
 class NoteUpdate(BaseModel):
-    """Both fields need None to mean something real — `deck_id: None` is Unfiled, `title: None`
-    clears a name back to the transcription preview — so neither can use None as "leave alone".
-    The endpoint checks `model_fields_set` instead of testing the values.
+    """Every field needs None to mean something real — `deck_id: None` is Unfiled, `title: None`
+    clears a name back to the preview, `text: None` empties the body — so none can use None as
+    "leave alone". The endpoint checks `model_fields_set` instead of testing the values.
     """
 
     deck_id: uuid.UUID | None = None
     title: str | None = None
+    # The markdown body. Editable on every note, not just typed ones: fixing what the AI misread
+    # in a photo is the same edit as writing the note yourself.
+    text: str | None = None
+
+
+class NoteCreate(BaseModel):
+    """A note typed in the app. Either of `deck_id` / `deck_name` files it, as with an upload."""
+
+    title: str | None = None
+    text: str = ""
+    deck_id: uuid.UUID | None = None
+    deck_name: str = ""
 
 
 class CardOut(BaseModel):
@@ -318,3 +330,78 @@ class BugReportOut(BaseModel):
     text: str
     created_at: datetime
     resolved_at: datetime | None
+
+
+# --- Admin dashboard (owner-only; see app/api/admin.py) ---------------------------------------
+
+
+class FeatureUsageOut(BaseModel):
+    """One feature's row in the usage table.
+
+    `uses` is how many times it was used; `items` is what those uses produced — cards generated,
+    files uploaded. For a feature that produces nothing countable (a review, a tutor turn) the two
+    are equal, which is why both are reported rather than one being inferred from the other.
+    """
+
+    key: str
+    label: str
+    uses_day: int
+    uses_week: int
+    uses_month: int
+    uses_total: int
+    items_week: int
+    items_total: int
+    # Per feature, not just per dashboard: reviews and note uploads were backfilled from existing
+    # rows, tutor turns and generation runs only start at the migration. A single global date
+    # would make the newer ones look like features nobody uses.
+    tracked_since: datetime | None
+    # Uses per day, one entry per element of the top-level `daily` array and in the same order.
+    # Sent as a bare list rather than repeating the dates on every feature: five features over 90
+    # days would otherwise ship 450 copies of a date the client already has.
+    daily_uses: list[int]
+
+
+class ActiveUsersOut(BaseModel):
+    """Distinct people who did any of the tracked things inside each window."""
+
+    day: int
+    week: int
+    month: int
+
+
+class UserCountsOut(BaseModel):
+    registered: int
+    new_week: int
+    new_month: int
+    active: ActiveUsersOut
+
+
+class LibraryTotalsOut(BaseModel):
+    """A snapshot of what currently exists, as context for the usage numbers above it. These do
+    fall when things are deleted — that's what makes them a different question from usage."""
+
+    decks: int
+    cards: int
+    notes: int
+    tutor_sessions: int
+
+
+class DailyPointOut(BaseModel):
+    date: Date
+    uses: int
+    active_users: int
+    new_users: int
+    # Everyone registered as at the end of this day, not just the new ones — the growth curve is
+    # the question, and accumulating client-side would need the count from before the window too.
+    registered: int
+
+
+class AdminStatsOut(BaseModel):
+    generated_at: datetime
+    # Oldest recorded event, so the dashboard can say what period the totals actually cover
+    # instead of implying they reach back to the app's first day. None when nothing is recorded.
+    tracking_since: datetime | None
+    users: UserCountsOut
+    features: list[FeatureUsageOut]
+    library: LibraryTotalsOut
+    daily: list[DailyPointOut]

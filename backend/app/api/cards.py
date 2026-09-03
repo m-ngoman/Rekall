@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.settings_store import get_settings_row
+from app.core.usage import record
 from app.db import get_db
-from app.models import Card, CardState, Deck, InputMode, ReviewLog
+from app.models import Card, CardState, Deck, InputMode, ReviewLog, UsageEventType
 from app.schemas import CardOut, CardUpdate, ReviewRequest
 from app.services.fsrs import SchedulingState, review_card
 from app.services.grading import GradeResult, get_grader
@@ -140,6 +141,9 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
                 grading_explanation=result.explanation or None,
             )
         )
+        # Rides the same commit as the review itself, so the usage log can't claim a review that
+        # didn't land. Recorded separately from ReviewLog because that row goes away with its card.
+        record(db, user.id, UsageEventType.card_review)
         db.commit()
         db.refresh(card)
 
@@ -147,6 +151,7 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
             "done",
             {
                 "grade": result.grade,
+                "score": result.score,
                 "explanation": result.explanation,
                 "state": card.state.value,
                 "due": card.due.isoformat(),

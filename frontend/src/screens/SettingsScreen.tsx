@@ -10,6 +10,9 @@ interface Props {
   settings: Settings | null
   error: string | null
   onChange: (patch: SettingsPatch) => void
+  /** Opens the owner-only usage dashboard. The entry point is hidden for everyone else, and the
+   * endpoint behind it 404s for them regardless — this only saves them a door they can't open. */
+  onOpenAdmin: () => void
 }
 
 const STRICTNESS: { value: GradingStrictness; label: string }[] = [
@@ -56,7 +59,7 @@ const ROADMAP: { title: string; rows: string[] }[] = [
   { title: 'Account', rows: ['Tier & usage', 'Billing'] },
 ]
 
-export default function SettingsScreen({ me, settings, error, onChange }: Props) {
+export default function SettingsScreen({ me, settings, error, onChange, onOpenAdmin }: Props) {
   // Progressive disclosure: the scheduler's knobs are genuinely useful but nobody should have to
   // scroll past them to reach the daily goal.
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -69,19 +72,19 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
   })
 
   if (!settings) {
-    return <p className="text-sm text-[var(--text-secondary)]">{error ?? 'Loading…'}</p>
+    return <p className="text-sm text-[var(--text-muted)]">{error ?? 'Loading…'}</p>
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-10">
       {error && (
-        <div className="rounded-2xl px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
+        <div className="rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
           {error}
         </div>
       )}
 
       <Section title="Appearance">
-        <Row label="Theme" hint="System follows your phone's light/dark setting.">
+        <Row label="Theme">
           <Segmented
             options={THEMES}
             value={settings.theme}
@@ -89,8 +92,8 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
           />
         </Row>
 
-        <Row label="Accent" hint="Used for highlights, buttons and the progress ring.">
-          <div className="flex flex-wrap gap-2.5">
+        <Row label="Accent">
+          <div className="flex flex-wrap gap-2.5 py-1">
             {ACCENT_PRESETS.map((preset) => {
               const active = (settings.accent ?? DEFAULT_ACCENT) === preset.value
               return (
@@ -100,8 +103,8 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
                   title={preset.name}
                   aria-label={preset.name}
                   aria-pressed={active}
-                  className="h-9 w-9 rounded-full border-2"
-                  style={{ background: preset.value, borderColor: active ? 'var(--text)' : 'transparent' }}
+                  className="h-7 w-7 rounded-[var(--r-full)]"
+                  style={{ background: preset.value, outline: active ? '2px solid var(--text)' : undefined, outlineOffset: 2 }}
                 />
               )
             })}
@@ -113,16 +116,17 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
                 title="Your colour"
                 aria-label="Your colour"
                 aria-pressed={(settings.accent ?? DEFAULT_ACCENT) === customAccent}
-                className="h-9 w-9 rounded-full border-2"
+                className="h-7 w-7 rounded-[var(--r-full)]"
                 style={{
                   background: customAccent,
-                  borderColor: (settings.accent ?? DEFAULT_ACCENT) === customAccent ? 'var(--text)' : 'transparent',
+                  outline: (settings.accent ?? DEFAULT_ACCENT) === customAccent ? '2px solid var(--text)' : undefined,
+                  outlineOffset: 2,
                 }}
               />
             )}
             <label
               title="Custom color"
-              className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-[var(--text-secondary)]/30 text-[var(--text-secondary)]"
+              className="relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-[var(--r-full)] border-[1.5px] border-dashed border-[var(--text-muted)] text-[var(--text-muted)]"
             >
               <span className="text-sm font-bold">+</span>
               <input
@@ -144,7 +148,7 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
       </Section>
 
       <Section title="Study behavior">
-        <Row label="New cards per day" hint="How many never-seen cards can enter a study session.">
+        <Row label="New cards per day">
           <Stepper
             value={settings.new_cards_per_day}
             min={0}
@@ -173,7 +177,7 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
           />
         </Row>
 
-        <Row label="Daily goal" hint="The target on the home ring.">
+        <Row label="Daily goal" hint="Caps how many cards Home counts as due today. 0 uses everything due.">
           <Stepper
             value={settings.daily_goal}
             min={0}
@@ -187,9 +191,12 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
         <button
           onClick={() => setShowAdvanced((v) => !v)}
           aria-expanded={showAdvanced}
-          className="self-start text-xs font-bold text-[var(--accent)]"
+          className="flex w-full items-center justify-between py-3.5 text-[0.9375rem] font-semibold"
         >
           {showAdvanced ? 'Hide scheduling details' : 'Scheduling details'}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d={showAdvanced ? 'M6 15l6-6 6 6' : 'M9 6l6 6-6 6'} />
+          </svg>
         </button>
 
         {showAdvanced && (
@@ -225,7 +232,7 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
               />
             </Row>
 
-            <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
+            <p className="py-3 text-xs leading-relaxed text-[var(--text-muted)]">
               Both apply from your next review onward — cards already scheduled keep the date they
               have, and nothing you've learned is reset.
             </p>
@@ -295,7 +302,7 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
             <a
               href={exportUrl(null, 'csv')}
               download
-              className="flex-1 rounded-xl py-2.5 text-center text-xs font-bold"
+              className="flex-1 whitespace-nowrap rounded-[var(--r-sm)] px-3 py-2.5 text-center text-[0.8125rem] font-bold"
               style={{ background: 'var(--bg)', color: 'var(--text)' }}
             >
               Download CSV
@@ -303,7 +310,7 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
             <a
               href={exportUrl(null, 'json')}
               download
-              className="flex-1 rounded-xl py-2.5 text-center text-xs font-bold"
+              className="flex-1 whitespace-nowrap rounded-[var(--r-sm)] px-3 py-2.5 text-center text-[0.8125rem] font-bold"
               style={{ background: 'var(--bg)', color: 'var(--text)' }}
             >
               Download JSON
@@ -313,46 +320,56 @@ export default function SettingsScreen({ me, settings, error, onChange }: Props)
       </Section>
 
       <Section title="Account">
-        <div className="flex items-center gap-3.5">
+        <div className="flex items-center gap-3.5 py-3.5">
           {me.avatar_url ? (
-            <img src={me.avatar_url} alt="" className="h-11 w-11 flex-shrink-0 rounded-full" />
+            <img src={me.avatar_url} alt="" className="h-10 w-10 flex-shrink-0 rounded-[var(--r-full)]" />
           ) : (
             <div
-              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-base font-extrabold"
-              style={{ background: 'color-mix(in oklab, var(--accent) 18%, var(--bg-card))', color: 'var(--accent)' }}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--r-full)] text-base font-bold"
+              style={{ background: 'var(--rule)', color: 'var(--text)' }}
             >
               {(me.name || me.email || '?').charAt(0).toUpperCase()}
             </div>
           )}
           <div className="min-w-0 flex-1">
             {me.name && <div className="truncate text-sm font-bold">{me.name}</div>}
-            <div className="truncate text-xs text-[var(--text-secondary)]">{me.email}</div>
+            <div className="truncate text-xs text-[var(--text-muted)]">{me.email}</div>
           </div>
+          <button
+            onClick={async () => {
+              await logout()
+              // Full reload rather than clearing React state: it drops every cached value at once
+              // and guarantees no fragment of the previous account is left on screen.
+              window.location.href = '/'
+            }}
+            className="flex-shrink-0 py-2 text-[0.875rem] font-bold text-[var(--text-muted)]"
+          >
+            Sign out
+          </button>
         </div>
 
-        <button
-          onClick={async () => {
-            await logout()
-            // Full reload rather than clearing React state: it drops every cached value at once
-            // and guarantees no fragment of the previous account is left on screen.
-            window.location.href = '/'
-          }}
-          className="w-full rounded-xl py-3 text-sm font-bold"
-          style={{ background: 'var(--bg)', color: 'var(--grade-forgot)' }}
-        >
-          Sign out
-        </button>
+        {/* Owner only, and it lives in Account rather than getting its own section: it is a
+            property of who is signed in, not a preference anyone can change. Same disclosure row
+            as "Scheduling details" — a muted chevron, not an accent link. */}
+        {me.is_owner && (
+          <button onClick={onOpenAdmin} className="flex w-full items-center justify-between py-3.5 text-[0.9375rem] font-semibold">
+            Usage dashboard
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </button>
+        )}
       </Section>
 
       <AISection settings={settings} onChange={onChange} />
 
       <section>
-        <div className="mb-3 text-base font-extrabold">Not built yet</div>
-        <div className="flex flex-col gap-3.5 rounded-[18px] bg-[var(--bg-card)] p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+        <div className="mb-2 text-[0.9375rem] font-bold">Not built yet</div>
+        <div className="border-t border-[var(--rule)]">
           {ROADMAP.map((group) => (
-            <div key={group.title}>
-              <div className="mb-1 text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)]">{group.title}</div>
-              <div className="text-sm leading-relaxed">{group.rows.join(' · ')}</div>
+            <div key={group.title} className="flex items-baseline justify-between gap-4 border-b border-[var(--rule)] py-3">
+              <div className="text-[0.9375rem] font-semibold text-[var(--text-muted)]">{group.title}</div>
+              <div className="text-right text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">{group.rows.join(', ')}</div>
             </div>
           ))}
         </div>
@@ -380,7 +397,7 @@ function TutorSection({ settings, onChange }: { settings: Settings; onChange: (p
   return (
     <Section title="Tutor">
       <Row label="Personality" hint="How the tutor talks to you. New conversations start here.">
-        <div className="flex flex-col gap-1">
+        <div className="flex w-full flex-col">
           {PERSONALITY_PRESETS.map((preset) => {
             const active = settings.tutor_personality === preset.id
             return (
@@ -388,17 +405,15 @@ function TutorSection({ settings, onChange }: { settings: Settings; onChange: (p
                 key={preset.id}
                 onClick={() => onChange({ tutor_personality: preset.id })}
                 aria-pressed={active}
-                className="rounded-[14px] px-3.5 py-2.5 text-left"
-                style={
-                  active
-                    ? { background: 'color-mix(in oklab, var(--accent) 12%, var(--bg-card))', boxShadow: 'var(--highlight-shadow)' }
-                    : undefined
-                }
+                className="flex items-start gap-3 rounded-[var(--r-sm)] py-2.5 text-left"
               >
-                <div className="text-sm font-bold" style={{ color: active ? 'var(--accent)' : 'var(--text)' }}>
+                <span aria-hidden className="mt-1.5 block h-2 w-2 flex-shrink-0 rounded-[var(--r-full)]" style={{ background: active ? 'var(--accent)' : 'var(--rule)' }} />
+                <div>
+                <div className="text-sm font-bold" style={{ color: active ? 'var(--text)' : 'var(--text-muted)' }}>
                   {preset.label}
                 </div>
-                <div className="text-xs text-[var(--text-secondary)]">{preset.description}</div>
+                <div className="text-xs text-[var(--text-muted)]">{preset.description}</div>
+                </div>
               </button>
             )
           })}
@@ -417,7 +432,7 @@ function TutorSection({ settings, onChange }: { settings: Settings; onChange: (p
             }}
             rows={4}
             placeholder="e.g. Always give a worked example before asking me anything."
-            className="w-full resize-none rounded-xl px-3.5 py-2.5 text-sm outline-none"
+            className="w-full resize-none rounded-[var(--r-sm)] px-3.5 py-2.5 text-sm outline-none"
             style={{ background: 'var(--bg)' }}
           />
         </Row>
@@ -427,7 +442,7 @@ function TutorSection({ settings, onChange }: { settings: Settings; onChange: (p
         <select
           value={settings.tutor_voice_id ?? ''}
           onChange={(e) => onChange({ tutor_voice_id: e.target.value || null })}
-          className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
+          className="w-full rounded-[var(--r-sm)] px-3.5 py-2.5 text-sm outline-none"
           style={{ background: 'var(--bg)' }}
         >
           <option value="">{voices === null ? 'Loading voices…' : 'Default voice'}</option>
@@ -488,10 +503,12 @@ function AISection({ settings, onChange }: { settings: Settings; onChange: (patc
 
       <button
         onClick={() => setOpen((v) => !v)}
-        className="self-start text-sm font-bold"
-        style={{ color: 'var(--accent)' }}
+        className="flex w-full items-center justify-between py-3.5 text-[0.9375rem] font-semibold"
       >
         {open ? 'Hide individual features' : 'Choose individually'}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d={open ? 'M6 15l6-6 6 6' : 'M9 6l6 6-6 6'} />
+        </svg>
       </button>
 
       {open && (
@@ -514,25 +531,30 @@ function AISection({ settings, onChange }: { settings: Settings; onChange: (patc
   )
 }
 
+/** One surface per region. Rows inside are separated by inset rules, not by their own boxes. */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <div className="mb-3 text-base font-extrabold">{title}</div>
-      <div className="flex flex-col gap-5 rounded-[18px] bg-[var(--bg-card)] p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+      <div className="mb-2 text-[0.9375rem] font-bold">{title}</div>
+      <div className="flex flex-col rounded-[var(--r-md)] bg-[var(--surface)] px-4 [&>*+*]:border-t [&>*+*]:border-[var(--rule)]">
         {children}
       </div>
     </section>
   )
 }
 
-function Row({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
+/** Label and control share a line when the control is compact; the hint sits under both. */
+/** `hint` is optional: a row whose hint only restates its own label is quieter without one, and
+ * the design draws Settings as mostly bare label-and-control rows. Keep a hint where it carries
+ * something the control can't say by itself. */
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div>
-        <div className="text-sm font-bold">{label}</div>
-        <div className="text-xs leading-relaxed text-[var(--text-secondary)]">{hint}</div>
+    <div className="flex flex-col gap-1.5 py-3.5">
+      <div className="flex min-h-[36px] flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="text-[0.9375rem] font-semibold">{label}</div>
+        <div className="flex min-w-0 max-w-full items-center">{children}</div>
       </div>
-      {children}
+      {hint && <div className="text-[0.8125rem] leading-snug text-[var(--text-muted)]">{hint}</div>}
     </div>
   )
 }
@@ -563,25 +585,23 @@ function Stepper({
   const set = (next: number) => onChange(Math.min(max, Math.max(min, next)))
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-0.5">
       <button
         onClick={() => set(value - step)}
         disabled={value <= min}
         aria-label="Decrease"
-        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-base font-extrabold disabled:opacity-40"
-        style={{ background: 'var(--bg)', color: 'var(--text-secondary)' }}
+        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[var(--r-sm)] text-lg text-[var(--text-muted)] disabled:opacity-40"
       >
         −
       </button>
-      <span className="min-w-0 flex-1 text-center text-sm font-bold">
+      <span className={`min-w-[44px] whitespace-nowrap text-center ${value === 0 && zeroLabel ? 'text-[0.875rem] font-semibold text-[var(--text-muted)]' : 'numeral text-[1.25rem]'}`}>
         {value === 0 && zeroLabel ? zeroLabel : format ? format(value) : value}
       </span>
       <button
         onClick={() => set(value + step)}
         disabled={value >= max}
         aria-label="Increase"
-        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-base font-extrabold disabled:opacity-40"
-        style={{ background: 'var(--bg)', color: 'var(--text-secondary)' }}
+        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[var(--r-sm)] text-lg text-[var(--text-muted)] disabled:opacity-40"
       >
         +
       </button>
@@ -603,11 +623,8 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (value: boolean
       // 25.44px via `html { font-size: 106% }`. A control whose parts must line up to the pixel
       // can't have half of them resizing with the root font size. (The larger error was the
       // knob's missing `left-0` — see below.)
-      className="relative h-[32px] w-[52px] flex-shrink-0 self-start rounded-full transition-colors"
-      style={{
-        background: value ? 'var(--accent)' : 'var(--ring-track)',
-        boxShadow: value ? 'var(--accent-shadow)' : undefined,
-      }}
+      className="relative h-[32px] w-[52px] flex-shrink-0 rounded-[var(--r-full)] transition-colors"
+      style={{ background: value ? 'var(--accent)' : 'var(--rule)' }}
     >
       <span
         // `left-0` is load-bearing, not decoration. An absolutely positioned box with no left or
@@ -615,10 +632,9 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (value: boolean
         // from the UA stylesheet, which shifts that static position to the middle of the track.
         // The knob therefore started 14px in ((52-24)/2) and the transforms below stacked on top
         // of it, so the "on" state pushed it 10px clear of the track entirely.
-        className="absolute left-0 top-[4px] h-[24px] w-[24px] rounded-full"
+        className="absolute left-0 top-[4px] h-[24px] w-[24px] rounded-[var(--r-full)]"
         style={{
-          background: 'var(--bg-card)',
-          boxShadow: 'var(--shadow-sm)',
+          background: value ? 'oklch(from var(--accent) 0.17 0.02 h)' : 'var(--text-muted)',
           // 4px inset either end: off sits at 4, on at 52 - 4 - 24 = 24. Symmetric by construction
           // rather than by a number that happened to look right.
           transform: value ? 'translateX(24px)' : 'translateX(4px)',

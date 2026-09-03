@@ -8,6 +8,7 @@ from app.models.memory import MemoryCategory, MemorySource, StudentMemoryNote
 from app.models.note import Note, NoteFileType
 from app.models.review_log import InputMode, ReviewLog
 from app.models.tutor import TutorMessage, TutorMessageRole, TutorPersonality, TutorSession
+from app.models.usage_event import UsageEvent, UsageEventType
 from app.models.user import User, UserTier
 from app.models.user_settings import GradingStrictness, Theme, UserSettings
 
@@ -33,6 +34,8 @@ __all__ = [
     "StudentMemoryNote",
     "MemoryCategory",
     "MemorySource",
+    "UsageEvent",
+    "UsageEventType",
     "UserSettings",
     "Theme",
     "GradingStrictness",

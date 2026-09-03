@@ -40,15 +40,18 @@ export default function ImportScreen({ onDone, onCancel }: Props) {
 
   return (
     <div>
-      <button onClick={onCancel} className="mb-4 text-sm font-semibold text-[var(--text-secondary)]">
-        ← Back
+      <button onClick={onCancel} className="-ml-2 mb-3 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        Back
       </button>
-      <p className="mb-5 text-sm text-[var(--text-secondary)]">
-        CSV format: <span className="font-semibold text-[var(--text)]">DeckName,Subtopic,Front,Back</span> — with header row
+      <p className="mb-5 text-[0.9375rem] text-[var(--text-muted)]">
+        One card per line, with a header row: <span className="font-semibold text-[var(--text)]">DeckName,Subtopic,Front,Back</span>
       </p>
 
-      <label className="mb-3 block cursor-pointer rounded-[16px] bg-[var(--bg-card)] p-7 text-center text-sm text-[var(--text-secondary)]" style={{ boxShadow: 'var(--shadow-sm)' }}>
-        Drop a .csv file here or click to browse
+      <label className="mb-3 block cursor-pointer rounded-[var(--r-md)] border border-dashed border-[var(--rule)] p-7 text-center text-[0.9375rem] font-semibold text-[var(--text-muted)]">
+        Drop a .csv file here, or tap to choose one
         <input
           type="file"
           accept=".csv"
@@ -57,33 +60,27 @@ export default function ImportScreen({ onDone, onCancel }: Props) {
         />
       </label>
 
-      <div className="mb-3 text-center text-xs font-semibold text-[var(--text-secondary)]">— or paste CSV text —</div>
+      <div className="mb-3 text-center text-[0.8125rem] text-[var(--text-muted)]">or paste the CSV text</div>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Paste CSV content here..."
-        className="min-h-[140px] w-full rounded-[12px] bg-[var(--bg-card)] p-3.5 text-xs outline-none placeholder:text-[var(--text-secondary)]"
-        style={{ boxShadow: 'var(--shadow-sm)' }}
+        placeholder="Paste CSV here"
+        className="min-h-[140px] w-full rounded-[var(--r-md)] bg-[var(--surface)] px-4 py-3.5 text-[0.9375rem] placeholder:text-[var(--text-muted)]"
       />
 
       {error && (
-        <div className="mt-3 rounded-2xl px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
+        <div className="mt-3 rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
           {error}
         </div>
       )}
 
-      <div className="mt-5 flex gap-2.5">
-        <button
-          onClick={handleImport}
-          disabled={busy}
-          className="rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-bold text-[oklch(0.99_0.005_90)] disabled:opacity-50"
-        >
-          {busy ? 'Importing…' : 'Import →'}
-        </button>
-        <button onClick={onCancel} className="rounded-full bg-[var(--bg-card)] px-6 py-3 text-sm font-bold text-[var(--text-secondary)]" style={{ boxShadow: 'var(--shadow-sm)' }}>
-          Cancel
-        </button>
-      </div>
+      <button
+        onClick={handleImport}
+        disabled={busy}
+        className="on-accent mt-5 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
+      >
+        {busy ? 'Importing' : 'Import these cards'}
+      </button>
     </div>
   )
 }

@@ -75,11 +75,10 @@ export default function CardsScreen({ onStudy, onChanged, aiGeneration }: Props)
   const totalCards = decks?.reduce((sum, d) => sum + d.total, 0) ?? 0
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Horizontal cards with a line of explanation each, rather than two bare icon+label
-          squares — the two routes in do genuinely different things and the labels alone didn't
-          say which to pick. */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-14">
+      {/* One surface, three rows, inset dividers: the ways in are choices, not cards. Cards are
+          reserved for the decks below. */}
+      <div className="divide-y divide-[var(--rule)] overflow-hidden rounded-[var(--r-md)] bg-[var(--surface)] [&>*+*]:border-t [&>*+*]:border-[var(--rule)]">
         <ActionCard
           onClick={() => setWriting(true)}
           title="Write your own"
@@ -104,7 +103,7 @@ export default function CardsScreen({ onStudy, onChanged, aiGeneration }: Props)
         <ActionCard
           onClick={() => setGenerating(true)}
           disabled={!aiGeneration}
-          disabledHint="Turned off in Settings → AI features"
+          disabledHint="Turned off in Settings, under AI features"
           title="Generate with AI"
           description="From photos of your notes or a PDF"
           icon={
@@ -117,23 +116,21 @@ export default function CardsScreen({ onStudy, onChanged, aiGeneration }: Props)
 
       <div>
         <div className="mb-3 flex items-baseline justify-between">
-          <span className="text-base font-extrabold">Your Library</span>
+          <span className="text-[0.9375rem] font-bold">Your Library</span>
           {decks !== null && decks.length > 0 && (
-            <span className="text-xs font-semibold text-[var(--text-secondary)]">
-              {decks.length} deck{decks.length === 1 ? '' : 's'} · {totalCards} card{totalCards === 1 ? '' : 's'}
+            <span className="text-[0.8125rem] text-[var(--text-muted)]">
+              {decks.length} deck{decks.length === 1 ? '' : 's'}, {totalCards.toLocaleString()} card{totalCards === 1 ? '' : 's'}
             </span>
           )}
         </div>
         {decks === null ? (
-          <p className="text-sm text-[var(--text-secondary)]">Loading…</p>
+          <p className="text-sm text-[var(--text-muted)]">Loading…</p>
         ) : decks.length === 0 ? (
-          <div className="rounded-[16px] border border-dashed border-[var(--ring-track)] p-10 text-center">
-            <p className="text-sm text-[var(--text-secondary)]">
-              No decks yet — pick one of the two options above to get started.
-            </p>
-          </div>
+          <p className="py-6 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">
+            No decks yet. Write a few cards, import a CSV, or generate from your notes, and they'll show up here.
+          </p>
         ) : (
-          <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-3 lg:gap-4">
+          <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-2.5">
             {decks.map((deck, i) => (
               <DeckTile
                 key={deck.id}

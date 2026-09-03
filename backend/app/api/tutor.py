@@ -11,8 +11,9 @@ from app.config import settings
 from app.core.auth import get_current_user
 from app.core.settings_store import get_settings_row, require_ai
 from app.core.sse import sse_event
+from app.core.usage import record
 from app.db import get_db
-from app.models import TutorMessage, TutorMessageRole, TutorSession
+from app.models import TutorMessage, TutorMessageRole, TutorSession, UsageEventType
 from app.schemas import TutorSessionCreate, TutorSessionOut, TutorSessionUpdate, TutorVoiceOut, VoiceTurnTextRequest
 from app.services.live_stt import relay as relay_live_stt
 from app.services.memory_extraction import schedule_if_due
@@ -261,6 +262,14 @@ def _stream_reply(
         yield sse_event("token", {"text": pending})
 
     db.add(TutorMessage(session_id=session.id, role=TutorMessageRole.assistant, content=full_reply.strip()))
+    # Counted once the reply exists, so an abandoned stream isn't billed as a turn. `synth` is the
+    # only thing separating a spoken turn from a typed one by the time it reaches here, and the
+    # difference is worth keeping: voice is the turn that costs money in TTS and STT.
+    record(
+        db,
+        session.user_id,
+        UsageEventType.tutor_voice_turn if synth else UsageEventType.tutor_text_turn,
+    )
     db.commit()
 
     # Periodically let the tutor write to its own memory file. Scheduled before `done` is yielded

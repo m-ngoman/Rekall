@@ -47,6 +47,10 @@ def _is_dont_know(answer: str) -> bool:
 class GradeResult:
     grade: int  # FSRS rating: 1=forgot 2=hard 3=good 4=easy
     explanation: str  # never feeds scheduling — display-only
+    # The rubric score the grader actually produced, 1-5, before strictness collapsed it to a
+    # grade. Display-only, like the explanation: it is what the student sees as "4/5". None for
+    # self-assessed reviews and for graders that have no rubric to score against.
+    score: int | None = None
 
 
 GradeStreamItem = Union[str, GradeResult]
@@ -85,18 +89,18 @@ class StubGrader:
     ) -> Iterator[GradeStreamItem]:
         submitted = submitted_answer.strip()
         if not submitted:
-            yield GradeResult(grade=1, explanation="No answer given.")
+            yield GradeResult(grade=1, explanation="No answer given.", score=1)
             return
 
         ratio = difflib.SequenceMatcher(a=reference_answer.strip().lower(), b=submitted.lower()).ratio()
         if ratio >= 0.85:
-            result = GradeResult(grade=4, explanation="Correct.")
+            result = GradeResult(grade=4, explanation="Correct.", score=5)
         elif ratio >= 0.6:
-            result = GradeResult(grade=3, explanation="Correct — close enough to the reference answer.")
+            result = GradeResult(grade=3, explanation="Correct — close enough to the reference answer.", score=4)
         elif ratio >= 0.3:
-            result = GradeResult(grade=2, explanation=f"Partially correct. Reference answer: {reference_answer.strip()}")
+            result = GradeResult(grade=2, explanation=f"Partially correct. Reference answer: {reference_answer.strip()}", score=3)
         else:
-            result = GradeResult(grade=1, explanation=f"Not quite. Reference answer: {reference_answer.strip()}")
+            result = GradeResult(grade=1, explanation=f"Not quite. Reference answer: {reference_answer.strip()}", score=1)
 
         yield result.explanation
         yield result
@@ -263,7 +267,7 @@ class PrometheusGrader:
                     break
 
         explanation = "".join(parts).strip()
-        yield GradeResult(grade=_SCORE_TO_GRADE[score], explanation=explanation)
+        yield GradeResult(grade=_SCORE_TO_GRADE[score], explanation=explanation, score=score)
 
 
 _LOCAL_PROMPT = r"""You are grading a flashcard answer for a spaced-repetition study app.
@@ -392,7 +396,7 @@ class LocalLLMGrader:
     ) -> Iterator[GradeStreamItem]:
         submitted = submitted_answer.strip()
         if _is_dont_know(submitted):
-            yield GradeResult(grade=1, explanation="No problem — here's the answer:\n\n" + reference_answer.strip())
+            yield GradeResult(grade=1, explanation="No problem — here's the answer:\n\n" + reference_answer.strip(), score=1)
             return
 
         prompt = _LOCAL_PROMPT.format(
@@ -442,7 +446,7 @@ class LocalLLMGrader:
         explanation = cleaned[:explanation_end].strip()
         mapping = _SCORE_TO_GRADE_BY_STRICTNESS.get(strictness, _SCORE_TO_GRADE)
 
-        yield GradeResult(grade=mapping[score], explanation=explanation)
+        yield GradeResult(grade=mapping[score], explanation=explanation, score=score)
 
 
 class CloudGrader:
@@ -469,7 +473,7 @@ class CloudGrader:
     ) -> Iterator[GradeStreamItem]:
         submitted = submitted_answer.strip()
         if _is_dont_know(submitted):
-            yield GradeResult(grade=1, explanation="No problem — here's the answer:\n\n" + reference_answer.strip())
+            yield GradeResult(grade=1, explanation="No problem — here's the answer:\n\n" + reference_answer.strip(), score=1)
             return
 
         prompt = _LOCAL_PROMPT.format(
@@ -525,7 +529,7 @@ class CloudGrader:
 
         score = min(5, max(1, int(match.group(1)))) if match else 3
         mapping = _SCORE_TO_GRADE_BY_STRICTNESS.get(strictness, _SCORE_TO_GRADE)
-        yield GradeResult(grade=mapping[score], explanation=cleaned[:explanation_end].strip())
+        yield GradeResult(grade=mapping[score], explanation=cleaned[:explanation_end].strip(), score=score)
 
 
 def get_grader(prefer_cloud: bool | None = None) -> Grader:

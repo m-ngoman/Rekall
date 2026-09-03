@@ -19,9 +19,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.api.bugs import is_owner
 from app.config import settings
-from app.core.auth import SESSION_USER_KEY, current_user_or_none
+from app.core.auth import SESSION_USER_KEY, current_user_or_none, is_owner
 from app.db import get_db
 from app.models import User, UserTier
 

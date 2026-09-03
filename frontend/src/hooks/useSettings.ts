@@ -5,8 +5,6 @@ import type { Settings, SettingsPatch, Theme } from '../types'
 const THEME_KEY = 'pipcards:theme'
 const ACCENT_KEY = 'pipcards:accent'
 
-/** What index.html applies before React mounts. The server is the source of truth — this is only
- * a mirror, so the first paint doesn't have to wait on a request to know what to look like. */
 function mirror(settings: Settings): void {
   try {
     localStorage.setItem(THEME_KEY, settings.theme)
@@ -17,37 +15,24 @@ function mirror(settings: Settings): void {
   }
 }
 
-/** The exact sRGB value of --bg in each theme. iOS Safari paints the strip above the page (and
- * Chrome its toolbar) from theme-color, so any drift from --bg shows up as a seam along the top
- * edge of the screen. Keep these in step with the tokens in index.css. */
+/** The exact sRGB value of --bg in each theme. Keep in step with index.css. */
 export const THEME_BG = { light: '#faf4ec', dark: '#19120e' } as const
 
-/** Resolves 'system' against the OS and writes the result to the root element. */
 function applyTheme(theme: Theme): void {
   const resolved =
     theme === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme
   document.documentElement.dataset.theme = resolved
-  // Driven by the theme actually in force, not by prefers-color-scheme: someone running the app
-  // dark on a light phone would otherwise get a pale bar above a dark page.
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_BG[resolved])
 }
 
+/** Writes the user's *pick*. index.css derives --accent from it — same colour in dark, darkened
+ * in light so it stays legible on the pale page. Nothing should set --accent directly. */
 function applyAccent(accent: string | null, fallback: string): void {
   const value = accent ?? fallback
-  document.documentElement.style.setProperty('--accent', value)
+  document.documentElement.style.setProperty('--accent-pick', value)
   applyFavicon(value)
 }
 
-/** Repaints the browser-tab icon in the user's accent.
- *
- * A static SVG favicon can respond to `prefers-color-scheme` but cannot read the page's CSS
- * variables — a favicon is rendered by browser chrome, outside the document — so matching a
- * user-chosen colour means swapping the `href` for a freshly built data URI.
- *
- * Deliberately NOT done for the home-screen or PWA icons: those are baked at install time and
- * can't change afterwards, and an app icon's job is to be recognisable among sixty others rather
- * than to match the theme inside.
- */
 function applyFavicon(accent: string): void {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
 <g stroke="${accent}" stroke-opacity=".42" stroke-linecap="round">
@@ -64,20 +49,9 @@ function applyFavicon(accent: string): void {
 
   const link = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/svg+xml"]')
   if (!link) return
-  // encodeURIComponent rather than base64: a data URI with raw '#' from an oklch()/hex colour
-  // terminates the URL early and silently yields a blank icon.
   link.href = `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
-/**
- * The user's settings, kept in one place because several of them have to be *applied* to the
- * document rather than merely displayed — theme and accent both paint the whole app.
- *
- * Writes are optimistic and applied to the DOM before the request goes out. A colour picker that
- * only changes colour once the server answers feels broken on a phone, and the failure it's
- * guarding against (a PATCH failing while the GET succeeded seconds earlier) is rare enough that
- * paying a round-trip on every tap to defend against it is the wrong trade.
- */
 export function useSettings(defaultAccent: string) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -93,8 +67,6 @@ export function useSettings(defaultAccent: string) {
       .catch(() => setError('Could not load your settings.'))
   }, [defaultAccent])
 
-  // Only relevant while the user is on 'system': the OS flipping to dark at sunset should carry
-  // straight through without a reload, but it must not override an explicit choice.
   useEffect(() => {
     if (settings?.theme !== 'system') return
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -119,7 +91,6 @@ export function useSettings(defaultAccent: string) {
         setSettings(saved)
         mirror(saved)
       } catch (e) {
-        // Put the server's version back rather than guessing which field was rejected.
         setError(e instanceof Error ? e.message : 'Could not save that setting.')
         try {
           const current = await getSettings()

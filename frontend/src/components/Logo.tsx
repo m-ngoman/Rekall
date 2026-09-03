@@ -1,24 +1,16 @@
-/** The Rekall mark, drawn inline so it inherits the user's accent colour.
+/** The Rekall mark, drawn inline so it takes its colour from the text around it.
  *
- * The dim nodes and edges are the accent at reduced opacity rather than hardcoded browns. That
- * matters for more than colour-matching: opacity blends toward whatever is behind, so the same
- * markup reads correctly on the dark theme and the light one. A `color-mix` against `--bg` would
- * have needed a separate light-mode value, and hardcoded hex would break both.
+ * Muted by default: the accent has four jobs (countdown, load scale, primary button, active nav)
+ * and the logo is not one of them. The dim nodes and edges are that colour at reduced opacity
+ * rather than a second token — opacity blends toward whatever is behind, so the same markup reads
+ * correctly on the dark theme and the light one.
  *
  * The bright node is held by TWO edges on purpose. A single edge ending in a round terminus reads
  * as something else entirely once you can only see the silhouette — don't reduce it to one.
  */
-export default function Logo({ size = 28 }: { size?: number }) {
+export default function Logo({ size = 28, color = 'var(--text-muted)' }: { size?: number; color?: string }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 120 120"
-      fill="none"
-      role="img"
-      aria-label="Rekall"
-      style={{ color: 'var(--accent)' }}
-    >
+    <svg width={size} height={size} viewBox="0 0 120 120" fill="none" role="img" aria-label="Rekall" style={{ color }}>
       <g stroke="currentColor" strokeOpacity={0.42} strokeLinecap="round">
         <line x1="26" y1="84" x2="56" y2="92" strokeWidth="6" />
         <line x1="56" y1="92" x2="38" y2="58" strokeWidth="6" />

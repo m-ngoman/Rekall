@@ -56,14 +56,14 @@ export default function OnboardingScreen({ settings, onChange, onFinish }: Props
 
   return (
     <div className="flex min-h-[70vh] flex-col justify-center">
-      <div className="rounded-[20px] bg-[var(--bg-card)] px-7 py-12 text-center" style={{ boxShadow: 'var(--shadow-md)' }}>
+      <div className="rounded-[var(--r-md)] bg-[var(--surface)] px-7 py-12 text-center">
         {step === 0 && (
           <>
             <div className="mb-5 flex justify-center">
-              <Logo size={92} />
+              <Logo size={92} color="var(--text)" />
             </div>
-            <h1 className="mb-2 text-xl font-extrabold">Welcome to Rekall</h1>
-            <p className="mx-auto mb-7 max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
+            <h1 className="mb-2 text-[1.375rem] font-bold tracking-tight">Welcome to Rekall</h1>
+            <p className="mx-auto mb-7 max-w-sm text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
               Most flashcard apps ask whether you got it right. Rekall reads what you actually wrote
               or said, and tells you what you missed.
             </p>
@@ -73,18 +73,18 @@ export default function OnboardingScreen({ settings, onChange, onFinish }: Props
 
         {step === 1 && (
           <>
-            <h1 className="mb-2 text-xl font-extrabold">Make it yours</h1>
-            <p className="mx-auto mb-7 max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
+            <h1 className="mb-2 text-[1.375rem] font-bold tracking-tight">Make it yours</h1>
+            <p className="mx-auto mb-7 max-w-sm text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
               Applies as you tap, so you can see it straight away.
             </p>
 
             <div className="mx-auto mb-7 max-w-xs">
-              <div className="mb-2 text-xs font-bold text-[var(--text-secondary)]">Theme</div>
+              <div className="mb-2 text-[0.8125rem] font-semibold text-[var(--text-muted)]">Theme</div>
               <Segmented options={THEMES} value={settings.theme} onChange={(theme) => onChange({ theme })} />
             </div>
 
             <div className="mx-auto mb-7 max-w-xs">
-              <div className="mb-2.5 text-xs font-bold text-[var(--text-secondary)]">Colour</div>
+              <div className="mb-2.5 text-[0.8125rem] font-semibold text-[var(--text-muted)]">Colour</div>
               <div className="flex justify-center gap-3">
                 {ACCENT_PRESETS.map((preset) => {
                   const active = (settings.accent ?? DEFAULT_ACCENT) === preset.value
@@ -94,27 +94,25 @@ export default function OnboardingScreen({ settings, onChange, onFinish }: Props
                       onClick={() => onChange({ accent: preset.value })}
                       aria-label={preset.name}
                       aria-pressed={active}
-                      className="h-10 w-10 rounded-full border-2"
-                      style={{ background: preset.value, borderColor: active ? 'var(--text)' : 'transparent' }}
+                      className="h-9 w-9 rounded-[var(--r-full)]"
+                      style={{ background: preset.value, outline: active ? '2px solid var(--text)' : undefined, outlineOffset: 2 }}
                     />
                   )
                 })}
               </div>
             </div>
 
-            <p className="mb-7 text-xs text-[var(--text-secondary)] opacity-80">
-              (you can change this later in Settings)
-            </p>
+            <p className="mb-7 text-[0.8125rem] text-[var(--text-muted)]">You can change this later in Settings.</p>
             <Primary onClick={() => setStep(2)}>Continue</Primary>
           </>
         )}
 
         {step === 2 && (
           <>
-            <h1 className="mb-2 text-xl font-extrabold">How many cards a day?</h1>
-            <p className="mx-auto mb-6 max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
-              Your daily review target — it's what the ring on your home screen fills up. A goal,
-              not a limit: you can always keep going past it.
+            <h1 className="mb-2 text-[1.375rem] font-bold tracking-tight">How many cards a day?</h1>
+            <p className="mx-auto mb-6 max-w-sm text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+              Your daily review target. Home shows how many cards are due each day, and this is
+              where that number comes from. A goal, not a limit: you can always keep going past it.
             </p>
             <div className="mx-auto mb-7 grid max-w-xs grid-cols-4 gap-2">
               {GOALS.map((n) => {
@@ -124,11 +122,12 @@ export default function OnboardingScreen({ settings, onChange, onFinish }: Props
                     key={n}
                     onClick={() => setGoal(n)}
                     aria-pressed={active}
-                    className="rounded-[14px] py-3 text-sm font-bold"
+                    className="numeral min-h-[44px] rounded-[var(--r-sm)] py-2 text-[1.5rem]"
                     style={{
-                      background: active ? 'color-mix(in oklab, var(--accent) 15%, var(--bg-card))' : 'var(--bg)',
-                      boxShadow: active ? 'var(--highlight-shadow)' : undefined,
-                      color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                      background: 'var(--bg)',
+                      outline: active ? '2px solid var(--text)' : undefined,
+                      outlineOffset: 2,
+                      color: active ? 'var(--text)' : 'var(--text-muted)',
                     }}
                   >
                     {n}
@@ -136,15 +135,11 @@ export default function OnboardingScreen({ settings, onChange, onFinish }: Props
                 )
               })}
             </div>
-            <p className="-mt-4 mb-1.5 text-xs font-semibold text-[var(--text-secondary)]">
-              {goal} cards a day
-            </p>
+            <p className="-mt-4 mb-1.5 text-[0.8125rem] font-semibold text-[var(--text-muted)]">{goal} cards a day</p>
             {/* Sits immediately above the button rather than up in the body copy: this is the last
                 thing read before committing, which is exactly when it does its job. Nobody should
                 stall on this screen over a number they can change in ten seconds. */}
-            <p className="mb-7 text-xs text-[var(--text-secondary)] opacity-80">
-              (you can change this later in Settings)
-            </p>
+            <p className="mb-7 text-[0.8125rem] text-[var(--text-muted)]">You can change this later in Settings.</p>
             <Primary
               onClick={() => {
                 onChange({ daily_goal: goal })
@@ -158,35 +153,33 @@ export default function OnboardingScreen({ settings, onChange, onFinish }: Props
 
         {step === 3 && (
           <>
-            <h1 className="mb-2 text-xl font-extrabold">Let's get some cards in</h1>
-            <p className="mx-auto mb-7 max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
+            <h1 className="mb-2 text-[1.375rem] font-bold tracking-tight">Let's get some cards in</h1>
+            <p className="mx-auto mb-7 max-w-sm text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
               Rekall builds cards from photos of your notes or a PDF. Or start with a small sample
               deck to see how the answering works first.
             </p>
 
             {error && (
-              <div className="mx-auto mb-5 max-w-sm rounded-2xl px-4 py-2.5 text-sm font-semibold"
-                   style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
+              <div className="mx-auto mb-5 max-w-sm rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
                 {error}
               </div>
             )}
 
             <div className="mx-auto flex max-w-sm flex-col gap-2.5">
               <Primary onClick={startWithSample} disabled={busy}>
-                {busy ? 'Setting it up…' : 'Start with a sample deck'}
+                {busy ? 'Setting it up' : 'Start with a sample deck'}
               </Primary>
               <button
                 onClick={() => finish(true)}
                 disabled={busy}
-                className="rounded-xl py-3 text-sm font-bold"
-                style={{ background: 'var(--bg)', color: 'var(--text)' }}
+                className="min-h-[44px] rounded-[var(--r-full)] border border-[var(--rule)] px-6 py-3 text-[0.9375rem] font-bold text-[var(--text)]"
               >
-                Add my own notes
+                Add my own cards
               </button>
               <button
                 onClick={() => finish(false)}
                 disabled={busy}
-                className="pt-1 text-xs font-semibold text-[var(--text-secondary)]"
+                className="min-h-[44px] pt-1 text-[0.875rem] font-semibold text-[var(--text-muted)]"
               >
                 Skip for now
               </button>
@@ -200,10 +193,10 @@ export default function OnboardingScreen({ settings, onChange, onFinish }: Props
           {Array.from({ length: STEPS }, (_, i) => i).map((i) => (
             <span
               key={i}
-              className="h-1.5 rounded-full transition-all"
+              className="h-1.5 rounded-[var(--r-full)]"
               style={{
                 width: i === step ? 18 : 6,
-                background: i === step ? 'var(--accent)' : 'var(--ring-track)',
+                background: i === step ? 'var(--text)' : 'var(--rule)',
               }}
             />
           ))}
@@ -218,8 +211,7 @@ function Primary({ children, onClick, disabled }: { children: React.ReactNode; o
     <button
       onClick={onClick}
       disabled={disabled}
-      className="w-full rounded-xl px-6 py-3.5 text-sm font-bold text-[oklch(0.99_0.005_90)] disabled:opacity-50"
-      style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow)' }}
+      className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] px-6 py-4 text-[1.0625rem] font-bold disabled:opacity-50"
     >
       {children}
     </button>

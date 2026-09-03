@@ -22,26 +22,26 @@ export default function PersonalityPicker({ personality, customPrompt, onChange 
   const [draft, setDraft] = useState(customPrompt)
 
   return (
-    <div className="w-72 rounded-[18px] bg-[var(--bg-card)] p-5" style={{ boxShadow: 'var(--shadow-lg)' }}>
-      <div className="mb-3.5 text-sm font-bold">Personality</div>
-      <div className="flex flex-col gap-1">
+    <div className="w-72 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4">
+      <div className="mb-2 text-[0.9375rem] font-bold">Personality</div>
+      <div className="flex flex-col">
         {PERSONALITY_PRESETS.map((p) => {
           const active = personality === p.id
           return (
             <button
               key={p.id}
               onClick={() => onChange(p.id, p.id === 'custom' ? draft : undefined)}
-              className="rounded-2xl px-3.5 py-2.5 text-left"
-              style={
-                active
-                  ? { background: 'color-mix(in oklab, var(--accent) 15%, var(--bg-card))', boxShadow: 'var(--highlight-shadow)' }
-                  : undefined
-              }
+              aria-pressed={active}
+              className="flex items-start gap-3 rounded-[var(--r-sm)] py-2.5 text-left"
             >
-              <div className="text-sm font-bold" style={{ color: active ? 'var(--accent)' : 'var(--text)' }}>
-                {p.label}
+              {/* Same row as the Settings presets: the dot is the selection, not a wash. */}
+              <span aria-hidden className="mt-1.5 block h-2 w-2 flex-shrink-0 rounded-[var(--r-full)]" style={{ background: active ? 'var(--accent)' : 'var(--rule)' }} />
+              <div>
+                <div className="text-sm font-bold" style={{ color: active ? 'var(--text)' : 'var(--text-muted)' }}>
+                  {p.label}
+                </div>
+                <div className="text-xs text-[var(--text-muted)]">{p.description}</div>
               </div>
-              <div className="text-xs text-[var(--text-secondary)]">{p.description}</div>
             </button>
           )
         })}
@@ -52,7 +52,7 @@ export default function PersonalityPicker({ personality, customPrompt, onChange 
           onChange={(e) => setDraft(e.target.value)}
           onBlur={() => onChange('custom', draft)}
           placeholder="e.g. Focus only on quizzing me, never explain unless I ask twice…"
-          className="mt-3 min-h-[80px] w-full rounded-2xl bg-[var(--bg)] p-3 text-xs outline-none"
+          className="mt-3 min-h-[80px] w-full rounded-[var(--r-sm)] bg-[var(--bg)] p-3 text-xs"
         />
       )}
     </div>

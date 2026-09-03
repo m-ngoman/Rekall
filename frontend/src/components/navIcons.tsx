@@ -59,10 +59,10 @@ export const NAV_ITEMS: { id: Tab; label: string; icon: (color: string) => JSX.E
 export const SETTINGS_ICON = (color: string) => (
   <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
     <line x1="3" y1="6" x2="21" y2="6" />
-    <circle cx="15" cy="6" r="2.4" fill="var(--bg-card)" />
+    <circle cx="15" cy="6" r="2.4" fill="var(--bg)" />
     <line x1="3" y1="12" x2="21" y2="12" />
-    <circle cx="9" cy="12" r="2.4" fill="var(--bg-card)" />
+    <circle cx="9" cy="12" r="2.4" fill="var(--bg)" />
     <line x1="3" y1="18" x2="21" y2="18" />
-    <circle cx="17" cy="18" r="2.4" fill="var(--bg-card)" />
+    <circle cx="17" cy="18" r="2.4" fill="var(--bg)" />
   </svg>
 )

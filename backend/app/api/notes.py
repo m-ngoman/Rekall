@@ -15,13 +15,15 @@ from starlette.concurrency import run_in_threadpool
 from app.core.auth import get_current_user
 from app.core.settings_store import get_settings_row, require_ai
 from app.core.sse import sse_event
+from app.core.usage import record
 from app.db import get_db
-from app.models import Card, Deck, Note, NoteFileType
+from app.models import Card, Deck, Note, NoteFileType, UsageEventType
 from app.schemas import (
     DroppedCardOut,
     GeneratedCardOut,
     GenerateFromNotes,
     GenerationResultOut,
+    NoteCreate,
     NoteDetailOut,
     NoteOut,
     NoteUpdate,
@@ -46,8 +48,31 @@ PREVIEW_CHARS = 180
 TRANSCRIBE_WORKERS = 4
 
 
+def _plain_preview(md: str) -> str:
+    """Markdown source flattened to the prose a tile should show.
+
+    `ocr_text` holds markdown — always for a typed note, often for a transcription — and the tile
+    renders it as plain text, so without this a note titled "# Aromaticity" previews with the hash
+    still on it. Stripping happens before the truncation so all PREVIEW_CHARS are real content.
+
+    Deliberately a small regex pass, not a markdown parser: the output is a one-line teaser, and
+    the cost of the occasional stray character is far lower than a parser dependency in a hot
+    list endpoint.
+    """
+    text = md
+    text = re.sub(r"```.*?```", " ", text, flags=re.S)  # fenced code, whole block
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)  # images: no alt text is worth showing
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)  # links keep their label
+    text = re.sub(r"^\s{0,3}#{1,6}\s+", "", text, flags=re.M)  # headings
+    text = re.sub(r"^\s{0,3}>\s?", "", text, flags=re.M)  # blockquotes
+    text = re.sub(r"^\s{0,3}(?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s+)?", "", text, flags=re.M)  # list/task markers
+    text = re.sub(r"^\s{0,3}([-*_])\s*(?:\1\s*){2,}$", " ", text, flags=re.M)  # thematic breaks
+    text = re.sub(r"(\*\*|__|\*|_|`|~~)", "", text)  # emphasis and inline code marks
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _note_out(note: Note, deck_name: str | None) -> NoteOut:
-    text = (note.ocr_text or "").strip()
+    text = _plain_preview(note.ocr_text or "")
     preview = text[:PREVIEW_CHARS] + ("…" if len(text) > PREVIEW_CHARS else "")
     return NoteOut(
         id=note.id,
@@ -129,8 +154,8 @@ def _resolve_deck(db: Session, user_id: uuid.UUID, deck_id: str) -> Deck | None:
 
 
 def _deck_for_upload(db: Session, user_id: uuid.UUID, deck_id: str, deck_name: str) -> Deck | None:
-    """Resolves the category notes are being filed under: an existing one by id, a named one, or
-    none at all.
+    """Resolves the category a note is being filed under: an existing one by id, a named one, or
+    none at all. Shared by the upload and the typed-note create, so both file the same way.
 
     A name that already belongs to a category files into that one rather than making a second with
     the same label — typing "Biology" when Biology exists means that Biology. Matched
@@ -241,12 +266,42 @@ async def upload_notes(request: Request,
             _save_note(db, user.id, deck.id if deck else None, upload, markdown)
             for upload, markdown in zip(uploads, markdowns)
         ]
+        # One event for the batch, counting the files: a stack of twenty photos dropped in at once
+        # is one upload, not twenty.
+        record(db, user.id, UsageEventType.notes_uploaded, count=len(created))
         db.commit()
         for note in created:
             db.refresh(note)
         return [_note_out(note, deck.name if deck else None) for note in created]
 
     return await run_in_threadpool(build)
+
+
+@router.post("/text", response_model=NoteDetailOut, status_code=201)
+def create_text_note(request: Request, payload: NoteCreate, db: Session = Depends(get_db)) -> NoteDetailOut:
+    """A note written in the app. No file, no transcription, no AI gate: the body is the note.
+
+    The client only calls this once there is something to save — an editor opened and abandoned
+    never reaches here — so an empty body is accepted rather than rejected, for the case where
+    someone has typed a title and nothing else yet.
+    """
+    user = get_current_user(request, db)
+    deck = _deck_for_upload(db, user.id, str(payload.deck_id) if payload.deck_id else "", payload.deck_name)
+    title = (payload.title or "").strip() or None
+    note = Note(
+        user_id=user.id,
+        deck_id=deck.id if deck else None,
+        title=title,
+        file_type=NoteFileType.text,
+        storage_path=None,
+        ocr_text=payload.text.strip() or None,
+    )
+    db.add(note)
+    record(db, user.id, UsageEventType.notes_written)
+    db.commit()
+    db.refresh(note)
+    base = _note_out(note, deck.name if deck else None)
+    return NoteDetailOut(**base.model_dump(), ocr_text=note.ocr_text)
 
 
 def _get_note(db: Session, note_id: uuid.UUID, user_id: uuid.UUID) -> Note:
@@ -274,6 +329,8 @@ def get_note_file(request: Request, note_id: uuid.UUID, db: Session = Depends(ge
     user = get_current_user(request, db)
     note = _get_note(db, note_id, user.id)
 
+    if note.storage_path is None:
+        raise HTTPException(404, "This note was typed in the app and has no file")
     path = Path(note.storage_path)
     if not path.is_file():
         raise HTTPException(404, "Original file is missing from storage")
@@ -284,7 +341,7 @@ def get_note_file(request: Request, note_id: uuid.UUID, db: Session = Depends(ge
 
 @router.patch("/{note_id}", response_model=NoteOut)
 def update_note(request: Request, note_id: uuid.UUID, payload: NoteUpdate, db: Session = Depends(get_db)) -> NoteOut:
-    """Renames a note and/or refiles it under a different category (deck).
+    """Renames a note, rewrites its body, and/or refiles it under a different category (deck).
 
     `deck_id: null` is a real instruction here — "move this back to Unfiled" — so an omitted field
     has to mean something different from a null one. Pydantic's `model_fields_set` is what tells
@@ -297,6 +354,12 @@ def update_note(request: Request, note_id: uuid.UUID, payload: NoteUpdate, db: S
         # Whitespace-only is treated as clearing the name, not as a name made of spaces.
         cleaned = (payload.title or "").strip()
         note.title = cleaned or None
+
+    if "text" in payload.model_fields_set:
+        # Stored the way the transcription is: NULL when there's nothing, so "no text" has one
+        # spelling for search and previews. Only the ends are trimmed — inner whitespace is
+        # markdown structure.
+        note.ocr_text = (payload.text or "").strip() or None
 
     if "deck_id" in payload.model_fields_set:
         deck = None
@@ -321,9 +384,10 @@ def delete_note(request: Request, note_id: uuid.UUID, db: Session = Depends(get_
     user = get_current_user(request, db)
     note = _get_note(db, note_id, user.id)
 
-    path = Path(note.storage_path)
-    if path.is_file():
-        path.unlink()
+    if note.storage_path:
+        path = Path(note.storage_path)
+        if path.is_file():
+            path.unlink()
 
     db.delete(note)
     db.commit()
@@ -332,7 +396,11 @@ def delete_note(request: Request, note_id: uuid.UUID, db: Session = Depends(get_
 def _upload_from_note(note: Note) -> _Upload:
     """Rebuilds the same _Upload the file arrived as, from what was written to disk. Going through
     _decompose keeps stored notes and fresh uploads on one definition of how a PDF is split.
+
+    A typed note has no file: its body goes in as text, the same way a text-layer PDF's does.
     """
+    if note.storage_path is None:
+        return _Upload(data=b"", is_pdf=False, ext="md", text=note.ocr_text or None, images=[])
     data = Path(note.storage_path).read_bytes()
     return _decompose(Path(note.storage_path).name, "application/pdf" if note.file_type is NoteFileType.pdf else "", data)
 
@@ -378,6 +446,11 @@ def _generate_cards(
     db.flush()
 
     finish(deck)
+
+    # One event per run, counting the cards it produced. A run that verified everything away
+    # still counts as a use — that it produced nothing is the interesting part, and a
+    # cards-only count would hide it.
+    record(db, user_id, UsageEventType.cards_generated, count=len(cards_added))
 
     db.commit()
     db.refresh(deck)
@@ -434,6 +507,10 @@ async def generate(request: Request,
         def save(deck: Deck) -> None:
             for upload, future in zip(uploads, pending):
                 _save_note(db, user.id, deck.id, upload, future.result())
+            # These files land in the notes library exactly as if they'd come through the Notes
+            # tab, so they count as an upload as well as a generation run. Two events for one
+            # action is correct here — they measure two different things the user did.
+            record(db, user.id, UsageEventType.notes_uploaded, count=len(uploads))
 
         yield from _generate_cards(db, user.id, existing_deck, uploads, save, deck_name)
 
@@ -473,6 +550,11 @@ def generate_from_notes(request: Request, payload: GenerateFromNotes, db: Sessio
         except OSError:
             logger.exception("A stored note file could not be read")
             yield sse_event("error", {"message": "One of those notes is missing its original file."})
+            return
+        # Possible now that a note can be typed: a title with an empty body. Handing the model
+        # nothing would get a confident deck of nothing in return.
+        if not any(u.text or u.images for u in uploads):
+            yield sse_event("error", {"message": "Those notes are empty — write something in them first."})
             return
 
         def relink(deck: Deck) -> None:

@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.auth import get_current_user
@@ -62,3 +62,62 @@ def get_dashboard(request: Request, db: Session = Depends(get_db)) -> DashboardO
     goal = max(reviewed_today, min(prefs.daily_goal, available)) if prefs.daily_goal else available
 
     return DashboardOut(reviewed_today=reviewed_today, goal_today=goal, streak_days=streak)
+
+
+@router.get("/load", response_model=dict[str, int])
+def get_load(
+    request: Request,
+    start: date = Query(...),
+    end: date = Query(...),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    """Cards scheduled per calendar day in [start, end] — the calendar's load timeline.
+
+    Review cards land on their FSRS `due` date; anything already overdue lands today, since that
+    is when the queue will actually serve it. New cards have no due date yet, so they are
+    projected forward from today at each deck's daily intake (boosted_new_cap, the same number
+    the queue uses) until the deck's new pile is exhausted. Paused decks (every linked exam
+    passed) contribute nothing: they are off the daily list, so they carry no load.
+
+    Days with zero cards are omitted — the client treats a missing key as 0.
+    """
+    user = get_current_user(request, db)
+    prefs = get_settings_row(db, user.id)
+    today = today_utc()
+    counts: dict[str, int] = {}
+
+    def add(d: date, n: int = 1) -> None:
+        if start <= d <= end:
+            key = d.isoformat()
+            counts[key] = counts.get(key, 0) + n
+
+    decks = (
+        db.query(Deck)
+        .options(selectinload(Deck.exams), selectinload(Deck.cards))
+        .filter(Deck.user_id == user.id)
+        .all()
+    )
+    for deck in decks:
+        if exam_paused(deck, today):
+            continue
+        new_count = 0
+        for c in deck.cards:
+            if c.state == CardState.new:
+                new_count += 1
+                continue
+            if c.due is None:
+                continue
+            due_day = c.due.date() if isinstance(c.due, datetime) else c.due
+            add(max(due_day, today))
+
+        cap = boosted_new_cap(deck, today, prefs.new_cards_per_day, new_count)
+        if cap <= 0:
+            continue
+        day = today
+        while new_count > 0 and day <= end:
+            served = min(cap, new_count)
+            add(day, served)
+            new_count -= served
+            day += timedelta(days=1)
+
+    return counts

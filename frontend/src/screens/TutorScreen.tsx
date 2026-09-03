@@ -17,12 +17,14 @@ import MemoryPicker from '../components/MemoryPicker'
 import PersonalityPicker, { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
 import VoiceOrb, { type OrbState } from '../components/VoiceOrb'
 import VoicePicker from '../components/VoicePicker'
-import { createExam } from '../api'
-import { formatDayLong } from '../lib/dates'
+import { createExam, listExams } from '../api'
+import { daysUntil, formatDayLong } from '../lib/dates'
+import { useCachedResource } from '../hooks/useCachedResource'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import { useMicRecorder } from '../hooks/useMicRecorder'
 import { useScrambleText } from '../hooks/useScrambleText'
 import type {
+  Exam,
   MemoryCategory,
   MemoryNote,
   Settings,
@@ -52,6 +54,20 @@ const STATUS_LABEL: Record<OrbState, string> = {
  * can actually do given its grounding (it reads your weak cards — see tutor_prompt.py) rather
  * than generic "ask me anything" filler. */
 const STARTER_PROMPTS = ['Quiz me on my weak cards', 'Explain a concept I keep missing', 'Help me study for an exam']
+
+/** The starters, with the third one naming the exam it would actually plan for. A starter that
+ * says "Help me plan for Organic Chemistry II — 34 days" tells you the tutor knows your calendar;
+ * the generic phrasing doesn't. Falls back to the generic wording when nothing is scheduled. */
+function starterRows(next: Exam | null): { prompt: string; meta?: string }[] {
+  const [weak, concept] = STARTER_PROMPTS
+  return [
+    { prompt: weak },
+    { prompt: concept },
+    next
+      ? { prompt: `Help me plan for ${next.name}`, meta: `${daysUntil(next.date)} days` }
+      : { prompt: STARTER_PROMPTS[2] },
+  ]
+}
 
 /** Derived from the picker's own presets rather than restated here — two hand-written copies of
  * the same five labels is exactly the kind of pair that quietly disagrees after a rename. */
@@ -173,6 +189,13 @@ interface Props {
 
 export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
   const [session, setSession] = useState<TutorSession | null>(null)
+  // Only used by the empty state's starters, and it rides the same cache the Calendar tab fills,
+  // so opening Tutor after Calendar costs no request.
+  const [exams] = useCachedResource<Exam[]>('exams', listExams, () => [])
+  const nextExam = useMemo(() => {
+    const upcoming = (exams ?? []).filter((e) => daysUntil(e.date) >= 0)
+    return upcoming.sort((a, b) => a.date.localeCompare(b.date))[0] ?? null
+  }, [exams])
   const [orbState, setOrbState] = useState<OrbState>('idle')
   const [voiceModeActive, setVoiceModeActive] = useState(false)
   const [orbMounted, setOrbMounted] = useState(false) // in the DOM at all
@@ -962,35 +985,26 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
           /* Was a single centered line of grey text on an otherwise blank screen. The starter
              prompts do real work beyond filling space: a blank tutor box gives no clue what it's
              actually good at, so these double as capability hints. */
-          <div className="flex flex-col items-center gap-5 py-10 text-center">
-            <div
-              className="flex h-14 w-14 items-center justify-center rounded-2xl"
-              style={{
-                background: 'color-mix(in oklab, var(--accent) 15%, var(--bg-card))',
-                color: 'var(--accent)',
-                boxShadow: 'var(--highlight-shadow)',
-              }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z" />
-                <path d="M19 15l.8 2.1L22 18l-2.2.9L19 21l-.8-2.1L16 18l2.2-.9L19 15z" />
-              </svg>
-            </div>
-            <div>
-              <div className="mb-1.5 text-lg font-extrabold">What are we working on?</div>
-              <p className="mx-auto max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
-                Type a message, attach a photo of your notes, or tap the mic to talk — it keeps listening until you
-                tap it again.
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {STARTER_PROMPTS.map((prompt) => (
+          <div className="flex flex-col pt-4">
+            <div className="text-[1.25rem] font-bold leading-snug">What are we working on?</div>
+            <p className="mt-1.5 max-w-md text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+              Type, attach a photo of your notes, or tap the mic and talk. It keeps listening until you tap again.
+            </p>
+            {/* Starters as rows, not chips: they are the three things this tutor is actually good at. */}
+            <div className="mt-6 border-t border-[var(--rule)]">
+              {starterRows(nextExam).map(({ prompt, meta }) => (
                 <button
                   key={prompt}
                   onClick={() => setDraft(prompt)}
-                  className="rounded-full border border-[var(--ring-track)] px-3.5 py-2 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[color-mix(in_oklab,var(--accent)_5%,transparent)]"
+                  className="flex w-full items-baseline justify-between gap-4 border-b border-[var(--rule)] py-3.5 text-left text-[0.9375rem] font-semibold"
                 >
-                  {prompt}
+                  <span className="min-w-0 truncate">{prompt}</span>
+                  {meta && (
+                    <span className="flex-shrink-0 text-[0.875rem] font-medium text-[var(--text-muted)]">
+                      <span className="numeral mr-1 text-[0.9375rem] text-[var(--text)]">{meta.split(' ')[0]}</span>
+                      {meta.split(' ').slice(1).join(' ')}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -1005,30 +1019,26 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
               // never reads as something the model said.
               <div
                 key={i}
-                className="max-w-[94%] self-center whitespace-pre-line rounded-2xl px-4 py-2.5 text-center font-mono text-xs leading-relaxed"
-                style={{ background: 'var(--bg)', color: 'var(--text-secondary)' }}
+                className="max-w-[94%] self-center whitespace-pre-line rounded-[var(--r-sm)] px-4 py-2.5 text-center font-mono text-xs leading-relaxed"
+                style={{ background: 'var(--surface)', color: 'var(--text-muted)' }}
               >
                 {m.text}
               </div>
             ) : m.role === 'user' ? (
               <div
                 key={i}
-                className="max-w-[85%] self-end rounded-2xl rounded-br-md px-4 py-2.5 text-sm leading-relaxed"
-                style={{
-                  background: 'color-mix(in oklab, var(--accent) 14%, var(--bg-card))',
-                  color: 'var(--text)',
-                  boxShadow: 'var(--shadow-xs)',
-                }}
+                className="max-w-[85%] self-end rounded-[var(--r-md)] px-4 py-2.5 text-sm leading-relaxed"
+                style={{ background: 'var(--surface)', color: 'var(--text)' }}
               >
                 {m.imageUrl && (
-                  <img src={m.imageUrl} alt="Attached photo" className="mb-2 max-h-48 w-full rounded-xl object-cover" />
+                  <img src={m.imageUrl} alt="Attached photo" className="mb-2 max-h-48 w-full rounded-[var(--r-sm)] object-cover" />
                 )}
                 {m.text}
               </div>
             ) : (
               <div key={i} className="max-w-[94%] self-start px-1 text-[0.9375rem] leading-relaxed text-[var(--text)]">
                 {m.imageUrl && (
-                  <img src={m.imageUrl} alt="Attached photo" className="mb-2 max-h-48 w-full rounded-xl object-cover" />
+                  <img src={m.imageUrl} alt="Attached photo" className="mb-2 max-h-48 w-full rounded-[var(--r-sm)] object-cover" />
                 )}
                 {m.text}
               </div>
@@ -1037,7 +1047,7 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
         )}
         {examOffer && (
           <div
-            className="flex max-w-[94%] items-center gap-3 self-start rounded-[16px] border border-[var(--ring-track)] px-4 py-3"
+            className="flex max-w-[94%] items-center gap-3 self-start rounded-[var(--r-md)] bg-[var(--surface)] px-4 py-3"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
               <rect x="3" y="5" width="18" height="16" rx="2" />
@@ -1045,7 +1055,7 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
             </svg>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-bold">{examOffer.name}</div>
-              <div className="text-xs text-[var(--text-secondary)]">{formatDayLong(examOffer.date)}</div>
+              <div className="text-xs text-[var(--text-muted)]">{formatDayLong(examOffer.date)}</div>
             </div>
             {examOffer.added ? (
               <span className="flex-shrink-0 text-xs font-bold" style={{ color: 'var(--grade-good)' }}>
@@ -1055,14 +1065,14 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
               <div className="flex flex-shrink-0 items-center gap-1.5">
                 <button
                   onClick={() => setExamOffer(null)}
-                  className="rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
+                  className="rounded-[var(--r-sm)] px-3 py-2 text-xs font-bold text-[var(--text-muted)]"
                 >
                   No thanks
                 </button>
                 <button
                   onClick={() => commitExam({ name: examOffer.name, date: examOffer.date })}
-                  className="rounded-xl px-3.5 py-2 text-xs font-bold text-[oklch(0.99_0.005_90)]"
-                  style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow)' }}
+                  className="on-accent rounded-[var(--r-full)] px-3.5 py-2 text-xs font-bold"
+                  style={{ background: 'var(--accent)' }}
                 >
                   Add to calendar
                 </button>
@@ -1072,15 +1082,15 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
         )}
         {notice && (
           <div
-            className="self-center rounded-2xl px-4 py-2.5 text-center text-sm font-semibold"
-            style={{ background: 'var(--bg)', color: 'var(--text-secondary)' }}
+            className="self-center rounded-[var(--r-sm)] px-4 py-2.5 text-center text-sm font-semibold"
+            style={{ background: 'var(--surface)', color: 'var(--text-muted)' }}
           >
             {notice}
           </div>
         )}
         {error && (
           <div
-            className="self-center rounded-2xl px-4 py-2.5 text-center text-sm font-semibold"
+            className="self-center rounded-[var(--r-md)] px-4 py-2.5 text-center text-sm font-semibold"
             style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}
           >
             {error}
@@ -1093,20 +1103,20 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
           sidebar's width on desktop (lg:left-60) so it centers within the content area, not the
           full window; bottom-24 on mobile clears the floating tab bar underneath it. */}
       <div className={`fixed inset-x-0 bottom-24 z-20 flex justify-center px-5 lg:bottom-6 lg:left-60 lg:px-10 ${enterClass ?? ''}`}>
-        <div className="flex w-full max-w-xl flex-col gap-1.5 rounded-[16px] bg-[var(--bg-card)] p-2 lg:max-w-2xl" style={{ boxShadow: 'var(--shadow-md)' }}>
+        <div className="flex w-full max-w-xl flex-col gap-1.5 rounded-[var(--r-md)] bg-[var(--surface)] p-2 lg:max-w-2xl">
           {pendingImage && !voiceModeActive && (
             <div className="flex items-center gap-2 px-2 pt-1">
-              <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg">
+              <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-[var(--r-sm)]">
                 <img src={pendingImageUrl ?? undefined} alt="Selected photo" className="h-full w-full object-cover" />
                 <button
                   onClick={() => setPendingImage(null)}
                   aria-label="Remove photo"
-                  className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white"
+                  className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-[var(--r-full)] bg-black/60 text-white"
                 >
                   {CLOSE_ICON}
                 </button>
               </div>
-              <span className="truncate text-xs text-[var(--text-secondary)]">{pendingImage.name}</span>
+              <span className="truncate text-xs text-[var(--text-muted)]">{pendingImage.name}</span>
             </div>
           )}
           {!voiceModeActive ? (
@@ -1126,7 +1136,7 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
             />
           ) : (
             <div className="flex items-center justify-center py-2.5">
-              <span className="text-xs font-bold text-[var(--text-secondary)]">{STATUS_LABEL[orbState]}</span>
+              <span className="text-xs font-bold text-[var(--text-muted)]">{STATUS_LABEL[orbState]}</span>
             </div>
           )}
 
@@ -1147,23 +1157,20 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
               <button
                 onClick={() => setOpenPopover((p) => (p === 'personality' ? null : 'personality'))}
                 aria-label={`Tutor style${session ? ': ' + PERSONALITY_LABELS[session.personality] : ''}`}
-                className="flex h-8 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-[var(--text-secondary)]"
-                style={{
-                  background: openPopover === 'personality' ? 'color-mix(in oklab, var(--accent) 12%, var(--bg-card))' : undefined,
-                  boxShadow: openPopover === 'personality' ? 'var(--highlight-shadow)' : 'var(--shadow-xs)',
-                }}
+                className="flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-semibold text-[var(--text-muted)]"
+                style={{ background: openPopover === 'personality' ? 'var(--bg)' : undefined }}
               >
                 {PERSONALITY_ICON}
-                {/* The selected value is hidden on phones — three of these labels plus the photo
-                    and send controls need more width than a 390pt screen has, and the send button
-                    was dropping to a second line. The icon plus its accessible name still say what
-                    the control is; the value itself is one tap away in the picker. */}
+                {/* The value shows at every width: the design draws these as flat text chips
+                    ("Socratic", "Voice: Ada", "Memory"), and an icon alone doesn't say which
+                    style is selected. The row wraps rather than squeezing, so a narrow phone
+                    gets a second line instead of unlabelled glyphs. */}
                 {/* Falls back to the saved default while the session request is in flight. A
                     new session is created *from* that default, so this is the same word it will
                     show a moment later — without it the chip grows when the response lands and
                     shoves the composer's controls around. */}
                 {(session?.personality ?? settings?.tutor_personality) && (
-                  <span className="hidden sm:inline">
+                  <span className="inline">
                     {PERSONALITY_LABELS[(session?.personality ?? settings?.tutor_personality)!]}
                   </span>
                 )}
@@ -1185,14 +1192,11 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
               <button
                 onClick={() => setOpenPopover((p) => (p === 'voice' ? null : 'voice'))}
                 aria-label={`Voice${voiceName ? ': ' + voiceName : ''}`}
-                className="flex h-8 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-[var(--text-secondary)]"
-                style={{
-                  background: openPopover === 'voice' ? 'color-mix(in oklab, var(--accent) 12%, var(--bg-card))' : undefined,
-                  boxShadow: openPopover === 'voice' ? 'var(--highlight-shadow)' : 'var(--shadow-xs)',
-                }}
+                className="flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-semibold text-[var(--text-muted)]"
+                style={{ background: openPopover === 'voice' ? 'var(--bg)' : undefined }}
               >
                 {VOICE_ICON}
-                {voiceName ? <span className="hidden sm:inline">{voiceName}</span> : null}
+                {voiceName ? <span className="inline">{voiceName}</span> : null}
               </button>
               {openPopover === 'voice' && session && (
                 <>
@@ -1207,18 +1211,18 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
               <button
                 onClick={() => setOpenPopover((p) => (p === 'memory' ? null : 'memory'))}
                 aria-label={`Notes the tutor remembers: ${memoryNotes?.length ?? 0}`}
-                className="flex h-8 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-[var(--text-secondary)]"
-                style={{
-                  background: openPopover === 'memory' ? 'color-mix(in oklab, var(--accent) 12%, var(--bg-card))' : undefined,
-                  boxShadow: openPopover === 'memory' ? 'var(--highlight-shadow)' : 'var(--shadow-xs)',
-                }}
+                className="flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-semibold text-[var(--text-muted)]"
+                style={{ background: openPopover === 'memory' ? 'var(--bg)' : undefined }}
               >
                 {MEMORY_ICON}
-                {memoryNotes && memoryNotes.length > 0 && (
-                  <span className="hidden sm:inline">
-                    {memoryNotes.length} {memoryNotes.length === 1 ? 'note' : 'notes'}
-                  </span>
-                )}
+                {/* Named even at zero, like its neighbours: an unlabelled glyph in a row of
+                    labelled chips reads as a different kind of control, and "Memory" is what
+                    tells you the tutor keeps notes at all. */}
+                <span className="inline">
+                  {memoryNotes && memoryNotes.length > 0
+                    ? `${memoryNotes.length} ${memoryNotes.length === 1 ? 'note' : 'notes'}`
+                    : 'Memory'}
+                </span>
               </button>
               {openPopover === 'memory' && (
                 <>
@@ -1243,24 +1247,21 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
                 <button
                   onClick={() => setOpenPopover((p) => (p === 'photo' ? null : 'photo'))}
                   aria-label={pendingImage ? 'Photo attached' : 'Attach a photo'}
-                  className="flex h-8 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-[var(--text-secondary)]"
-                  style={{
-                    background: pendingImage || openPopover === 'photo' ? 'color-mix(in oklab, var(--accent) 12%, var(--bg-card))' : undefined,
-                    boxShadow: pendingImage || openPopover === 'photo' ? 'var(--highlight-shadow)' : 'var(--shadow-xs)',
-                  }}
+                  className="flex h-8 items-center justify-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-semibold text-[var(--text-muted)]"
+                  style={{ background: pendingImage || openPopover === 'photo' ? 'var(--bg)' : undefined }}
                 >
                   {PHOTO_ICON}
-                  {pendingImage && <span className="hidden sm:inline">1 photo</span>}
+                  {pendingImage && <span className="inline">1 photo</span>}
                 </button>
                 {openPopover === 'photo' && (
                   <>
-                      <div className="absolute bottom-12 right-0 z-20 flex w-44 flex-col gap-1 rounded-[14px] bg-[var(--bg-card)] p-1.5" style={{ boxShadow: 'var(--shadow-lg)' }}>
+                      <div className="absolute bottom-12 right-0 z-20 flex w-44 flex-col gap-1 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-1.5">
                       <button
                         onClick={() => {
                           cameraInputRef.current?.click()
                           setOpenPopover(null)
                         }}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
+                        className="flex items-center gap-2.5 rounded-[var(--r-sm)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
                       >
                         {CAMERA_ICON}
                         Take Photo
@@ -1270,7 +1271,7 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
                           libraryInputRef.current?.click()
                           setOpenPopover(null)
                         }}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
+                        className="flex items-center gap-2.5 rounded-[var(--r-sm)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
                       >
                         {LIBRARY_ICON}
                         Choose from Library
@@ -1284,8 +1285,8 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
             {!voiceModeActive && draft.trim() ? (
               <button
                 onClick={handleSendText}
-                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-[oklch(0.99_0.005_90)]"
-                style={{ background: 'var(--accent)', boxShadow: 'var(--accent-shadow-soft)' }}
+                className="on-accent flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-full)]"
+                style={{ background: 'var(--accent)' }}
               >
                 {SEND_ICON}
               </button>
@@ -1304,12 +1305,11 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
                 // Takes over the photo group's `ml-auto` in voice mode, when that group isn't
                 // rendered. It's invisible by then, but it's still the FLIP animation's target
                 // position — letting it slide left here would land the orb in the wrong place.
-                className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-[oklch(0.99_0.005_90)] transition-opacity duration-150 ${
+                className={`on-accent flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-full)] transition-opacity duration-150 ${
                   voiceModeActive ? 'ml-auto' : ''
                 }`}
                 style={{
                   background: 'var(--accent)',
-                  boxShadow: 'var(--accent-shadow-soft)',
                   opacity: voiceModeActive ? 0 : 1,
                   pointerEvents: voiceModeActive ? 'none' : 'auto',
                 }}

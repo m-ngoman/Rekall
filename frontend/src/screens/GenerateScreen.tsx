@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { generateDeck, generateDeckFromNotes, listDecks, listNotes } from '../api'
+import ActionCard from '../components/ActionCard'
 import type { Deck, GenerationResult, Note } from '../types'
+
+const BACK_CHEVRON = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M15 18l-6-6 6-6" />
+  </svg>
+)
+const BACK_CLASS = '-ml-2 mb-3 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]'
 
 interface Props {
   onDone: () => void
@@ -136,75 +144,76 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
   }
 
   if (result) {
+    const added = result.cards_added.length
+    const dropped = result.cards_dropped.length
     return (
       <div>
-        <div className="mb-1 text-lg font-extrabold">Added to {result.deck_name}</div>
-        <p className="mb-5 text-sm text-[var(--text-secondary)]">
-          {result.cards_added.length} card{result.cards_added.length === 1 ? '' : 's'} added
-          {result.cards_dropped.length > 0 &&
-            ` · ${result.cards_dropped.length} dropped during verification (didn't hold up against your notes)`}
-          .
+        <div className="mb-1 text-[1.25rem] font-bold">Added to {result.deck_name}</div>
+        <p className="mb-5 text-[0.9375rem] text-[var(--text-muted)]">
+          {added} card{added === 1 ? '' : 's'} added
+          {dropped > 0 && `, ${dropped} dropped because ${dropped === 1 ? 'it' : 'they'} didn't hold up against your notes`}.
         </p>
 
-        <div className="mb-5 flex flex-col gap-2">
+        <div className="mb-5 flex flex-col border-t border-[var(--rule)]">
           {result.cards_added.map((c) => (
-            <div key={c.id} className="rounded-2xl bg-[var(--bg-card)] p-4" style={{ boxShadow: 'var(--shadow-sm)' }}>
-              {c.subtopic && (
-                <div className="mb-1 text-[0.625rem] font-bold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>
-                  {c.subtopic}
-                </div>
-              )}
-              <div className="text-sm font-bold">{c.question}</div>
-              <div className="mt-1 text-xs text-[var(--text-secondary)]">{c.answer}</div>
+            <div key={c.id} className="border-b border-[var(--rule)] py-3.5">
+              {c.subtopic && <div className="mb-0.5 text-[0.8125rem] font-semibold text-[var(--text-muted)]">{c.subtopic}</div>}
+              <div className="text-[0.9375rem] font-bold">{c.question}</div>
+              <div className="mt-0.5 text-sm text-[var(--text-muted)]">{c.answer}</div>
             </div>
           ))}
         </div>
 
-        {result.cards_dropped.length > 0 && (
-          <div className="mb-5 flex flex-col gap-1.5 rounded-2xl px-4 py-3" style={{ background: 'var(--grade-hard-bg)' }}>
-            <div className="text-xs font-bold" style={{ color: 'var(--grade-hard)' }}>
-              Dropped during verification
+        {dropped > 0 && (
+          <div className="mb-5">
+            <div className="mb-2 text-[0.9375rem] font-bold">Dropped during verification</div>
+            <div className="flex flex-col border-t border-[var(--rule)]">
+              {result.cards_dropped.map((d, i) => (
+                <div key={i} className="border-b border-[var(--rule)] py-3 text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">
+                  <span className="font-semibold text-[var(--text)]">{d.question}</span> {d.reason}
+                </div>
+              ))}
             </div>
-            {result.cards_dropped.map((d, i) => (
-              <div key={i} className="text-xs text-[var(--text-secondary)]">
-                <span className="font-semibold">{d.question}</span> — {d.reason}
-              </div>
-            ))}
           </div>
         )}
 
-        <button
-          onClick={onDone}
-          className="rounded-xl bg-[var(--accent)] px-6 py-3 text-sm font-bold text-[oklch(0.99_0.005_90)]"
-          style={{ boxShadow: 'var(--accent-shadow)' }}
-        >
+        <button onClick={onDone} className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold">
           Done
         </button>
       </div>
     )
   }
 
+  const staged: { key: string; label: string; remove: () => void }[] = [
+    ...pickedNotes.map((n) => ({
+      key: `note-${n.id}`,
+      label: n.title || n.preview || (n.file_type === 'text' ? 'Empty note' : `${n.file_type === 'pdf' ? 'PDF' : 'Photo'} with no readable text`),
+      remove: () => setPickedNotes((prev) => prev.filter((p) => p.id !== n.id)),
+    })),
+    ...files.map((f, i) => ({ key: `file-${i}-${f.name}`, label: f.name, remove: () => removeFile(i) })),
+  ]
+
   return (
     <div>
-      <button onClick={onCancel} className="mb-4 text-sm font-semibold text-[var(--text-secondary)]">
-        ← Back
+      <button onClick={onCancel} className={BACK_CLASS}>
+        {BACK_CHEVRON}
+        Back
       </button>
-      <p className="mb-5 text-sm text-[var(--text-secondary)]">
-        Upload photos of your notes or a PDF, or pull from notes you've already saved — the AI drafts flashcards,
-        then double-checks each one against your notes before adding them.
+      <p className="mb-5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+        Upload photos of your notes or a PDF, or pull from notes you've already saved. The AI drafts flashcards, then
+        checks each one against your notes before adding it.
       </p>
 
       <div className="mb-5">
-        <div className="mb-2 text-xs font-bold text-[var(--text-secondary)]">Add to</div>
+        <div className="mb-2 text-[0.8125rem] font-semibold text-[var(--text-muted)]">Add to</div>
         <select
           value={targetDeckId}
           onChange={(e) => setTargetDeckId(e.target.value)}
           disabled={busy}
-          className="w-full rounded-xl bg-[var(--bg-card)] px-3.5 py-2.5 text-sm outline-none"
-          style={{ boxShadow: 'var(--shadow-sm)' }}
+          className="h-11 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[0.9375rem]"
         >
-          <option value="">New deck (AI names it)</option>
-          <option value={NAME_IT}>New deck — I'll name it</option>
+          <option value="">New deck, the AI names it</option>
+          <option value={NAME_IT}>New deck, I'll name it</option>
           {decks?.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
@@ -220,77 +229,42 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
             disabled={busy}
             placeholder="Deck name"
             maxLength={80}
-            className="mt-2 w-full rounded-xl bg-[var(--bg-card)] px-3.5 py-2.5 text-sm outline-none"
-            style={{ boxShadow: 'var(--shadow-sm)' }}
+            className="mt-2 h-11 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[0.9375rem]"
           />
         )}
       </div>
 
-      <div className="mb-3 grid grid-cols-3 gap-2.5">
-        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(e) => addImages(e.target.files)} />
-        <input ref={libraryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => addImages(e.target.files)} />
-        <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => setPdf(e.target.files)} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={(e) => addImages(e.target.files)} />
+      <input ref={libraryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => addImages(e.target.files)} />
+      <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => setPdf(e.target.files)} />
 
-        <button
-          onClick={() => cameraInputRef.current?.click()}
+      {/* The four sources are rows on one surface, same as the ways in on the Cards tab. */}
+      <div className="mb-3 rounded-[var(--r-md)] bg-[var(--surface)] [&>*+*]:border-t [&>*+*]:border-[var(--rule)]">
+        <ActionCard onClick={() => cameraInputRef.current?.click()} disabled={busy} title="Take a photo" description="Point the camera at a page of notes" icon={CAMERA_ICON} />
+        <ActionCard onClick={() => libraryInputRef.current?.click()} disabled={busy} title="Choose photos" description="From your photo library" icon={LIBRARY_ICON} />
+        <ActionCard onClick={() => pdfInputRef.current?.click()} disabled={busy} title="Choose a PDF" description="Lecture slides, a handout, a chapter" icon={PDF_ICON} />
+        <ActionCard
+          onClick={() => setPicking(true)}
           disabled={busy}
-          className="flex flex-col items-center gap-1.5 rounded-[14px] bg-[var(--bg-card)] py-5 text-[var(--text-secondary)]"
-          style={{ boxShadow: 'var(--shadow-sm)' }}
-        >
-          {CAMERA_ICON}
-          <span className="text-xs font-bold">Take Photo</span>
-        </button>
-        <button
-          onClick={() => libraryInputRef.current?.click()}
-          disabled={busy}
-          className="flex flex-col items-center gap-1.5 rounded-[14px] bg-[var(--bg-card)] py-5 text-[var(--text-secondary)]"
-          style={{ boxShadow: 'var(--shadow-sm)' }}
-        >
-          {LIBRARY_ICON}
-          <span className="text-xs font-bold">Library</span>
-        </button>
-        <button
-          onClick={() => pdfInputRef.current?.click()}
-          disabled={busy}
-          className="flex flex-col items-center gap-1.5 rounded-[14px] bg-[var(--bg-card)] py-5 text-[var(--text-secondary)]"
-          style={{ boxShadow: 'var(--shadow-sm)' }}
-        >
-          {PDF_ICON}
-          <span className="text-xs font-bold">PDF</span>
-        </button>
+          title="Use saved notes"
+          description={
+            pickedNotes.length > 0
+              ? `${pickedNotes.length} note${pickedNotes.length === 1 ? '' : 's'} chosen. Tap to change.`
+              : 'Build cards from what is already in your library'
+          }
+          icon={NOTES_ICON}
+        />
       </div>
 
-      <button
-        onClick={() => setPicking(true)}
-        disabled={busy}
-        className="mb-3 flex w-full items-center gap-3 rounded-[14px] bg-[var(--bg-card)] px-4 py-3.5 text-left"
-        style={{ boxShadow: 'var(--shadow-sm)' }}
-      >
-        <span className="text-[var(--text-secondary)]">{NOTES_ICON}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-xs font-bold">Use notes you've already saved</span>
-          <span className="block text-[0.6875rem] text-[var(--text-secondary)]">
-            {pickedNotes.length > 0
-              ? `${pickedNotes.length} note${pickedNotes.length === 1 ? '' : 's'} selected`
-              : 'Skip the upload — build cards from your library'}
-          </span>
-        </span>
-        <span className="flex-shrink-0 text-xs font-bold" style={{ color: 'var(--accent)' }}>
-          {pickedNotes.length > 0 ? 'Change' : 'Choose'}
-        </span>
-      </button>
-
-      {pickedNotes.length > 0 && (
-        <div className="mb-5 flex flex-col gap-1.5">
-          {pickedNotes.map((n) => (
-            <div key={n.id} className="flex items-center justify-between rounded-xl bg-[var(--bg-card)] px-3.5 py-2.5" style={{ boxShadow: 'var(--shadow-sm)' }}>
-              <span className="truncate text-xs font-semibold text-[var(--text-secondary)]">
-                {n.preview || `${n.file_type === 'pdf' ? 'PDF' : 'Photo'} with no readable text`}
-              </span>
+      {staged.length > 0 && (
+        <div className="mb-5 flex flex-col border-t border-[var(--rule)]">
+          {staged.map((item) => (
+            <div key={item.key} className="flex items-center justify-between gap-3 border-b border-[var(--rule)] py-2.5">
+              <span className="min-w-0 truncate text-[0.9375rem] font-semibold">{item.label}</span>
               <button
-                onClick={() => setPickedNotes((prev) => prev.filter((p) => p.id !== n.id))}
+                onClick={item.remove}
                 disabled={busy}
-                className="ml-2 flex-shrink-0 text-xs font-bold text-[var(--grade-forgot)]"
+                className="-mr-2 flex-shrink-0 rounded-[var(--r-sm)] px-2 py-2 text-[0.8125rem] font-bold text-[var(--text-muted)]"
               >
                 Remove
               </button>
@@ -299,32 +273,18 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
         </div>
       )}
 
-      {files.length > 0 && (
-        <div className="mb-5 flex flex-col gap-1.5">
-          {files.map((f, i) => (
-            <div key={i} className="flex items-center justify-between rounded-xl bg-[var(--bg-card)] px-3.5 py-2.5" style={{ boxShadow: 'var(--shadow-sm)' }}>
-              <span className="truncate text-xs font-semibold text-[var(--text-secondary)]">{f.name}</span>
-              <button onClick={() => removeFile(i)} disabled={busy} className="ml-2 flex-shrink-0 text-xs font-bold text-[var(--grade-forgot)]">
-                Remove
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
       {error && (
-        <div className="mb-5 rounded-2xl px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
+        <div className="mb-5 rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
           {error}
         </div>
       )}
 
       <button
         onClick={handleGenerate}
-        disabled={busy || files.length === 0}
-        className="w-full rounded-xl bg-[var(--accent)] py-3.5 text-sm font-bold text-[oklch(0.99_0.005_90)] disabled:opacity-50"
-        style={{ boxShadow: 'var(--accent-shadow)' }}
+        disabled={busy || (files.length === 0 && pickedNotes.length === 0)}
+        className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
       >
-        {busy ? stage || 'Generating…' : 'Generate flashcards →'}
+        {busy ? stage || 'Generating' : 'Generate flashcards'}
       </button>
     </div>
   )
@@ -338,19 +298,18 @@ interface Group {
   notes: Note[]
 }
 
+/** Three states, not two: none / some / all. The Settings presets' dot, plus a hollow one for
+ * "some of this group" — the only honest thing to show when a category is partly selected. */
 function Check({ state }: { state: 'none' | 'some' | 'all' }) {
   return (
     <span
       aria-hidden
-      className="mt-0.5 flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-md border-2 text-[10px] font-extrabold"
+      className="mt-1.5 box-border block h-2 w-2 flex-shrink-0 rounded-[var(--r-full)]"
       style={{
-        borderColor: state === 'none' ? 'var(--ring-track)' : 'var(--accent)',
-        background: state === 'all' ? 'var(--accent)' : 'transparent',
-        color: state === 'all' ? 'oklch(0.99 0.005 90)' : 'var(--accent)',
+        background: state === 'all' ? 'var(--accent)' : state === 'some' ? 'transparent' : 'var(--rule)',
+        border: state === 'some' ? '2px solid var(--accent)' : undefined,
       }}
-    >
-      {state === 'all' ? '✓' : state === 'some' ? '–' : ''}
-    </span>
+    />
   )
 }
 
@@ -410,73 +369,71 @@ function NotePicker({
 
   return (
     <div>
-      <button onClick={onCancel} className="mb-4 text-sm font-semibold text-[var(--text-secondary)]">
-        ← Back
+      <button onClick={onCancel} className={BACK_CLASS}>
+        {BACK_CHEVRON}
+        Back
       </button>
-      <p className="mb-5 text-sm text-[var(--text-secondary)]">
-        Pick the notes to build cards from. They stay in your library — nothing is uploaded again.
+      <p className="mb-5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+        Pick the notes to build cards from. They stay in your library, nothing is uploaded again.
       </p>
 
       {error && (
-        <div className="mb-5 rounded-2xl px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
+        <div className="mb-5 rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
           {error}
         </div>
       )}
 
-      {notes === null && !error && <p className="text-sm text-[var(--text-secondary)]">Loading…</p>}
+      {notes === null && !error && <p className="text-sm text-[var(--text-muted)]">Loading…</p>}
 
       {notes?.length === 0 && (
-        <div className="rounded-[16px] border border-dashed border-[var(--ring-track)] p-10 text-center">
-          <p className="text-sm text-[var(--text-secondary)]">
-            You haven't saved any notes yet. Add some from the Notes tab first.
-          </p>
+        <div className="rounded-[var(--r-md)] border border-dashed border-[var(--rule)] p-10 text-center">
+          <p className="text-sm text-[var(--text-muted)]">You haven't saved any notes yet. Add some from the Notes tab first.</p>
         </div>
       )}
 
-      <div className="mb-5 flex flex-col gap-5">
+      <div className="mb-5 flex flex-col gap-6">
         {groups.map((group) => {
           const picked = group.notes.filter((n) => isChosen(n)).length
           const all = picked === group.notes.length
           return (
             <div key={group.key}>
-              <div
+              <button
                 onClick={() => toggleGroup(group)}
-                className="mb-2 flex cursor-pointer items-center gap-2.5 px-1"
+                aria-pressed={all}
+                className="mb-1 flex min-h-[44px] w-full items-center gap-3 text-left"
               >
-                {/* Three states, not two: none / some / all. A half-filled box is the only honest
-                    thing to show when a category is partly selected, and it's what tells you a tap
-                    here will select the rest rather than clear what you have. */}
+                {/* A tap on a half-filled group selects the rest rather than clearing what you
+                    have — the less destructive reading of an ambiguous gesture. */}
                 <Check state={all ? 'all' : picked > 0 ? 'some' : 'none'} />
-                <span className="min-w-0 flex-1 truncate text-base font-extrabold">{group.name}</span>
-                <span className="flex-shrink-0 text-xs font-semibold text-[var(--text-secondary)]">
-                  {picked > 0 ? `${picked}/${group.notes.length}` : `${group.notes.length}`}
+                <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-bold">{group.name}</span>
+                <span className="flex-shrink-0 text-[0.8125rem] text-[var(--text-muted)]">
+                  {picked > 0 ? `${picked} of ${group.notes.length}` : `${group.notes.length}`}
                 </span>
-              </div>
+              </button>
 
-              <div className="flex flex-col gap-2">
-                {group.notes.map((note) => (
-                  <div
-                    key={note.id}
-                    onClick={() => toggle(note)}
-                    className="flex cursor-pointer items-start gap-3 rounded-[16px] border p-3.5"
-                    style={{
-                      borderColor: isChosen(note) ? 'transparent' : 'var(--ring-track)',
-                      background: isChosen(note) ? 'color-mix(in oklab, var(--accent) 12%, var(--bg-card))' : undefined,
-                      boxShadow: isChosen(note) ? 'var(--highlight-shadow)' : undefined,
-                    }}
-                  >
-                    <Check state={isChosen(note) ? 'all' : 'none'} />
-                    <span className="min-w-0 flex-1">
-                      <span className="mb-0.5 block text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-                        {note.file_type === 'pdf' ? 'PDF' : 'Photo'}
+              <div className="flex flex-col border-t border-[var(--rule)]">
+                {group.notes.map((note) => {
+                  const on = isChosen(note)
+                  return (
+                    <button
+                      key={note.id}
+                      onClick={() => toggle(note)}
+                      role="checkbox"
+                      aria-checked={on}
+                      className="flex items-start gap-3 border-b border-[var(--rule)] py-3 text-left"
+                    >
+                      <Check state={on ? 'all' : 'none'} />
+                      <span className="min-w-0 flex-1" style={{ color: on ? 'var(--text)' : 'var(--text-muted)' }}>
+                        <span className="block truncate text-[0.9375rem] font-semibold">
+                          {note.title || (note.file_type === 'pdf' ? 'PDF' : note.file_type === 'image' ? 'Photo' : 'Note')}
+                        </span>
+                        <span className="line-clamp-2 block text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">
+                          {note.preview || (note.file_type === 'text' ? 'Nothing written yet.' : 'No text was read from this file.')}
+                        </span>
                       </span>
-                      {note.title && <span className="mb-0.5 block truncate text-xs font-bold">{note.title}</span>}
-                      <span className="line-clamp-2 block text-xs leading-relaxed text-[var(--text-secondary)]">
-                        {note.preview || 'No text was read from this file.'}
-                      </span>
-                    </span>
-                  </div>
-                ))}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )
@@ -486,10 +443,9 @@ function NotePicker({
       <button
         onClick={() => onConfirm(chosen)}
         disabled={chosen.length === 0}
-        className="w-full rounded-xl bg-[var(--accent)] py-3.5 text-sm font-bold text-[oklch(0.99_0.005_90)] disabled:opacity-50"
-        style={{ boxShadow: 'var(--accent-shadow)' }}
+        className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
       >
-        {chosen.length === 0 ? 'Select notes' : `Use ${chosen.length} note${chosen.length === 1 ? '' : 's'}`}
+        {chosen.length === 0 ? 'Choose some notes' : `Use ${chosen.length} note${chosen.length === 1 ? '' : 's'}`}
       </button>
     </div>
   )

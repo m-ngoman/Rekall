@@ -20,16 +20,12 @@ export default function Segmented<T extends string | number>({
   const { container, register, pillStyle } = useSlidingPill(value)
 
   return (
-    <div ref={container} className="relative flex gap-1.5 rounded-[14px] p-1" style={{ background: 'var(--bg)' }}>
+    <div ref={container} className="relative flex gap-0.5 rounded-[var(--r-sm)] p-0.5" style={{ background: 'var(--bg)' }}>
       {pillStyle && (
         <span
           aria-hidden
-          className="sliding-pill pointer-events-none rounded-[10px]"
-          style={{
-            ...pillStyle,
-            background: 'color-mix(in oklab, var(--accent) 15%, var(--bg-card))',
-            boxShadow: 'var(--highlight-shadow)',
-          }}
+          className="sliding-pill pointer-events-none rounded-[4px]"
+          style={{ ...pillStyle, background: 'var(--surface)' }}
         />
       )}
       {options.map((option) => {
@@ -40,8 +36,8 @@ export default function Segmented<T extends string | number>({
             ref={register(option.value)}
             onClick={() => onChange(option.value)}
             aria-pressed={active}
-            className="pill-option relative z-10 flex-1 rounded-[10px] px-3 py-2 text-xs font-bold"
-            style={{ color: active ? 'var(--accent)' : 'var(--text-secondary)' }}
+            className="pill-option relative z-10 flex-1 whitespace-nowrap rounded-[4px] px-3 py-1.5 text-[0.8125rem]"
+            style={{ color: active ? 'var(--text)' : 'var(--text-muted)', fontWeight: active ? 700 : 600 }}
           >
             {option.label}
           </button>

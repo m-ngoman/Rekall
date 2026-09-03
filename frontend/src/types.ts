@@ -45,6 +45,9 @@ export interface StudyQueue {
 
 export interface ReviewResult {
   grade: number
+  /** The grader's 1-5 rubric score, shown as "4/5". Null when self-assessed — there was no
+   * rubric, only your own 1-4 rating. */
+  score: number | null
   explanation: string
   state: 'new' | 'learning' | 'review'
   due: string
@@ -120,7 +123,8 @@ export interface Note {
   deck_name: string | null
   /** User-set name. Null means the UI shows `preview` instead — that's the fallback everywhere. */
   title: string | null
-  file_type: 'image' | 'pdf'
+  /** `text` is a note typed in the app: no original file, the body is the note. */
+  file_type: 'image' | 'pdf' | 'text'
   preview: string
   created_at: string
 }
@@ -180,4 +184,53 @@ export interface Settings {
   tutor_custom_prompt: string | null
   /** Lets the tutor write its own memory notes as you talk. Its notes are labelled and deletable. */
   tutor_auto_memory: boolean
+}
+
+/** One feature's row in the owner dashboard. `uses` counts times used; `items` counts what those
+ * uses produced (cards generated, files uploaded) — equal for features that produce nothing
+ * countable, which is why both are sent rather than one being inferred. */
+export interface FeatureUsage {
+  key: string
+  label: string
+  uses_day: number
+  uses_week: number
+  uses_month: number
+  uses_total: number
+  items_week: number
+  items_total: number
+  /** When this feature's counting started. Differs per feature — reviews and note uploads were
+   * backfilled from existing rows, the rest began at the migration. Null = never used. */
+  tracked_since: string | null
+  /** Uses per day, index-aligned with `AdminStats.daily` — same length, same order. Feeds the
+   * per-feature sparkline; the dates come from `daily`, not from here. */
+  daily_uses: number[]
+}
+
+export interface DailyUsage {
+  /** `YYYY-MM-DD`, UTC. Parse with parseISODate. */
+  date: string
+  uses: number
+  active_users: number
+  new_users: number
+  /** Everyone registered as at the end of this day — already cumulative, including accounts made
+   * before the window opened. */
+  registered: number
+}
+
+/** Aggregates only — the endpoint behind this cannot return anything a user wrote or uploaded. */
+export interface AdminStats {
+  generated_at: string
+  /** Oldest recorded event of any kind. Null when nothing has been recorded yet. */
+  tracking_since: string | null
+  users: {
+    registered: number
+    new_week: number
+    new_month: number
+    /** Distinct people who did any tracked thing in the window. */
+    active: { day: number; week: number; month: number }
+  }
+  features: FeatureUsage[]
+  /** What exists right now, as opposed to what was done — these fall when things are deleted. */
+  library: { decks: number; cards: number; notes: number; tutor_sessions: number }
+  daily: DailyUsage[]
 }

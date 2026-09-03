@@ -8,55 +8,36 @@ interface Props {
   disabled?: Tab[]
 }
 
+/** The wordmark is plain text. The accent belongs to the active item, the countdown, the load
+ * and the primary action; putting it in the logo would make it decoration. */
 export default function DesktopSidebar({ active, onChange, disabled = [] }: Props) {
-  return (
-    <div className="sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col bg-[var(--bg-card)] p-[18px] shadow-[2px_0_14px_oklch(0.4_0.03_50_/_0.05)] lg:flex">
-      <div className="flex items-center gap-2.5 px-2.5 pb-7 pt-2 text-lg font-extrabold tracking-tight">
-        <Logo size={26} />
-        Re<span style={{ color: 'var(--accent)' }}>kall</span>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
-          const isActive = item.id === active
-          const isDisabled = disabled.includes(item.id)
-          const color = isActive ? 'var(--accent)' : 'var(--text-secondary)'
-          return (
-            <button
-              key={item.id}
-              onClick={() => isDisabled || onChange(item.id)}
-              aria-disabled={isDisabled || undefined}
-              className="flex items-center gap-3 rounded-full px-3.5 py-2.5"
-              style={{
-                background: isActive ? 'color-mix(in oklab, var(--accent) 15%, var(--bg-card))' : undefined,
-                boxShadow: isActive ? 'var(--highlight-shadow)' : undefined,
-                opacity: isDisabled ? 0.4 : undefined,
-              }}
-            >
-              {item.icon(color)}
-              <span className="text-sm font-bold" style={{ color }}>
-                {item.label}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="flex-1" />
-
+  const item = (id: Tab, label: string, icon: (color: string) => React.ReactNode, isDisabled = false) => {
+    const isActive = id === active
+    const color = isActive ? 'var(--accent)' : 'var(--text-muted)'
+    return (
       <button
-        onClick={() => onChange('settings')}
-        className="flex items-center gap-3 rounded-full px-3.5 py-2.5"
-        style={{
-          background: active === 'settings' ? 'color-mix(in oklab, var(--accent) 15%, var(--bg-card))' : undefined,
-          boxShadow: active === 'settings' ? 'var(--highlight-shadow)' : undefined,
-        }}
+        key={id}
+        onClick={() => isDisabled || onChange(id)}
+        aria-disabled={isDisabled || undefined}
+        aria-current={isActive ? 'page' : undefined}
+        className="flex items-center gap-3 rounded-[var(--r-full)] px-3.5 py-2.5 text-[0.875rem] font-bold"
+        style={{ background: isActive ? 'var(--accent-dim)' : undefined, color, opacity: isDisabled ? 0.4 : undefined }}
       >
-        {SETTINGS_ICON(active === 'settings' ? 'var(--accent)' : 'var(--text-secondary)')}
-        <span className="text-sm font-bold" style={{ color: active === 'settings' ? 'var(--accent)' : 'var(--text-secondary)' }}>
-          Settings
-        </span>
+        {icon(color)}
+        {label}
       </button>
-    </div>
+    )
+  }
+
+  return (
+    <nav aria-label="Main" className="sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col border-r border-[var(--rule)] bg-[var(--surface)] p-[18px] lg:flex">
+      <div className="flex items-center gap-2.5 px-2.5 pb-7 pt-2 text-lg font-bold tracking-tight">
+        <Logo size={26} />
+        Rekall
+      </div>
+      <div className="flex flex-col gap-1">{NAV_ITEMS.map((t) => item(t.id, t.label, t.icon, disabled.includes(t.id)))}</div>
+      <div className="flex-1" />
+      {item('settings', 'Settings', SETTINGS_ICON)}
+    </nav>
   )
 }
