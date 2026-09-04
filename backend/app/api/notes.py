@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.core.auth import get_current_user
+from app.core.entitlements import require_text_ai
 from app.core.settings_store import get_settings_row, require_ai
 from app.core.sse import guard, sse_event
 from app.core.usage import record
@@ -500,6 +501,7 @@ async def generate(request: Request,
     """
     user = get_current_user(request, db)
     require_ai(db, user.id, "generation")
+    require_text_ai(user)
     existing_deck = _resolve_deck(db, user.id, deck_id)
 
     if not files:
@@ -543,6 +545,7 @@ def generate_from_notes(request: Request, payload: GenerateFromNotes, db: Sessio
     """
     user = get_current_user(request, db)
     require_ai(db, user.id, "generation")
+    require_text_ai(user)
     existing_deck = _resolve_deck(db, user.id, payload.deck_id)
 
     if not payload.note_ids:

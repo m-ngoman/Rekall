@@ -73,3 +73,35 @@ def test_no_speech_is_free() -> None:
 def test_stt_seconds_pass_through_and_never_go_negative() -> None:
     assert credits_for_stt(42) == 42
     assert credits_for_stt(-5) == 0
+
+
+def test_only_self_funding_accounts_are_charged() -> None:
+    """Friends are absorbed. Their usage is still metered — knowing what the app costs doesn't
+    depend on who pays — but nothing comes out of a balance they were never asked to fund."""
+    from app.core.entitlements import bills
+
+    assert bills(user(tier=UserTier.public)) is True
+    assert bills(user(tier=UserTier.friend)) is False
+
+
+def test_text_gate_raises_402_not_403() -> None:
+    """402 and 403 mean different things to the client: 403 is "you turned this off in settings"
+    and 402 is "this isn't paid for". One links to settings, the other to pricing, and showing
+    the wrong one is worse than showing neither."""
+    from fastapi import HTTPException
+
+    from app.core.entitlements import require_text_ai
+
+    try:
+        require_text_ai(user())
+    except HTTPException as exc:
+        assert exc.status_code == 402
+    else:
+        raise AssertionError("an unentitled user must not pass the text gate")
+
+
+def test_text_gate_lets_entitled_users_through() -> None:
+    from app.core.entitlements import require_text_ai
+
+    require_text_ai(user(tier=UserTier.friend))
+    require_text_ai(user(text_ai_lifetime=True))

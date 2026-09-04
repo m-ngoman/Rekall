@@ -9,11 +9,19 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.auth import current_user_or_none, get_current_user
+from app.core.entitlements import (
+    bills,
+    credits_for_stt,
+    credits_for_tts,
+    require_text_ai,
+    require_voice,
+    spend,
+)
 from app.core.settings_store import get_settings_row, require_ai
 from app.core.sse import guard, sse_event
 from app.core.usage import record
 from app.db import SessionLocal, get_db
-from app.models import TutorMessage, TutorMessageRole, TutorSession, UsageEventType
+from app.models import CreditReason, TutorMessage, TutorMessageRole, TutorSession, UsageEventType, User
 from app.schemas import TutorSessionCreate, TutorSessionOut, TutorSessionUpdate, TutorVoiceOut, VoiceTurnTextRequest
 from app.services.live_stt import relay as relay_live_stt
 from app.services.memory_extraction import schedule_if_due
@@ -116,6 +124,7 @@ def create_session(request: Request, payload: TutorSessionCreate, db: Session = 
     """
     user = get_current_user(request, db)
     require_ai(db, user.id, "tutor")
+    require_text_ai(user)
     prefs = get_settings_row(db, user.id)
     session = TutorSession(
         user_id=user.id,
@@ -286,6 +295,12 @@ def _stream_reply(
     # billed nothing, and a zero-count row would say it did.
     if spoken_chars:
         record(db, session.user_id, UsageEventType.tts_characters, count=spoken_chars)
+        # Recorded for everyone, charged only to accounts that fund themselves. The meter answers
+        # "what did this cost"; the ledger answers "who owes for it", and friends are absorbed by
+        # design without making their usage invisible.
+        speaker = db.query(User).filter(User.id == session.user_id).one_or_none()
+        if speaker and bills(speaker):
+            spend(db, speaker.id, credits_for_tts(spoken_chars), CreditReason.voice_tts)
     db.commit()
 
     # Periodically let the tutor write to its own memory file. Scheduled before `done` is yielded
@@ -309,6 +324,8 @@ async def voice_turn(request: Request, session_id: uuid.UUID, audio: UploadFile,
     # client-side-only guarantee the No-AI toggles exist to avoid.
     require_ai(db, user.id, "tutor")
     require_ai(db, user.id, "voice")
+    require_text_ai(user)
+    require_voice(db, user)
     session = _get_session(db, session_id, user.id)
 
     audio_bytes = await audio.read()
@@ -356,6 +373,11 @@ async def live_transcribe(websocket: WebSocket, sample_rate: int = Query(16000, 
             # metered one, billed by the second for as long as it stays open.
             require_ai(db, user.id, "tutor")
             require_ai(db, user.id, "voice")
+            require_text_ai(user)
+            # Checked before the upgrade is accepted, so someone with no balance never opens a
+            # billed upstream socket. The balance is not re-checked while the call runs: cutting
+            # somebody off mid-sentence to save a fraction of a cent is the worse trade.
+            require_voice(db, user)
         except HTTPException:
             # require_ai speaks HTTP; a websocket can only answer with a close code. Caught rather
             # than re-implemented so the toggle keeps exactly one definition.
@@ -380,6 +402,9 @@ async def live_transcribe(websocket: WebSocket, sample_rate: int = Query(16000, 
             meter = SessionLocal()
             try:
                 record(meter, user_id, UsageEventType.stt_seconds, count=seconds)
+                speaker = meter.query(User).filter(User.id == user_id).one_or_none()
+                if speaker and bills(speaker):
+                    spend(meter, user_id, credits_for_stt(seconds), CreditReason.voice_stt)
                 meter.commit()
             finally:
                 meter.close()
@@ -397,6 +422,8 @@ def voice_turn_text(request: Request, session_id: uuid.UUID, payload: VoiceTurnT
     user = get_current_user(request, db)
     require_ai(db, user.id, "tutor")  # see /voice-turn — voice carries the tutor, it isn't separate
     require_ai(db, user.id, "voice")
+    require_text_ai(user)
+    require_voice(db, user)
     session = _get_session(db, session_id, user.id)
 
     if not payload.text.strip():
@@ -421,6 +448,7 @@ async def text_turn(request: Request,
     """
     user = get_current_user(request, db)
     require_ai(db, user.id, "tutor")
+    require_text_ai(user)
     session = _get_session(db, session_id, user.id)
 
     if not text.strip() and image is None:

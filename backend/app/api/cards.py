@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.settings_store import get_settings_row
+from app.core.entitlements import require_text_ai
 from app.core.sse import guard, sse_event
 from app.core.usage import record
 from app.db import get_db
@@ -78,6 +79,11 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
             raise HTTPException(400, "A self-assessed review needs a grade from 1 to 4")
     elif not prefs.ai_grading:
         raise HTTPException(403, "AI grading is turned off in your settings.")
+    else:
+        # Only the graded path. Self-assessment is the free way to review and stays free — it is
+        # what the No-AI mode already offers, and it is the fallback the paywall degrades to
+        # rather than a dead end.
+        require_text_ai(user)
 
     def stream() -> Generator[str, None, None]:
         result: GradeResult | None = None

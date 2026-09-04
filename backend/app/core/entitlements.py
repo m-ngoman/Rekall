@@ -14,6 +14,7 @@ import math
 import uuid
 from datetime import datetime, timezone
 
+from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -107,3 +108,36 @@ def credits_for_stt(seconds: int) -> int:
     """Audio already arrives in seconds — this exists so both meters convert through this module
     rather than one of them being an implicit identity somewhere else."""
     return max(0, seconds)
+
+
+def bills(user: User) -> bool:
+    """Whether this account's usage should be deducted from a balance at all.
+
+    Friends are absorbed by design, so their usage is still *recorded* — the meters run for
+    everyone, because knowing what the app costs does not depend on who is paying — but nothing
+    is taken from a balance they were never asked to fund.
+    """
+    return user.tier is not UserTier.friend
+
+
+def require_text_ai(user: User) -> None:
+    """Guard for grading, card generation and the text tutor.
+
+    402 rather than 403: the request is understood and the user is who they say they are, there
+    is simply nothing paid for. The client needs to tell that apart from the No-AI toggles, which
+    answer 403 and mean "you turned this off yourself" — one of those is a link to the pricing
+    page and the other is a link to settings, and showing the wrong one is worse than showing
+    neither.
+    """
+    if not has_text_ai(user):
+        raise HTTPException(402, "Rekall AI isn't active on this account.")
+
+
+def require_voice(db: Session, user: User) -> None:
+    """Guard for anything that will synthesize or transcribe speech.
+
+    Checked before the work, which is the only moment refusing costs nothing. Once audio has been
+    generated the provider has billed for it regardless of what the balance says — see spend().
+    """
+    if not has_voice(db, user):
+        raise HTTPException(402, "You're out of voice credits.")
