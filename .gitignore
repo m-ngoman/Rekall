@@ -15,6 +15,9 @@ dist/
 # Env
 .env
 .env.local
+# Test-mode Stripe credentials, kept out of .env so the live key stays the production one and a
+# development run cannot pick it up by accident.
+.env.test
 
 # Locally stored uploads (notes photos/PDFs) — see Note.storage_path
 backend/data/
