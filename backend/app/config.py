@@ -64,7 +64,14 @@ class Settings(BaseSettings):
     # app/services/tutor_llm.py.
     tutor_provider: str = "openrouter"  # "openrouter" | "ollama"
     openrouter_api_key: str = ""
-    openrouter_model: str = "anthropic/claude-haiku-4.5"
+    # Sonnet 5 rather than Haiku 4.5, and it is cheaper here despite costing twice as much per
+    # token. Cache minimums are not monotonic across the family: Haiku 4.5 needs a 4096-token
+    # prefix before anything caches, Sonnet 5 needs 1024. The tutor's system prompt is ~1680
+    # tokens, so on Haiku it never caches until roughly turn 19 of a conversation and on Sonnet it
+    # caches from the first turn. A cached read costs a tenth of the input price, which more than
+    # pays for the higher rate — measured at ~$0.045 per voice-hour against ~$0.094 on Haiku — and
+    # the tutor is a better model besides.
+    openrouter_model: str = "anthropic/claude-sonnet-5"
     ollama_tutor_model: str = "qwen2.5:7b"  # only used when tutor_provider == "ollama"
 
     # Automatic tutor memory — see app/services/memory_extraction.py. Deliberately a cheaper model

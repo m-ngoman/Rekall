@@ -172,6 +172,22 @@ def get_voices() -> list[TutorVoiceOut]:
     ]
 
 
+# A conversation is re-sent in full on every turn, so an unbounded one grows without limit — in
+# tokens billed and eventually against the model's context window. These trim it.
+#
+# Two numbers rather than one, and this is the point: a sliding window that drops the oldest
+# message every turn would change the prefix every turn, and a changed prefix is a cache miss. So
+# nothing is trimmed until the history passes _HISTORY_MAX, and then it drops all the way back to
+# _HISTORY_KEEP. The prefix is stable for the forty turns in between, and the cache is only
+# invalidated once per trim instead of once per turn.
+_HISTORY_MAX = 80
+_HISTORY_KEEP = 40
+
+
+def _recent(history: list[TutorMessage]) -> list[TutorMessage]:
+    return history if len(history) <= _HISTORY_MAX else history[-_HISTORY_KEEP:]
+
+
 def _stream_reply(
     db: Session,
     session: TutorSession,
@@ -195,6 +211,7 @@ def _stream_reply(
     db.commit()
 
     history = db.query(TutorMessage).filter(TutorMessage.session_id == session.id).order_by(TutorMessage.created_at).all()
+    history = _recent(history)
     messages = [{"role": "system", "content": build_system_prompt(db, session)}]
     messages += [{"role": m.role.value, "content": m.content} for m in history]
 

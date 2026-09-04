@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -17,6 +18,13 @@ from app.api.notes import router as notes_router
 from app.api.settings import router as settings_router
 from app.api.tutor import router as tutor_router
 from app.config import settings
+
+# The app's own INFO lines, and nothing else's. Root stays at WARNING so httpx doesn't narrate
+# every outbound request, but `app.*` loggers are audible — the prompt-cache canary in
+# tutor_llm.py is only useful if it can actually be seen, and a cache that silently stops working
+# looks exactly like one that is working.
+logging.basicConfig(level=logging.WARNING)
+logging.getLogger("app").setLevel(logging.INFO)
 
 app = FastAPI(title="Rekall API")
 
