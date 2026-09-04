@@ -39,6 +39,11 @@ FEATURE_LABELS: list[tuple[UsageEventType, str]] = [
     (UsageEventType.notes_written, "Notes written"),
     (UsageEventType.tutor_text_turn, "Tutor (typed)"),
     (UsageEventType.tutor_voice_turn, "Tutor (voice)"),
+    # The two cost meters. Without entries here they still appeared — the unknown-key fallback
+    # below catches them — but titled with their raw `tts_characters` / `stt_seconds` keys, which
+    # is exactly the sort of thing the fallback exists to survive rather than to be relied on.
+    (UsageEventType.tts_characters, "Speech synthesized"),
+    (UsageEventType.stt_seconds, "Speech transcribed"),
 ]
 
 DEFAULT_DAYS = 30

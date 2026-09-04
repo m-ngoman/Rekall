@@ -68,6 +68,12 @@ _PERSONALITY_PROMPTS = {
     TutorPersonality.encouraging: "Be warm and patient, especially if the student seems frustrated or "
     "is getting things wrong repeatedly. Celebrate progress.",
     TutorPersonality.terse: "Keep everything minimal — the student wants to move fast, not chat.",
+    # `custom` normally has its own text (session.custom_prompt) and never reaches this table. It
+    # is here for the case that does: picking Custom and leaving the box empty, or writing a prompt
+    # and later clearing it. That combination used to raise KeyError on every turn of every new
+    # session, which read as the tutor being broken rather than as a setting being half-filled.
+    TutorPersonality.custom: "Explain things clearly and directly when asked — actually teach, don't "
+    "just deflect with questions.",
 }
 
 
@@ -188,7 +194,9 @@ def build_system_prompt(db: Session, session) -> str:
     personality_text = (
         session.custom_prompt
         if session.personality == TutorPersonality.custom and session.custom_prompt
-        else _PERSONALITY_PROMPTS[session.personality]
+        # `.get`, not `[]`: a personality added to the enum without a line here is a missing
+        # sentence of tone, not a reason to fail the whole conversation.
+        else _PERSONALITY_PROMPTS.get(session.personality, _PERSONALITY_PROMPTS[TutorPersonality.direct])
     )
     context = _weak_cards_context(db, session.user_id, session.deck_id)
     exams = _exam_context(db, session.user_id)

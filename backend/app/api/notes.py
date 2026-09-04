@@ -14,7 +14,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.auth import get_current_user
 from app.core.settings_store import get_settings_row, require_ai
-from app.core.sse import sse_event
+from app.core.sse import guard, sse_event
 from app.core.usage import record
 from app.db import get_db
 from app.models import Card, Deck, Note, NoteFileType, UsageEventType
@@ -46,6 +46,11 @@ PREVIEW_CHARS = 180
 # The cap is there so uploading a stack of twenty photos doesn't open twenty simultaneous
 # connections to OpenRouter.
 TRANSCRIBE_WORKERS = 4
+
+# Generation is two long model round-trips, so there is plenty of time for one to fail after the
+# response has already committed to 200 and started streaming. Nothing is saved when it does —
+# the cards and notes share one transaction that never reaches its commit.
+_GENERATION_FAILED = "Card generation failed partway through. Nothing was saved — try again."
 
 
 def _plain_preview(md: str) -> str:
@@ -145,9 +150,18 @@ def _save_note(
 
 
 def _resolve_deck(db: Session, user_id: uuid.UUID, deck_id: str) -> Deck | None:
+    """`deck_id` arrives as a form field, so it is an arbitrary string rather than a parsed UUID.
+
+    A value that isn't a uuid at all is answered the same way as one that is but names nobody
+    else's deck — 404. Letting `uuid.UUID()` raise here turned a bad form field into a 500.
+    """
     if not deck_id.strip():
         return None
-    deck = db.query(Deck).filter(Deck.id == uuid.UUID(deck_id), Deck.user_id == user_id).one_or_none()
+    try:
+        parsed = uuid.UUID(deck_id)
+    except ValueError:
+        raise HTTPException(404, "Deck not found") from None
+    deck = db.query(Deck).filter(Deck.id == parsed, Deck.user_id == user_id).one_or_none()
     if deck is None:
         raise HTTPException(404, "Deck not found")
     return deck
@@ -514,7 +528,7 @@ async def generate(request: Request,
 
         yield from _generate_cards(db, user.id, existing_deck, uploads, save, deck_name)
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")
 
 
 @router.post("/generate-from-notes")
@@ -567,4 +581,4 @@ def generate_from_notes(request: Request, payload: GenerateFromNotes, db: Sessio
 
         yield from _generate_cards(db, user.id, existing_deck, uploads, relink, payload.deck_name)
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")

@@ -174,6 +174,20 @@ _SCORE_TO_GRADE_BY_STRICTNESS = {
     # Partial recall still counts as Good, and imprecision as Easy.
     "lenient": {**_ALWAYS_FORGOT, 3: 3, 4: 4, 5: 4},
 }
+
+
+def _strictness_mapping(strictness: str) -> dict[int, int]:
+    """Score -> FSRS grade for a strictness setting, defaulting to balanced.
+
+    The default matters and is deliberately *not* `_SCORE_TO_GRADE`. That table is Prometheus's,
+    and it maps a score of 2 to Hard — which contradicts the rule the three strictness tables all
+    encode, that a factually wrong answer is Forgot at every setting (see _ALWAYS_FORGOT). An
+    unrecognised strictness should fall back to this app's balanced grading, not to a different
+    grader's opinion.
+    """
+    return _SCORE_TO_GRADE_BY_STRICTNESS.get(strictness, _SCORE_TO_GRADE_BY_STRICTNESS[DEFAULT_STRICTNESS])
+
+
 _RESULT_RE = re.compile(r"\[RESULT\]\s*\(?(\d)\)?")
 
 # How many trailing characters of a streamed completion to always hold back from the client, so a
@@ -444,7 +458,7 @@ class LocalLLMGrader:
 
         score = min(5, max(1, int(match.group(1)))) if match else 3
         explanation = cleaned[:explanation_end].strip()
-        mapping = _SCORE_TO_GRADE_BY_STRICTNESS.get(strictness, _SCORE_TO_GRADE)
+        mapping = _strictness_mapping(strictness)
 
         yield GradeResult(grade=mapping[score], explanation=explanation, score=score)
 
@@ -528,7 +542,7 @@ class CloudGrader:
             yield cleaned[sent_len:explanation_end]
 
         score = min(5, max(1, int(match.group(1)))) if match else 3
-        mapping = _SCORE_TO_GRADE_BY_STRICTNESS.get(strictness, _SCORE_TO_GRADE)
+        mapping = _strictness_mapping(strictness)
         yield GradeResult(grade=mapping[score], explanation=cleaned[:explanation_end].strip(), score=score)
 
 

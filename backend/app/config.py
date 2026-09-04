@@ -103,5 +103,29 @@ class Settings(BaseSettings):
     card_generation_model: str = "anthropic/claude-haiku-4.5"
     notes_storage_dir: str = "./data/notes"  # local disk; see Note.storage_path
 
+    # Billing. `stripe_key` is whichever key the *deployment* holds — a test key in development,
+    # a live one in production — so nothing in the code has to choose, and there is no flag that
+    # can be wrong. `stripe_mode` below reports which one is loaded, because "am I about to take
+    # real money" should never be a guess.
+    stripe_key: str = ""
+    # From `stripe listen` locally, or the endpoint's signing secret in the dashboard. Webhooks
+    # are rejected outright when this is empty: an unverified webhook is an open endpoint that
+    # grants credits to anyone who posts to it.
+    stripe_webhook_secret: str = ""
+
+    # Speech is billed by the second, but TTS is billed by the character, so one has to convert
+    # into the other. 15 chars/sec is ordinary speaking pace; it decides how much of a credit a
+    # spoken reply costs, so it is configuration rather than a literal in the deduction path.
+    tts_chars_per_second: float = 15.0
+
+    @property
+    def stripe_mode(self) -> str:
+        """"test", "live", or "unset" — for logging and for guarding destructive setup scripts."""
+        if self.stripe_key.startswith("sk_test_"):
+            return "test"
+        if self.stripe_key.startswith("sk_live_"):
+            return "live"
+        return "unset"
+
 
 settings = Settings()

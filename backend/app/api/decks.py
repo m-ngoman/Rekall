@@ -113,9 +113,11 @@ def import_deck(request: Request, payload: ImportRequest, db: Session = Depends(
 @router.get("", response_model=list[DeckOut])
 def list_decks(request: Request, db: Session = Depends(get_db)) -> list[DeckOut]:
     user = get_current_user(request, db)
+    # Both relationships, not just exams: _deck_out counts `deck.cards` for every deck, so
+    # loading only the exams left the card list to lazy-load one query per deck.
     decks = (
         db.query(Deck)
-        .options(selectinload(Deck.exams))
+        .options(selectinload(Deck.exams), selectinload(Deck.cards))
         .filter(Deck.user_id == user.id)
         .order_by(Deck.created_at.desc())
         .all()

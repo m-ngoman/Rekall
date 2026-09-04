@@ -32,7 +32,15 @@ def get_dashboard(request: Request, db: Session = Depends(get_db)) -> DashboardO
     # cards the queue would refuse to serve would make the goal ring unfinishable.
     remaining = 0
     today = today_utc()
-    for deck in db.query(Deck).options(selectinload(Deck.exams)).filter(Deck.user_id == user.id).all():
+    # `selectinload(Deck.cards)` for the same reason /load has it: the loop below counts cards on
+    # every deck, and without it that is one extra query per deck.
+    decks = (
+        db.query(Deck)
+        .options(selectinload(Deck.exams), selectinload(Deck.cards))
+        .filter(Deck.user_id == user.id)
+        .all()
+    )
+    for deck in decks:
         # A deck whose exams have all passed is off the daily plate (it stays studiable from the
         # library). Must match the study queue's view of "paused" — both go through exam_status.
         if exam_paused(deck, today):

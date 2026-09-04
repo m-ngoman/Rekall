@@ -8,18 +8,28 @@ as a fallback that needs no API key/network.
 from __future__ import annotations
 
 from io import BytesIO
+from typing import TYPE_CHECKING, Any
 
 import httpx
-from faster_whisper import WhisperModel
 
 from app.config import settings
 
-_model: WhisperModel | None = None
+if TYPE_CHECKING:  # pragma: no cover - types only
+    from faster_whisper import WhisperModel
+
+# Imported inside the function, not at module scope. `faster_whisper` pulls in ctranslate2 and
+# costs ~56 MB of resident memory on import — paid by every deployment at startup, for a fallback
+# that only runs when `stt_provider` is "local" (it is "deepgram"). It also means a broken or
+# missing ctranslate2 build can no longer stop the whole API from starting over a code path
+# nothing calls.
+_model: "WhisperModel | None" = None
 
 
-def _get_local_model() -> WhisperModel:
+def _get_local_model() -> Any:
     global _model
     if _model is None:
+        from faster_whisper import WhisperModel
+
         _model = WhisperModel("base", device="cpu", compute_type="int8")
     return _model
 

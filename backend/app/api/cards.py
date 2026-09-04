@@ -1,4 +1,3 @@
-import json
 import uuid
 from collections.abc import Generator
 from datetime import datetime, timezone
@@ -9,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.settings_store import get_settings_row
+from app.core.sse import guard, sse_event
 from app.core.usage import record
 from app.db import get_db
 from app.models import Card, CardState, Deck, InputMode, ReviewLog, UsageEventType
@@ -17,10 +17,6 @@ from app.services.fsrs import SchedulingState, review_card
 from app.services.grading import GradeResult, get_grader
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
-
-
-def _sse(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 @router.get("/{card_id}/answer")
@@ -99,7 +95,7 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
                 if isinstance(item, GradeResult):
                     result = item
                 else:
-                    yield _sse("token", {"text": item})
+                    yield sse_event("token", {"text": item})
 
         assert result is not None
 
@@ -147,7 +143,7 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
         db.commit()
         db.refresh(card)
 
-        yield _sse(
+        yield sse_event(
             "done",
             {
                 "grade": result.grade,
@@ -160,7 +156,12 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
             },
         )
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    # A grader that dies mid-answer used to end the stream with no `done` event, which left the
+    # study screen stuck on "Checking" with no way forward. Now it says so.
+    return StreamingResponse(
+        guard(stream(), "Grading failed. Try answering again."),
+        media_type="text/event-stream",
+    )
 
 
 def _get_owned_card(db: Session, card_id: uuid.UUID, user_id: uuid.UUID) -> Card:

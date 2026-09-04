@@ -138,9 +138,14 @@ def _synthesize_cartesia_timed(text: str, voice_id: str | None) -> tuple[bytes, 
                 pcm += base64.b64decode(event["data"])
             elif event.get("type") == "timestamps":
                 stamps = event.get("word_timestamps") or {}
+                # strict=False deliberately: these three arrays come from Cartesia, and if one
+                # ever came back short the right answer is a highlight that stops early, not a
+                # voice reply that 500s over a timing array it only uses for decoration.
                 words += [
                     {"w": w, "s": s, "e": e}
-                    for w, s, e in zip(stamps.get("words", []), stamps.get("start", []), stamps.get("end", []))
+                    for w, s, e in zip(
+                        stamps.get("words", []), stamps.get("start", []), stamps.get("end", []), strict=False
+                    )
                 ]
 
     return _wav_header(len(pcm)) + bytes(pcm), words

@@ -36,17 +36,22 @@ def _strip_fence(text: str) -> str:
 def extract_pdf(pdf_bytes: bytes) -> tuple[str | None, list[bytes]]:
     """Text-layer PDFs (exported slides, etc.) get their text pulled directly — cheap and exact,
     no vision call needed. Scanned/handwritten PDFs fall back to rendering pages as images.
-    """
-    doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
-    texts = [page.get_text() for page in doc]
-    if len(doc) and sum(len(t.strip()) for t in texts) / len(doc) > TEXT_LAYER_CHARS_PER_PAGE:
-        return "\n\n".join(t.strip() for t in texts if t.strip()), []
 
-    images = []
-    for page in list(doc)[:MAX_PDF_PAGES]:
-        pix = page.get_pixmap(dpi=150)
-        images.append(pix.tobytes("png"))
-    return None, images
+    Only the first MAX_PDF_PAGES are read at all. The page cap used to apply to rasterisation
+    alone, so a 400-page PDF still had every page's text extracted — all of it either discarded or
+    sent to the model — before the cap did anything. Deciding the text-layer question on the same
+    pages that would be rendered keeps the two answers consistent as well as bounded.
+
+    The document is closed explicitly: pymupdf holds native memory that a reference going out of
+    scope does not necessarily release promptly, and this runs on a request thread.
+    """
+    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
+        pages = list(doc)[:MAX_PDF_PAGES]
+        texts = [page.get_text() for page in pages]
+        if pages and sum(len(t.strip()) for t in texts) / len(pages) > TEXT_LAYER_CHARS_PER_PAGE:
+            return "\n\n".join(t.strip() for t in texts if t.strip()), []
+
+        return None, [page.get_pixmap(dpi=150).tobytes("png") for page in pages]
 
 
 def _image_mime(data: bytes) -> str:

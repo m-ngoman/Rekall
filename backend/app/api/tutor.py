@@ -3,14 +3,14 @@ import re
 import uuid
 from collections.abc import Generator
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.auth import current_user_or_none, get_current_user
 from app.core.settings_store import get_settings_row, require_ai
-from app.core.sse import sse_event
+from app.core.sse import guard, sse_event
 from app.core.usage import record
 from app.db import SessionLocal, get_db
 from app.models import TutorMessage, TutorMessageRole, TutorSession, UsageEventType
@@ -36,6 +36,11 @@ _EXAM_MARKER = re.compile(r'<<add-exam\s+name="([^"]{1,80})"\s+date="(\d{4}-\d{2
 
 
 _MARKER_START = "<<add-exam"
+
+# What the student sees when the model or the synthesizer fails partway through a reply. The turn
+# is genuinely lost at that point — the user message is already stored but no assistant message
+# was written — so "say it again" is the honest instruction rather than "retrying".
+_REPLY_FAILED = "The tutor couldn't finish that reply. Say it again in a moment."
 
 
 def _split_safe(buffer: str) -> tuple[str, str]:
@@ -297,6 +302,12 @@ async def voice_turn(request: Request, session_id: uuid.UUID, audio: UploadFile,
     sentence-by-sentence with synthesized audio (event: sentence) as each one completes.
     """
     user = get_current_user(request, db)
+    # Both toggles, not just voice. A voice turn *is* a tutor turn — it runs the same model and
+    # writes the same transcript — so voice is the transport, not a separate feature that can
+    # outlive the one it carries. Checking only `ai_voice` meant someone who had switched the
+    # tutor off could still be tutored through an existing session, which is exactly the kind of
+    # client-side-only guarantee the No-AI toggles exist to avoid.
+    require_ai(db, user.id, "tutor")
     require_ai(db, user.id, "voice")
     session = _get_session(db, session_id, user.id)
 
@@ -310,11 +321,16 @@ async def voice_turn(request: Request, session_id: uuid.UUID, audio: UploadFile,
         yield sse_event("transcript", {"text": user_text})
         yield from _stream_reply(db, session, user_text, synth=True)
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    return StreamingResponse(guard(stream(), _REPLY_FAILED), media_type="text/event-stream")
 
 
+# A real browser reports 8k-96k for its AudioContext (44.1k and 48k in practice). The bound
+# matters because this value is client-supplied and does two jobs: it configures Deepgram, and it
+# divides the byte count into the seconds this connection is billed for — so an absurd rate would
+# both break transcription and under-report what it cost. Out-of-range closes the socket rather
+# than being clamped, since a clamped rate transcribes noise.
 @router.websocket("/live-transcribe")
-async def live_transcribe(websocket: WebSocket, sample_rate: int = 16000) -> None:
+async def live_transcribe(websocket: WebSocket, sample_rate: int = Query(16000, ge=8000, le=96000)) -> None:
     """Proxies mic audio to Deepgram's real-time STT and relays transcript events back — see
     app/services/live_stt.py for why this is backend-proxied rather than a direct browser
     connection, and frontend/src/hooks/useMicRecorder.ts for the client side.
@@ -335,6 +351,10 @@ async def live_transcribe(websocket: WebSocket, sample_rate: int = 16000) -> Non
             await websocket.close(code=1008)
             return
         try:
+            # Both, matching the voice-turn routes: this socket exists only to feed the tutor, so
+            # with the tutor switched off there is nothing to transcribe for — and this is the
+            # metered one, billed by the second for as long as it stays open.
+            require_ai(db, user.id, "tutor")
             require_ai(db, user.id, "voice")
         except HTTPException:
             # require_ai speaks HTTP; a websocket can only answer with a close code. Caught rather
@@ -375,13 +395,17 @@ def voice_turn_text(request: Request, session_id: uuid.UUID, payload: VoiceTurnT
     streaming) — skips straight to the reply instead of uploading audio for server-side STT.
     """
     user = get_current_user(request, db)
+    require_ai(db, user.id, "tutor")  # see /voice-turn — voice carries the tutor, it isn't separate
     require_ai(db, user.id, "voice")
     session = _get_session(db, session_id, user.id)
 
     if not payload.text.strip():
         raise HTTPException(400, "Empty message")
 
-    return StreamingResponse(_stream_reply(db, session, payload.text, synth=True), media_type="text/event-stream")
+    return StreamingResponse(
+        guard(_stream_reply(db, session, payload.text, synth=True), _REPLY_FAILED),
+        media_type="text/event-stream",
+    )
 
 
 @router.post("/sessions/{session_id}/text-turn")
@@ -406,6 +430,9 @@ async def text_turn(request: Request,
     image_mime = image.content_type if image is not None else None
 
     return StreamingResponse(
-        _stream_reply(db, session, text, synth=False, image_bytes=image_bytes, image_mime=image_mime),
+        guard(
+            _stream_reply(db, session, text, synth=False, image_bytes=image_bytes, image_mime=image_mime),
+            _REPLY_FAILED,
+        ),
         media_type="text/event-stream",
     )

@@ -1,4 +1,5 @@
 from app.models.base import Base
+from app.models.billing import CREDITS_PER_HOUR, CreditLedger, CreditReason, StripeEvent
 from app.models.bug_report import BugReport
 from app.models.card import Card, CardState
 from app.models.deck import Deck
@@ -36,6 +37,10 @@ __all__ = [
     "MemorySource",
     "UsageEvent",
     "UsageEventType",
+    "CreditLedger",
+    "CreditReason",
+    "StripeEvent",
+    "CREDITS_PER_HOUR",
     "UserSettings",
     "Theme",
     "GradingStrictness",
