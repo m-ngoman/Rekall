@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { generateDeck, generateDeckFromNotes, listDecks, listNotes } from '../api'
+import { generateDeck, generateDeckFromNotes, generateDeckFromTopic, listDecks, listNotes } from '../api'
 import ActionCard from '../components/ActionCard'
 import type { Deck, GenerationResult, Note } from '../types'
 
@@ -47,6 +47,15 @@ const NOTES_ICON = (
 /** Sentinel `<select>` value for "new deck, but I'll name it". Not a real deck id, and not the
  * empty string either — the empty string already means "new deck, let the AI name it", and the two
  * have to stay distinguishable. */
+const TOPIC_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+  </svg>
+)
+
+const FIELD_CLASS = 'h-11 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[0.9375rem] outline-none placeholder:text-[var(--text-muted)]'
+
 const NAME_IT = '__name_it__'
 
 export default function GenerateScreen({ onDone, onCancel }: Props) {
@@ -59,6 +68,13 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
    * what gets generated from, and the staged list below always shows exactly that. */
   const [pickedNotes, setPickedNotes] = useState<Note[]>([])
   const [picking, setPicking] = useState(false)
+  // The topic form is a mode rather than a fifth staged source: a topic isn't material you add to
+  // a pile of pages, it's an alternative to having any pages at all.
+  const [byTopic, setByTopic] = useState(false)
+  const [subject, setSubject] = useState('')
+  const [topic, setTopic] = useState('')
+  const [gradeLevel, setGradeLevel] = useState('')
+  const [curriculum, setCurriculum] = useState('')
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -92,7 +108,12 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
   }
 
   const handleGenerate = async () => {
-    if (files.length === 0 && pickedNotes.length === 0) {
+    if (byTopic) {
+      if (!subject.trim() || !topic.trim()) {
+        setError('Name the subject and the topic.')
+        return
+      }
+    } else if (files.length === 0 && pickedNotes.length === 0) {
       setError('Add a photo or PDF, or pick from notes you\'ve already saved.')
       return
     }
@@ -109,14 +130,18 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
     setError(null)
     setStage('Starting…')
     try {
-      const res = pickedNotes.length
-        ? await generateDeckFromNotes(pickedNotes.map((n) => n.id), deckId, deckName, setStage)
-        : await generateDeck(files, deckId, deckName, setStage)
+      const res = byTopic
+        ? await generateDeckFromTopic({ subject, topic, gradeLevel, curriculum }, deckId, deckName, setStage)
+        : pickedNotes.length
+          ? await generateDeckFromNotes(pickedNotes.map((n) => n.id), deckId, deckName, setStage)
+          : await generateDeck(files, deckId, deckName, setStage)
       if (res.cards_added.length === 0) {
         setError(
-          pickedNotes.length
-            ? "Couldn't find any flashcard-worthy material in those notes."
-            : "Couldn't find any flashcard-worthy material in that upload.",
+          byTopic
+            ? "Nothing survived checking. Try naming the topic more specifically, or add a syllabus."
+            : pickedNotes.length
+              ? "Couldn't find any flashcard-worthy material in those notes."
+              : "Couldn't find any flashcard-worthy material in that upload.",
         )
         return
       }
@@ -151,7 +176,10 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
         <div className="mb-1 text-[1.25rem] font-bold">Added to {result.deck_name}</div>
         <p className="mb-5 text-[0.9375rem] text-[var(--text-muted)]">
           {added} card{added === 1 ? '' : 's'} added
-          {dropped > 0 && `, ${dropped} dropped because ${dropped === 1 ? 'it' : 'they'} didn't hold up against your notes`}.
+          {dropped > 0 &&
+            (byTopic
+              ? `, ${dropped} dropped in checking`
+              : `, ${dropped} dropped because ${dropped === 1 ? 'it' : 'they'} didn't hold up against your notes`)}.
         </p>
 
         <div className="mb-5 flex flex-col border-t border-[var(--rule)]">
@@ -200,8 +228,9 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
         Back
       </button>
       <p className="mb-5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
-        Upload photos of your notes or a PDF, or pull from notes you've already saved. The AI drafts flashcards, then
-        checks each one against your notes before adding it.
+        {byTopic
+          ? "Say what you're studying and the AI writes the cards, then checks each one is standard material for that level before adding it. Cards come from what the AI knows about the topic, so check them as you go — you can flag a bad one while reviewing."
+          : 'Upload photos of your notes or a PDF, or pull from notes you\'ve already saved. The AI drafts flashcards, then checks each one against your notes before adding it.'}
       </p>
 
       <div className="mb-5">
@@ -240,12 +269,24 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
 
       {/* The four sources are rows on one surface, same as the ways in on the Cards tab. */}
       <div className="mb-3 rounded-[var(--r-md)] bg-[var(--surface)] [&>*+*]:border-t [&>*+*]:border-[var(--rule)]">
-        <ActionCard onClick={() => cameraInputRef.current?.click()} disabled={busy} title="Take a photo" description="Point the camera at a page of notes" icon={CAMERA_ICON} />
-        <ActionCard onClick={() => libraryInputRef.current?.click()} disabled={busy} title="Choose photos" description="From your photo library" icon={LIBRARY_ICON} />
-        <ActionCard onClick={() => pdfInputRef.current?.click()} disabled={busy} title="Choose a PDF" description="Lecture slides, a handout, a chapter" icon={PDF_ICON} />
+        <ActionCard onClick={() => cameraInputRef.current?.click()} disabled={busy || byTopic} title="Take a photo" description="Point the camera at a page of notes" icon={CAMERA_ICON} />
+        <ActionCard onClick={() => libraryInputRef.current?.click()} disabled={busy || byTopic} title="Choose photos" description="From your photo library" icon={LIBRARY_ICON} />
+        <ActionCard onClick={() => pdfInputRef.current?.click()} disabled={busy || byTopic} title="Choose a PDF" description="Lecture slides, a handout, a chapter" icon={PDF_ICON} />
+        <ActionCard
+          onClick={() => {
+            setByTopic((on) => !on)
+            setFiles([])
+            setPickedNotes([])
+            setError(null)
+          }}
+          disabled={busy}
+          title="Describe a topic"
+          description={byTopic ? 'Tap to go back to using your own material' : "For a topic you haven't written notes for yet"}
+          icon={TOPIC_ICON}
+        />
         <ActionCard
           onClick={() => setPicking(true)}
-          disabled={busy}
+          disabled={busy || byTopic}
           title="Use saved notes"
           description={
             pickedNotes.length > 0
@@ -255,6 +296,27 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
           icon={NOTES_ICON}
         />
       </div>
+
+      {byTopic && (
+        <div className="mb-5 flex flex-col gap-2.5">
+          <input autoFocus value={subject} onChange={(e) => setSubject(e.target.value)} disabled={busy} maxLength={80}
+            placeholder="Subject — Chemistry, History…" className={FIELD_CLASS} />
+          <input value={topic} onChange={(e) => setTopic(e.target.value)} disabled={busy} maxLength={120}
+            placeholder="Topic — what you're studying right now" className={FIELD_CLASS} />
+          <input value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} disabled={busy} maxLength={60}
+            placeholder="Level (optional) — Grade 11, IB HL…" className={FIELD_CLASS} />
+          {/* A textarea, because the useful thing to put here is a pasted unit list. A board's
+              name alone is the input most likely to be half-known and confabulated around. */}
+          <textarea value={curriculum} onChange={(e) => setCurriculum(e.target.value)} disabled={busy} rows={3} maxLength={2000}
+            placeholder="Curriculum or syllabus (optional) — paste your unit list if you have one"
+            className="w-full resize-none rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 py-2.5 text-[0.9375rem] leading-relaxed outline-none placeholder:text-[var(--text-muted)]" />
+          <p className="text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">
+            {targetDeckId && targetDeckId !== NAME_IT
+              ? 'Cards will follow the notes already in that deck where they cover this topic.'
+              : 'Pick an existing deck above and any notes in it will be used, so the cards match what you were taught.'}
+          </p>
+        </div>
+      )}
 
       {staged.length > 0 && (
         <div className="mb-5 flex flex-col border-t border-[var(--rule)]">
@@ -281,7 +343,7 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
 
       <button
         onClick={handleGenerate}
-        disabled={busy || (files.length === 0 && pickedNotes.length === 0)}
+        disabled={busy || (byTopic ? !subject.trim() || !topic.trim() : files.length === 0 && pickedNotes.length === 0)}
         className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
       >
         {busy ? stage || 'Generating' : 'Generate flashcards'}

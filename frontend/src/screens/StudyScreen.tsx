@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NotSignedIn, getStudyQueue, listExams, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
+import { NotSignedIn, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
 import { daysUntil } from '../lib/dates'
 import type { Exam, ReviewResult, StudyCard } from '../types'
 
@@ -79,6 +79,8 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
   // reading "Checking". Showing the reason and returning to 'answering' is what makes it a
   // retry rather than a dead end.
   const [error, setError] = useState<string | null>(null)
+  // Reporting is a per-card thing, so this resets with the card rather than with the session.
+  const [reported, setReported] = useState(false)
 
   useEffect(() => {
     getStudyQueue(deckId)
@@ -108,6 +110,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
     setStreamedExplanation('')
     setRevealed(null)
     setModelAnswer(null)
+    setReported(false)
     setQueue((prevQueue) => {
       if (prevQueue.length === 0) {
         setCurrent(null)
@@ -173,6 +176,19 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
       setPhase('answering')
       setStreamedExplanation('')
       setError(message(e, 'Grading failed.'))
+    }
+  }
+
+  const handleReport = async () => {
+    if (!current) return
+    // Marked reported straight away rather than after the round-trip: the student has made their
+    // judgement, and the card is going out of the queue either way. A failure here loses a report,
+    // not a card — so it says so and lets them try again rather than pretending it worked.
+    try {
+      await reportCard(current.id)
+      setReported(true)
+    } catch (e) {
+      setError(message(e, "Couldn't report that card."))
     }
   }
 
@@ -462,12 +478,31 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
           <div className="mt-3 hidden text-[0.8125rem] text-[var(--text-muted)] lg:mt-0 lg:block">⌘ Enter also checks</div>
         </div>
       ) : (
-        <button
-          onClick={advance}
-          className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold lg:w-auto lg:self-start lg:px-8 lg:py-3"
-        >
-          {queue.length > 0 ? `Next card, ${queue.length} left` : 'Finish'}
-        </button>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5">
+          <button
+            onClick={advance}
+            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold lg:w-auto lg:self-start lg:px-8 lg:py-3"
+          >
+            {queue.length > 0 ? `Next card, ${queue.length} left` : 'Finish'}
+          </button>
+          {/* Offered after grading rather than before, so a card can't be dismissed instead of
+              attempted — and this is the point where the student has seen the model answer and
+              actually knows whether the card was wrong. It is the only check on cards generated
+              from a topic rather than from their own notes, which have no review screen by
+              design. Muted, not accent: it's an escape hatch, not an action to encourage. */}
+          {!reported ? (
+            <button
+              onClick={handleReport}
+              className="self-start text-[0.8125rem] font-semibold text-[var(--text-muted)] underline decoration-[var(--rule)] underline-offset-4 lg:self-auto"
+            >
+              This card doesn't look right
+            </button>
+          ) : (
+            <span className="self-start text-[0.8125rem] text-[var(--text-muted)] lg:self-auto">
+              Reported. You won't see it again.
+            </span>
+          )}
+        </div>
       )}
       </div>
 

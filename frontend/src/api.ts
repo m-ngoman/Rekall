@@ -342,6 +342,52 @@ export async function generateDeckFromNotes(
   return result
 }
 
+/** Cards from a described topic rather than the student's own material.
+ *
+ * `deckId` matters more here than it does for the other two entry points: when the chosen deck
+ * already has notes filed under it, the backend feeds them to the model as grounding, so picking
+ * an existing deck is what makes the cards match what the student was actually taught rather than
+ * the model's general knowledge of the topic.
+ */
+export async function generateDeckFromTopic(
+  topic: { subject: string; topic: string; gradeLevel: string; curriculum: string },
+  deckId: string | null,
+  deckName: string,
+  onStage: (label: string) => void,
+): Promise<GenerationResult> {
+  let result: GenerationResult | null = null
+  await streamSSE(
+    '/api/notes/generate-from-topic',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject: topic.subject.trim(),
+        topic: topic.topic.trim(),
+        grade_level: topic.gradeLevel.trim(),
+        curriculum: topic.curriculum.trim(),
+        deck_id: deckId ?? '',
+        deck_name: deckName.trim(),
+      }),
+    },
+    (eventType, data) => {
+      if (eventType === 'stage') onStage(data.label)
+      else if (eventType === 'done') result = data
+    },
+  )
+  if (!result) throw new Error('Stream ended without a result')
+  return result
+}
+
+/** Flags a card as wrong and takes it out of the study queue.
+ *
+ * Suspends rather than deletes: the card is kept because it's the evidence for whether generated
+ * cards are any good, and because the student may have been mistaken.
+ */
+export function reportCard(cardId: string): Promise<void> {
+  return request(`/cards/${cardId}/report`, { method: 'POST' })
+}
+
 /** `q` runs Postgres full-text search over each note's stored transcription (stemmed, so
  * "chloroplast" matches "chloroplasts"); empty means list everything, newest first.
  */
