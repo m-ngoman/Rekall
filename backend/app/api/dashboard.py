@@ -45,8 +45,9 @@ def get_dashboard(request: Request, db: Session = Depends(get_db)) -> DashboardO
         # library). Must match the study queue's view of "paused" — both go through exam_status.
         if exam_paused(deck, today):
             continue
-        due_count = sum(1 for c in deck.cards if c.state != CardState.new and c.due is not None and c.due <= now)
-        new_count = sum(1 for c in deck.cards if c.state == CardState.new)
+        live = [c for c in deck.cards if not c.suspended]
+        due_count = sum(1 for c in live if c.state != CardState.new and c.due is not None and c.due <= now)
+        new_count = sum(1 for c in live if c.state == CardState.new)
         new_served = min(new_count, boosted_new_cap(deck, today, prefs.new_cards_per_day, new_count))
         remaining += due_count + new_served
 
@@ -110,6 +111,8 @@ def get_load(
             continue
         new_count = 0
         for c in deck.cards:
+            if c.suspended:
+                continue
             if c.state == CardState.new:
                 new_count += 1
                 continue

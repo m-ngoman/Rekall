@@ -23,6 +23,7 @@ from app.schemas import (
     DroppedCardOut,
     GeneratedCardOut,
     GenerateFromNotes,
+    GenerateFromTopic,
     GenerationResultOut,
     NoteCreate,
     NoteDetailOut,
@@ -32,8 +33,10 @@ from app.schemas import (
 from app.services.deck_generation import (
     extract_pdf,
     generate_draft,
+    generate_topic_draft,
     transcribe_notes,
     verify_cards,
+    verify_topic_cards,
 )
 from app.services.storage import save_note_file
 
@@ -443,9 +446,29 @@ def _generate_cards(
     yield sse_event("stage", {"label": "Double-checking against your notes…"})
     verified = verify_cards(images, text, draft.get("cards", []))
 
+    yield from _persist_cards(
+        db, user_id, existing_deck, verified, draft.get("deck_name"), finish, deck_name
+    )
+
+
+def _persist_cards(
+    db: Session,
+    user_id: uuid.UUID,
+    existing_deck: Deck | None,
+    verified: dict,
+    proposed_name: str | None,
+    finish: Callable[[Deck], None],
+    deck_name: str = "",
+) -> Generator[str, None, None]:
+    """Write out whatever survived verification, and report it.
+
+    Shared by both generation paths — from notes and from a topic — because what happens to a
+    verified card doesn't depend on where the material came from, and the `done` payload the
+    client reads has to be identical either way.
+    """
     deck = existing_deck
     if deck is None:
-        deck = Deck(user_id=user_id, name=deck_name.strip() or draft.get("deck_name") or "Untitled Deck")
+        deck = Deck(user_id=user_id, name=deck_name.strip() or proposed_name or "Untitled Deck")
         db.add(deck)
         db.flush()
 
@@ -583,5 +606,63 @@ def generate_from_notes(request: Request, payload: GenerateFromNotes, db: Sessio
                     note.deck_id = deck.id
 
         yield from _generate_cards(db, user.id, existing_deck, uploads, relink, payload.deck_name)
+
+    return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")
+
+
+@router.post("/generate-from-topic")
+def generate_from_topic(request: Request, payload: GenerateFromTopic, db: Session = Depends(get_db)) -> StreamingResponse:
+    """Flashcards from a described topic, for a student who hasn't written the notes yet.
+
+    Same SSE shape as the other two entry points, and the same no-review-screen contract: what
+    catches a bad card here is the student reporting it during review, not a confirmation gate
+    they'd click through anyway.
+
+    Where the chosen deck already has notes filed under it, those are passed in as grounding and
+    verification goes back to being a real check against real material. That is the whole reason
+    the deck is asked for before the cards are made rather than after: an unfiled topic generates
+    from the model's general knowledge, and a filed one generates from what the student was
+    actually taught.
+    """
+    user = get_current_user(request, db)
+    require_ai(db, user.id, "generation")
+    require_text_ai(user)
+    existing_deck = _resolve_deck(db, user.id, payload.deck_id)
+
+    subject = payload.subject.strip()
+    topic = payload.topic.strip()
+    if not subject or not topic:
+        raise HTTPException(400, "A subject and a topic are both needed")
+
+    grounding = None
+    if existing_deck is not None:
+        # Their own transcriptions, not the original files: this is context for what to cover and
+        # emphasise, not the material a card is checked against page by page, so a transcription
+        # is exactly the right fidelity and costs no vision call.
+        filed = (
+            db.query(Note)
+            .filter(Note.deck_id == existing_deck.id, Note.user_id == user.id, Note.ocr_text.isnot(None))
+            .order_by(Note.created_at)
+            .all()
+        )
+        joined = "\n\n".join(n.ocr_text for n in filed if n.ocr_text and n.ocr_text.strip())
+        grounding = joined or None
+
+    def stream() -> Generator[str, None, None]:
+        yield sse_event("stage", {"label": "Writing flashcards…"})
+        draft = generate_topic_draft(subject, topic, payload.grade_level or None, payload.curriculum or None, grounding)
+
+        yield sse_event(
+            "stage",
+            {"label": "Checking them against your notes…" if grounding else "Checking them over…"},
+        )
+        verified = verify_topic_cards(
+            subject, topic, payload.grade_level or None, payload.curriculum or None,
+            draft.get("cards", []), grounding,
+        )
+
+        yield from _persist_cards(
+            db, user.id, existing_deck, verified, draft.get("deck_name") or topic, lambda _deck: None, payload.deck_name
+        )
 
     return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")

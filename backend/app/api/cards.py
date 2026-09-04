@@ -12,7 +12,7 @@ from app.core.entitlements import require_text_ai
 from app.core.sse import guard, sse_event
 from app.core.usage import record
 from app.db import get_db
-from app.models import Card, CardState, Deck, InputMode, ReviewLog, UsageEventType
+from app.models import Card, CardState, Deck, Feedback, FeedbackCategory, InputMode, ReviewLog, UsageEventType
 from app.schemas import CardOut, CardUpdate, ReviewRequest
 from app.services.fsrs import SchedulingState, review_card
 from app.services.grading import GradeResult, get_grader
@@ -226,3 +226,50 @@ def delete_card(request: Request, card_id: uuid.UUID, db: Session = Depends(get_
     card = _get_owned_card(db, card_id, user.id)
     db.delete(card)
     db.commit()
+
+
+@router.post("/{card_id}/report", status_code=204)
+def report_card(request: Request, card_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
+    """"This card doesn't look right" — from the review screen, on the card being studied.
+
+    Suspends it as well as recording it. A report that only filed a note would leave the student
+    being shown the same wrong card on an optimal forgetting schedule until they had learned it,
+    which is the exact harm the button exists to stop. Suspending is also reversible and the card
+    is kept, because the student may be the one who is wrong.
+
+    This is the whole safeguard for cards generated from a topic rather than from a student's own
+    notes: there is no review screen before those enter the deck, by design, so the check happens
+    at the one moment the student has the most information — when they are looking at the card and
+    know what their course actually teaches.
+    """
+    user = get_current_user(request, db)
+    card = (
+        db.query(Card)
+        .join(Deck, Card.deck_id == Deck.id)
+        .filter(Card.id == card_id, Deck.user_id == user.id)
+        .one_or_none()
+    )
+    if card is None:
+        raise HTTPException(404, "Card not found")
+
+    if not card.suspended:
+        card.suspended = True
+        db.add(
+            Feedback(
+                user_id=user.id,
+                card_id=card.id,
+                category=FeedbackCategory.bad_card,
+                # Captured at write time rather than asked for: the card can be edited or deleted
+                # later, and a report that no longer says what was wrong is not evidence of
+                # anything. Deck name is here because whether topic-generated cards get reported
+                # more often than note-generated ones is the question this data has to answer.
+                context={
+                    "question": card.question,
+                    "answer": card.answer,
+                    "subtopic": card.subtopic,
+                    "deck": card.deck.name if card.deck else None,
+                    "reviews_before_report": card.reviews,
+                },
+            )
+        )
+        db.commit()

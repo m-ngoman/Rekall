@@ -11,6 +11,7 @@ from app.models.base import Base, TimestampMixin, UUIDPKMixin
 class FeedbackCategory(str, enum.Enum):
     wrong_grade = "wrong_grade"  # model judgment issue
     malformed_response = "malformed_response"  # pipeline robustness issue
+    bad_card = "bad_card"  # the card itself is wrong, unclear, or off-syllabus
     other = "other"
 
 

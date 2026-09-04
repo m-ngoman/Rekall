@@ -34,7 +34,9 @@ router = APIRouter(prefix="/api/decks", tags=["decks"])
 def _deck_out(deck: Deck) -> DeckOut:
     """`learned` is total-minus-new — cards you've *started*, not mastered. The UI labels it that
     way; keep the two in step."""
-    cards = deck.cards
+    # Suspended cards are excluded everywhere a count drives the daily plan: a reported card
+    # must stop being counted as work, or Home keeps promising cards the queue will not serve.
+    cards = [c for c in deck.cards if not c.suspended]
     total = len(cards)
     new = sum(1 for c in cards if c.state == CardState.new)
     now = datetime.now(timezone.utc)
@@ -204,8 +206,9 @@ def study_queue(request: Request, deck_id: uuid.UUID, db: Session = Depends(get_
     prefs = get_settings_row(db, user.id)
 
     now = datetime.now(timezone.utc)
-    due_cards = [c for c in deck.cards if c.state != CardState.new and c.due is not None and c.due <= now]
-    new_cards = [c for c in deck.cards if c.state == CardState.new]
+    live = [c for c in deck.cards if not c.suspended]
+    due_cards = [c for c in live if c.state != CardState.new and c.due is not None and c.due <= now]
+    new_cards = [c for c in live if c.state == CardState.new]
     # Most-overdue first, so a session cut short (or trimmed below) spends itself on the cards
     # closest to being forgotten.
     due_cards.sort(key=lambda c: c.due)

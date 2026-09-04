@@ -152,3 +152,103 @@ def transcribe_notes(images: list[bytes], text: str | None) -> tuple[str, str | 
         _user_content(images, text, "Transcribe this material."),
     )
     return (result.get("markdown") or "").strip(), result.get("problem")
+
+
+# --- Generating from a topic rather than from the student's own material -------------------
+#
+# The important difference from the notes pipeline above is what the second pass can check.
+# There, `verify_cards` asks "is this supported by the source?" and that source is the student's
+# own notes, so the answer has ground truth. Here there may be no source at all, and a model
+# grading its own output is a much weaker guarantee.
+#
+# Two things narrow that gap. Where the student already has notes filed under the subject they
+# picked, those are passed in and the check goes back to being a real one. Where they don't, the
+# second pass is asked a different and more answerable question — not "is this true" but "is this
+# standard, uncontested, curriculum-level material" — which is the kind of judgement a model is
+# actually reliable about, and which drops the confidently-invented specifics that are the real
+# hazard. What catches the rest is the student reporting a bad card during review.
+
+# Grounding notes are truncated hard: past a few thousand characters this stops being "the
+# material they were taught from" and starts being an expensive way to blow the context window on
+# a cheap model. First notes win, since those are the ones the picker showed them.
+MAX_GROUNDING_CHARS = 6000
+
+_TOPIC_DRAFT_SYSTEM_PROMPT = """You are helping a student build spaced-repetition flashcards for a topic they are about to study, in the Rekall app.
+
+Produce flashcards for the genuinely test-worthy facts, definitions and concepts a student at the stated level would be expected to know for this topic. Match the depth to the grade level given: don't write undergraduate cards for a Grade 9 student, or trivial ones for an advanced course.
+
+Stay on the standard, mainstream treatment of the topic. Do not invent specific figures, dates, named studies, statistics or examples that you are not confident are correct and widely taught — a wrong flashcard is worse than a missing one, because the student will memorise it. Prefer the concept a course actually tests over an obscure detail.
+
+If the student's own notes are provided, use them to see how this topic is taught on their course — its depth, vocabulary, notation and emphasis — and follow their framing wherever the notes cover the requested topic. The notes are context for the topic, not a replacement for it: where they say little or nothing about what was asked for, write standard cards for the requested topic anyway, and do not substitute material from the notes that is about something else.
+
+Group related cards under a short "subtopic" label. Also propose a short, specific deck name (2-5 words).
+
+Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:
+{"deck_name": "string", "cards": [{"subtopic": "string", "question": "string", "answer": "string"}]}"""
+
+
+_TOPIC_VERIFY_GROUNDED_PROMPT = """You are fact-checking AI-drafted flashcards for a student, against the notes they were actually taught from.
+
+Drop any card that contradicts the notes, or that states a specific fact — a figure, date, name, or example — which is neither in the notes nor standard, uncontested textbook material for this topic. Also drop cards that are about a different topic than the one requested, even if the notes cover that other topic: the student asked for a specific thing. Keep cards that go beyond the notes where they are plainly standard curriculum content for the requested topic. Fix minor wording issues.
+
+Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:
+{"cards": [{"subtopic": "string", "question": "string", "answer": "string"}], "dropped": [{"question": "string", "reason": "string"}]}"""
+
+
+_TOPIC_VERIFY_UNGROUNDED_PROMPT = """You are reviewing AI-drafted flashcards before they enter a student's study queue. There is no source document — the cards were written from a topic description alone, so your job is to catch what that process gets wrong.
+
+You are not being asked to re-derive each fact. You are being asked one question per card: is this standard, uncontested material that a course on this topic would actually teach at this level?
+
+Drop a card if it states a specific figure, date, named study, statistic or example that is not textbook-standard; if it is too advanced or too trivial for the stated level; if it is contested, or true only under assumptions the card doesn't state; or if the answer is vague enough that a student couldn't tell whether they got it right. Keep the core conceptual cards. Fix minor wording issues.
+
+Be willing to drop a lot. A short deck of solid cards is worth more than a long one a student has to second-guess.
+
+Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:
+{"cards": [{"subtopic": "string", "question": "string", "answer": "string"}], "dropped": [{"question": "string", "reason": "string"}]}"""
+
+
+def _topic_brief(subject: str, topic: str, grade_level: str | None, curriculum: str | None) -> str:
+    lines = [f"Subject: {subject}", f"Topic: {topic}"]
+    if grade_level:
+        lines.append(f"Level: {grade_level}")
+    if curriculum:
+        # Free text on purpose: a pasted syllabus or unit list is far more useful than a board's
+        # name, which the model may only half-know and will fill in the gaps of.
+        lines.append(f"Curriculum / syllabus: {curriculum}")
+    return "\n".join(lines)
+
+
+def generate_topic_draft(
+    subject: str,
+    topic: str,
+    grade_level: str | None = None,
+    curriculum: str | None = None,
+    notes: str | None = None,
+) -> dict:
+    lead_in = _topic_brief(subject, topic, grade_level, curriculum)
+    if notes:
+        lead_in += "\n\nMy course notes, for context on how this is taught:\n" + notes[:MAX_GROUNDING_CHARS]
+        # Restated last, after the notes. Notes cover a whole course and read as an agenda; asked
+        # for "substitution reactions" against notes that also cover aromaticity, the draft came
+        # back led by aromaticity. The requested topic goes closest to the instruction so it is
+        # the last thing read, and the notes stay context rather than becoming the brief.
+        lead_in += f"\n\nThose notes cover more than one topic. Generate flashcards on {topic} specifically."
+    else:
+        lead_in += "\n\nGenerate flashcards for this."
+    return _call_json(_TOPIC_DRAFT_SYSTEM_PROMPT, [{"type": "text", "text": lead_in}])
+
+
+def verify_topic_cards(
+    subject: str,
+    topic: str,
+    grade_level: str | None,
+    curriculum: str | None,
+    draft_cards: list[dict],
+    notes: str | None = None,
+) -> dict:
+    lead_in = _topic_brief(subject, topic, grade_level, curriculum)
+    if notes:
+        lead_in += "\n\nThe student's own notes:\n" + notes[:MAX_GROUNDING_CHARS]
+    lead_in += "\n\nDraft flashcards to check:\n" + json.dumps(draft_cards)
+    prompt = _TOPIC_VERIFY_GROUNDED_PROMPT if notes else _TOPIC_VERIFY_UNGROUNDED_PROMPT
+    return _call_json(prompt, [{"type": "text", "text": lead_in}])

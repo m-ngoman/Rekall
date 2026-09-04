@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,6 +35,11 @@ class Card(UUIDPKMixin, TimestampMixin, Base):
     due: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_review: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reviews: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+    # Taken out of the study queue by the student reporting it, and kept rather than deleted.
+    # A reported card is evidence: it is how generation quality gets measured, and the student
+    # may also simply have been wrong. Nothing else in the app writes this.
+    suspended: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     lapses: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     deck: Mapped["Deck"] = relationship(back_populates="cards")
