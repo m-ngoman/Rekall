@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getStudyQueue, listExams, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
+import { NotSignedIn, getStudyQueue, listExams, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
 import { daysUntil } from '../lib/dates'
 import type { Exam, ReviewResult, StudyCard } from '../types'
 
@@ -11,7 +11,7 @@ interface Props {
   aiGrading: boolean
 }
 
-type Phase = 'loading' | 'answering' | 'grading' | 'graded' | 'done' | 'empty'
+type Phase = 'loading' | 'answering' | 'grading' | 'graded' | 'done' | 'empty' | 'unavailable'
 
 /** Self-assessment ratings, in the order they're shown. Same 1-4 FSRS scale the grader emits —
  * nothing downstream can tell the difference, which is exactly why this path is cheap. */
@@ -30,6 +30,23 @@ const GRADE_COLOR: Record<number, string> = {
   2: 'var(--grade-hard)',
   3: 'var(--grade-good)',
   4: 'var(--grade-good)',
+}
+
+/** What to put on screen for a failed action.
+ *
+ * The backend's streaming endpoints send a written sentence when they fail mid-stream, and that
+ * sentence is better than anything this file could invent — so it is preferred. What is filtered
+ * out is the machine wording: a bare `500 Internal Server Error: ...` dump tells a student
+ * nothing, and `fetch` says "Failed to fetch" when the network drops.
+ */
+function message(error: unknown, fallback: string): string {
+  if (error instanceof NotSignedIn) return 'You have been signed out. Reload to sign in again.'
+  if (!(error instanceof Error)) return fallback
+  const raw = error.message
+  if (!raw || /^\d{3}\s/.test(raw) || /failed to fetch|networkerror|load failed/i.test(raw)) {
+    return `${fallback} Check your connection and try again.`
+  }
+  return raw
 }
 
 /** "back in 6 days" — when the card comes round again, from its new FSRS due date. */
@@ -57,20 +74,28 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
   // them before the cards are attempted, and that stays true whichever way we ask for one.
   const [modelAnswer, setModelAnswer] = useState<string | null>(null)
   const [exams, setExams] = useState<Exam[]>([])
+  // Anything that went wrong in the last action. Study is a loop with no other way out: a
+  // failed grade used to leave `phase` on 'grading' forever, with the only button disabled and
+  // reading "Checking". Showing the reason and returning to 'answering' is what makes it a
+  // retry rather than a dead end.
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    getStudyQueue(deckId).then((q) => {
-      setDeckName(q.deck_name)
-      if (q.cards.length === 0) {
-        setPhase('empty')
-        return
-      }
-      const [first, ...rest] = q.cards
-      setCurrent(first)
-      setQueue(rest)
-      setStats({ total: q.cards.length, done: 0, correct: 0 })
-      setPhase('answering')
-    })
+    getStudyQueue(deckId)
+      .then((q) => {
+        setDeckName(q.deck_name)
+        if (q.cards.length === 0) {
+          setPhase('empty')
+          return
+        }
+        const [first, ...rest] = q.cards
+        setCurrent(first)
+        setQueue(rest)
+        setStats({ total: q.cards.length, done: 0, correct: 0 })
+        setPhase('answering')
+      })
+      // Without this the screen sat on "Loading…" indefinitely whenever the queue request failed.
+      .catch(() => setPhase('unavailable'))
     listExams()
       .then(setExams)
       .catch(() => {})
@@ -78,6 +103,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
 
   const advance = () => {
     setAnswer('')
+    setError(null)
     setResult(null)
     setStreamedExplanation('')
     setRevealed(null)
@@ -106,8 +132,12 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
     revealAnswer(card.id)
       .then((r) => setModelAnswer(r.answer))
       .catch(() => {})
-    setStats((s) => ({ ...s, correct: s.correct + (res.grade >= 3 ? 1 : 0) }))
-    if (res.grade === 1 && !relearn.has(card.id)) {
+    // "Right first time" has to mean that. A card you forgot goes back in the queue, and getting
+    // it right on the second showing was counted here as if it had never been missed — which made
+    // the end-of-session percentage climb the more you struggled.
+    const firstAttempt = !relearn.has(card.id)
+    setStats((s) => ({ ...s, correct: s.correct + (firstAttempt && res.grade >= 3 ? 1 : 0) }))
+    if (res.grade === 1 && firstAttempt) {
       setRelearn((prev) => new Set(prev).add(card.id))
       setQueue((prev) => [...prev, card])
       setStats((s) => ({ ...s, total: s.total + 1 }))
@@ -119,17 +149,41 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
   const handleSelfGrade = async (grade: number) => {
     if (!current) return
     setPhase('grading')
-    applyResult(await submitSelfAssessedReview(current.id, grade), current)
+    setError(null)
+    try {
+      applyResult(await submitSelfAssessedReview(current.id, grade), current)
+    } catch (e) {
+      setPhase('answering')
+      setError(message(e, "That rating didn't save."))
+    }
   }
 
   const handleSubmit = async () => {
     if (!current) return
     setPhase('grading')
     setStreamedExplanation('')
-    const res = await submitReviewStream(current.id, answer, (chunk) => {
-      setStreamedExplanation((prev) => prev + chunk)
-    })
-    applyResult(res, current)
+    setError(null)
+    try {
+      const res = await submitReviewStream(current.id, answer, (chunk) => {
+        setStreamedExplanation((prev) => prev + chunk)
+      })
+      applyResult(res, current)
+    } catch (e) {
+      // Back to 'answering' with what they typed intact, so retrying is one tap and not a retype.
+      setPhase('answering')
+      setStreamedExplanation('')
+      setError(message(e, 'Grading failed.'))
+    }
+  }
+
+  const handleReveal = async () => {
+    if (!current) return
+    setError(null)
+    try {
+      setRevealed((await revealAnswer(current.id)).answer)
+    } catch (e) {
+      setError(message(e, "Couldn't load the answer."))
+    }
   }
 
   // Cards still ahead of you, counting the one on screen. This is the number the header carries.
@@ -164,6 +218,23 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
       </div>
     </div>
   )
+
+  if (phase === 'unavailable') {
+    return (
+      <div className="flex flex-col gap-10">
+        {header}
+        <div>
+          <div className="text-[1.25rem] font-bold leading-snug">Couldn't load this deck</div>
+          <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+            Something went wrong fetching today's cards. Your progress is safe.
+          </p>
+          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold">
+            Back to Home
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (phase === 'empty') {
     return (
@@ -341,10 +412,23 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
         </div>
       )}
 
+      {/* Sits directly above the action button, so the explanation and the retry are one glance
+          apart. --grade-forgot rather than a new hue: the palette already owns one colour for
+          "this did not go well", and a second would be a fifth thing to keep in step. */}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-[var(--r-md)] bg-[var(--grade-forgot-bg)] px-4 py-3 text-[0.875rem] leading-relaxed"
+          style={{ color: 'var(--grade-forgot)' }}
+        >
+          {error}
+        </div>
+      )}
+
       {!aiGrading && phase !== 'graded' ? (
         revealed === null ? (
           <button
-            onClick={async () => setRevealed((await revealAnswer(current.id)).answer)}
+            onClick={handleReveal}
             className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold"
           >
             Show the answer

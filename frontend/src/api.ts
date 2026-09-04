@@ -46,6 +46,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
  */
 async function streamSSE(url: string, init: RequestInit, onEvent: (eventType: string, data: any) => void): Promise<void> {
   const res = await fetch(url, init)
+  // Same 401 handling as request(): a session that expires mid-stream is being signed out, not a
+  // stream that failed, and callers already know how to tell those apart.
+  if (res.status === 401) throw new NotSignedIn()
   if (!res.ok || !res.body) {
     throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`)
   }
@@ -54,22 +57,35 @@ async function streamSSE(url: string, init: RequestInit, onEvent: (eventType: st
   const decoder = new TextDecoder()
   let buffer = ''
 
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
 
-    let boundary = buffer.indexOf('\n\n')
-    while (boundary !== -1) {
-      const rawEvent = buffer.slice(0, boundary)
-      buffer = buffer.slice(boundary + 2)
+      let boundary = buffer.indexOf('\n\n')
+      while (boundary !== -1) {
+        const rawEvent = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary + 2)
 
-      const eventType = rawEvent.match(/^event: (.+)$/m)?.[1] ?? 'message'
-      const dataLine = rawEvent.match(/^data: (.+)$/m)?.[1]
-      if (dataLine) onEvent(eventType, JSON.parse(dataLine))
+        const eventType = rawEvent.match(/^event: (.+)$/m)?.[1] ?? 'message'
+        const dataLine = rawEvent.match(/^data: (.+)$/m)?.[1]
+        if (dataLine) {
+          const data = JSON.parse(dataLine)
+          // Handled here rather than by each caller. A stream that fails after the response has
+          // committed to 200 can't report it as a status, so the backend sends this instead (see
+          // backend/app/core/sse.py `guard`) — and every caller wants the same thing from it.
+          if (eventType === 'error') throw new Error(data.message ?? 'That failed partway through.')
+          onEvent(eventType, data)
+        }
 
-      boundary = buffer.indexOf('\n\n')
+        boundary = buffer.indexOf('\n\n')
+      }
     }
+  } finally {
+    // Throwing out of the loop leaves the body half-read; without this the connection stays open
+    // until it is garbage collected.
+    reader.cancel().catch(() => {})
   }
 }
 
@@ -307,8 +323,9 @@ export async function generateDeckFromNotes(
   deckName: string,
   onStage: (label: string) => void,
 ): Promise<GenerationResult> {
+  // A failure after the stream opens can't arrive as an HTTP status — the response is already 200
+  // and streaming — so it comes through as an `error` event, which streamSSE turns into a throw.
   let result: GenerationResult | null = null
-  let failure: string | null = null
   await streamSSE(
     '/api/notes/generate-from-notes',
     {
@@ -319,12 +336,8 @@ export async function generateDeckFromNotes(
     (eventType, data) => {
       if (eventType === 'stage') onStage(data.label)
       else if (eventType === 'done') result = data
-      // A failure after the stream opens can't arrive as an HTTP status — the response is already
-      // 200 and streaming — so it comes through as an `error` event instead.
-      else if (eventType === 'error') failure = data.message
     },
   )
-  if (failure) throw new Error(failure)
   if (!result) throw new Error('Stream ended without a result')
   return result
 }

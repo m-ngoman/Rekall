@@ -100,7 +100,7 @@ with Session(engine) as db:
         db.query(table).delete()
     db.commit()
 
-    user = User(google_sub="dev-local-user", email="dev@localhost", name="Adam", tier=UserTier.friend)
+    user = User(google_sub="dev-local-user", email="dev@rekall.study", name="Adam", tier=UserTier.friend)
     db.add(user)
     db.flush()
     # Onboarded, or every screenshot is the welcome carousel.

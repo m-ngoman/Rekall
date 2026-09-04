@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 /** A few milliseconds of silence, generated at the audio hardware's own sample rate.
  *
@@ -184,6 +184,30 @@ export function useAudioPlayer(
     }
     releaseUrl()
   }, [])
+
+  /** Tear the audio graph down when the screen goes away.
+   *
+   * The AudioContext is built lazily on first playback and used to outlive the component — the
+   * tutor screen unmounts on every tab switch, so leaving and returning repeatedly left a stack
+   * of live contexts behind. Browsers cap how many a page may have (Chrome has historically
+   * allowed about six), and past the cap `new AudioContext()` throws: voice mode would simply
+   * stop producing sound, with nothing in the UI to explain why.
+   *
+   * `stop()` first, so the element is not mid-playback when its context closes.
+   */
+  useEffect(() => {
+    return () => {
+      stop() // drops the queue and silences the element; everything below releases it
+      // close() rejects if the context is already closed — nothing to do about that, and nothing
+      // left to clean up either.
+      ctxRef.current?.close().catch(() => {})
+      // Nulled so `ensure` rebuilds from scratch if this hook is mounted again, rather than
+      // handing out an element wired to a closed context.
+      ctxRef.current = null
+      elRef.current = null
+      analyserRef.current = null
+    }
+  }, [stop])
 
   return { enqueue, getAnalyser, isPlaying, currentTime, unlock, stop }
 }

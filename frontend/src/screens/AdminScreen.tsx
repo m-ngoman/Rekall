@@ -449,6 +449,10 @@ function Curve({
 const ITEM_NOUNS: Record<string, string> = {
   cards_generated: 'card',
   notes_uploaded: 'file',
+  // For the two cost meters this caption is the whole point of the tile: the use count says how
+  // many turns spoke, the item total says what was actually billed.
+  tts_characters: 'character',
+  stt_seconds: 'second',
 }
 
 function FeatureSection({
