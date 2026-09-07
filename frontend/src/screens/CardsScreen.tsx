@@ -10,13 +10,15 @@ import WriteCardsScreen from './WriteCardsScreen'
 
 interface Props {
   onStudy: (deckId: string) => void
+  /** Forwarded to GenerateScreen, which is the paid feature living under this tab. */
+  onOpenPricing: () => void
   onChanged: () => void
   /** False when AI card generation is off in settings. Import and hand-written cards are
    * unaffected — turning AI off removes a route to cards, not the ability to have any. */
   aiGeneration: boolean
 }
 
-export default function CardsScreen({ onStudy, onChanged, aiGeneration }: Props) {
+export default function CardsScreen({ onStudy, onChanged, aiGeneration, onOpenPricing }: Props) {
   const [decks, setDecks] = useCachedResource<Deck[]>('decks', listDecks, () => [])
   const [importing, setImporting] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -62,6 +64,7 @@ export default function CardsScreen({ onStudy, onChanged, aiGeneration }: Props)
   if (generating) {
     return (
       <GenerateScreen
+        onOpenPricing={onOpenPricing}
         onDone={() => {
           setGenerating(false)
           onChanged()

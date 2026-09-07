@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NotSignedIn, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
+import { NotSignedIn, PaymentRequired, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
 import { daysUntil } from '../lib/dates'
 import type { Exam, ReviewResult, StudyCard } from '../types'
 
@@ -12,6 +12,8 @@ interface Props {
   /** Whether the tutor is switched on. Only decides whether the offer to go over a missed card is
    * shown — the list itself is a note the student makes to themselves and is recorded either way. */
   aiTutor: boolean
+  /** Where a 402 on grading sends you. */
+  onOpenPricing: () => void
 }
 
 type Phase = 'loading' | 'answering' | 'grading' | 'graded' | 'done' | 'empty' | 'unavailable'
@@ -44,6 +46,7 @@ const GRADE_COLOR: Record<number, string> = {
  */
 function message(error: unknown, fallback: string): string {
   if (error instanceof NotSignedIn) return 'You have been signed out. Reload to sign in again.'
+  if (error instanceof PaymentRequired) return error.message
   if (!(error instanceof Error)) return fallback
   const raw = error.message
   if (!raw || /^\d{3}\s/.test(raw) || /failed to fetch|networkerror|load failed/i.test(raw)) {
@@ -60,7 +63,7 @@ function formatDue(iso: string): string {
   return `Back in ${days} days`
 }
 
-export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor }: Props) {
+export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpenPricing }: Props) {
   const [queue, setQueue] = useState<StudyCard[]>([])
   const [deckName, setDeckName] = useState('')
   const [current, setCurrent] = useState<StudyCard | null>(null)
@@ -85,6 +88,8 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor }: Prop
   // Reporting is a per-card thing, so this resets with the card rather than with the session.
   const [reported, setReported] = useState(false)
   const [queued, setQueued] = useState(false)
+  // The last error was a 402: the panel gets a link to plans instead of just a sentence.
+  const [paywall, setPaywall] = useState(false)
 
   useEffect(() => {
     getStudyQueue(deckId)
@@ -180,6 +185,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor }: Prop
       // Back to 'answering' with what they typed intact, so retrying is one tap and not a retype.
       setPhase('answering')
       setStreamedExplanation('')
+      setPaywall(e instanceof PaymentRequired)
       setError(message(e, 'Grading failed.'))
     }
   }
@@ -453,6 +459,11 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor }: Prop
           style={{ color: 'var(--grade-forgot)' }}
         >
           {error}
+          {paywall && (
+            <button onClick={onOpenPricing} className="ml-2 font-semibold underline underline-offset-4">
+              See plans
+            </button>
+          )}
         </div>
       )}
 

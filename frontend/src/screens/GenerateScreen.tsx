@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { generateDeck, generateDeckFromNotes, generateDeckFromTopic, listDecks, listNotes } from '../api'
+import { PaymentRequired, generateDeck, generateDeckFromNotes, generateDeckFromTopic, listDecks, listNotes } from '../api'
 import ActionCard from '../components/ActionCard'
 import type { Deck, GenerationResult, Note } from '../types'
 
@@ -13,6 +13,9 @@ const BACK_CLASS = '-ml-2 mb-3 flex h-11 items-center gap-1.5 rounded-[var(--r-s
 interface Props {
   onDone: () => void
   onCancel: () => void
+  /** Where a 402 sends you. Generation is a paid feature, and "this needs a plan" is only useful
+   * if the plan is one tap away. */
+  onOpenPricing: () => void
 }
 
 const CAMERA_ICON = (
@@ -58,7 +61,7 @@ const FIELD_CLASS = 'h-11 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.
 
 const NAME_IT = '__name_it__'
 
-export default function GenerateScreen({ onDone, onCancel }: Props) {
+export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Props) {
   const [decks, setDecks] = useState<Deck[] | null>(null)
   const [targetDeckId, setTargetDeckId] = useState('')
   const [customDeckName, setCustomDeckName] = useState('')
@@ -78,6 +81,8 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // True when the last error was a 402, so the message can carry a link to plans.
+  const [paywall, setPaywall] = useState(false)
   const [result, setResult] = useState<GenerationResult | null>(null)
 
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -147,6 +152,7 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
       }
       setResult(res)
     } catch (e) {
+      setPaywall(e instanceof PaymentRequired)
       setError(e instanceof Error ? e.message : 'Generation failed.')
     } finally {
       setBusy(false)
@@ -338,6 +344,11 @@ export default function GenerateScreen({ onDone, onCancel }: Props) {
       {error && (
         <div className="mb-5 rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
           {error}
+          {paywall && (
+            <button onClick={onOpenPricing} className="ml-2 underline underline-offset-4">
+              See plans
+            </button>
+          )}
         </div>
       )}
 

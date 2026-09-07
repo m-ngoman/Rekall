@@ -28,12 +28,32 @@ export class NotSignedIn extends Error {
   }
 }
 
+/** The server said 402: the account is fine, the feature just isn't paid for.
+ *
+ * Its own class for the same reason NotSignedIn is. A 403 means "you switched this off in
+ * settings" and a 402 means "this needs a plan", and they need different links — settings versus
+ * pricing — so the screen has to be able to tell them apart without parsing a message. `message`
+ * is the server's own sentence, which already says what's missing.
+ */
+export class PaymentRequired extends Error {}
+
+async function paymentRequired(res: Response): Promise<PaymentRequired> {
+  let detail = 'This needs a Rekall AI plan.'
+  try {
+    detail = (await res.json()).detail ?? detail
+  } catch {
+    /* a bare 402 with no body still needs a sentence */
+  }
+  return new PaymentRequired(detail)
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })
   if (res.status === 401) throw new NotSignedIn()
+  if (res.status === 402) throw await paymentRequired(res)
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`)
   }
@@ -49,6 +69,7 @@ async function streamSSE(url: string, init: RequestInit, onEvent: (eventType: st
   // Same 401 handling as request(): a session that expires mid-stream is being signed out, not a
   // stream that failed, and callers already know how to tell those apart.
   if (res.status === 401) throw new NotSignedIn()
+  if (res.status === 402) throw await paymentRequired(res)
   if (!res.ok || !res.body) {
     throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`)
   }
@@ -388,6 +409,50 @@ export async function generateDeckFromTopic(
  * relearn of the same card is harmless. */
 export function addToStudyList(cardId: string): Promise<void> {
   return request(`/cards/${cardId}/study-list`, { method: 'POST' })
+}
+
+export type ProductKind = 'subscription' | 'lifetime' | 'credits'
+
+export interface CatalogueProduct {
+  id: string
+  label: string
+  description: string
+  kind: ProductKind
+  /** Minor units — cents. */
+  amount: number
+  recurring: boolean
+  credit_hours: number
+}
+
+export interface Catalogue {
+  currency: string
+  products: CatalogueProduct[]
+}
+
+export interface BillingStatus {
+  text_ai: boolean
+  text_ai_lifetime: boolean
+  text_ai_expires_at: string | null
+  voice_credits: number
+  voice_hours: number
+  tier: string
+}
+
+/** What is for sale. The pricing screen renders exactly this and knows no product ids, so a
+ * price or plan change is a backend edit and never a frontend one. */
+export function getCatalogue(): Promise<Catalogue> {
+  return request('/billing/catalogue')
+}
+
+export function getBillingStatus(): Promise<BillingStatus> {
+  return request('/billing/status')
+}
+
+/** Starts a Stripe-hosted checkout and returns the page to send the browser to. The server
+ * refuses this until it can also deliver — see billing.py — so a 503 here is expected while
+ * purchases are switched off. */
+export function startCheckout(productId: string): Promise<{ url: string }> {
+  return request(`/billing/checkout?product=${encodeURIComponent(productId)}`, { method: 'POST' })
 }
 
 export function reportCard(cardId: string): Promise<void> {

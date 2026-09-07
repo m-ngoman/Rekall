@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { exportUrl, listTutorVoices, logout, type Me } from '../api'
+import { exportUrl, getBillingStatus, listTutorVoices, logout, type BillingStatus, type Me } from '../api'
 import { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
 import { ACCENT_PRESETS, DEFAULT_ACCENT, readCustomAccent, writeCustomAccent } from '../hooks/useAccent'
 import Segmented from '../components/Segmented'
@@ -13,6 +13,8 @@ interface Props {
   /** Opens the owner-only usage dashboard. The entry point is hidden for everyone else, and the
    * endpoint behind it 404s for them regardless — this only saves them a door they can't open. */
   onOpenAdmin: () => void
+  /** Opens the plans screen. Same disclosure-row idiom as the usage dashboard. */
+  onOpenPricing: () => void
 }
 
 const STRICTNESS: { value: GradingStrictness; label: string }[] = [
@@ -56,10 +58,15 @@ const THEMES: { value: Theme; label: string }[] = [
 const ROADMAP: { title: string; rows: string[] }[] = [
   { title: 'Notifications', rows: ['Daily reminder time', 'Streak reminders', 'Per-deck reminders'] },
   { title: 'Data & account', rows: ['Google Drive sync', 'Notes storage'] },
-  { title: 'Account', rows: ['Tier & usage', 'Billing'] },
 ]
 
-export default function SettingsScreen({ me, settings, error, onChange, onOpenAdmin }: Props) {
+export default function SettingsScreen({ me, settings, error, onChange, onOpenAdmin, onOpenPricing }: Props) {
+  const [billing, setBilling] = useState<BillingStatus | null>(null)
+  useEffect(() => {
+    getBillingStatus()
+      .then(setBilling)
+      .catch(() => setBilling(null))
+  }, [])
   // Progressive disclosure: the scheduler's knobs are genuinely useful but nobody should have to
   // scroll past them to reach the daily goal.
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -347,6 +354,35 @@ export default function SettingsScreen({ me, settings, error, onChange, onOpenAd
             Sign out
           </button>
         </div>
+
+        {billing && (
+          <>
+            <div className="flex items-baseline justify-between gap-4 py-3.5">
+              <span className="text-[0.9375rem] font-semibold">Rekall AI</span>
+              <span className="text-[0.875rem] text-[var(--text-muted)]">
+                {billing.tier === 'friend'
+                  ? 'Included'
+                  : billing.text_ai_lifetime
+                    ? 'Yours, forever'
+                    : billing.text_ai
+                      ? 'Active'
+                      : 'Not active'}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-4 py-3.5">
+              <span className="text-[0.9375rem] font-semibold">Voice</span>
+              <span className="text-[0.875rem] text-[var(--text-muted)]">
+                {billing.tier === 'friend' ? 'Included' : `${billing.voice_hours} h left`}
+              </span>
+            </div>
+          </>
+        )}
+        <button onClick={onOpenPricing} className="flex w-full items-center justify-between py-3.5 text-[0.9375rem] font-semibold">
+          Plans
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </button>
 
         {/* Owner only, and it lives in Account rather than getting its own section: it is a
             property of who is signed in, not a preference anyone can change. Same disclosure row

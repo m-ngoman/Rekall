@@ -11,6 +11,7 @@ import CardsScreen from './screens/CardsScreen'
 import ExamsScreen from './screens/ExamsScreen'
 import HomeScreen from './screens/HomeScreen'
 import OnboardingScreen from './screens/OnboardingScreen'
+import PricingScreen from './screens/PricingScreen'
 import SignInScreen from './screens/SignInScreen'
 import NotesScreen from './screens/NotesScreen'
 import SettingsScreen from './screens/SettingsScreen'
@@ -31,6 +32,9 @@ export default function App() {
   // be crowding the layout for everyone else's benefit of never seeing it. Reached from Settings,
   // and left by any navigation — hence goToTab rather than setTab on the nav components.
   const [showAdmin, setShowAdmin] = useState(false)
+  // Same shape as admin: reached from Settings or from any paywalled action, left by any
+  // navigation. Not a tab — it's a door you go through once, not somewhere you live.
+  const [showPricing, setShowPricing] = useState(false)
   const [studyDeckId, setStudyDeckId] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const { settings, error: settingsError, update: updateSettings } = useSettings(DEFAULT_ACCENT)
@@ -55,11 +59,18 @@ export default function App() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
-  }, [tab, showAdmin])
+  }, [tab, showAdmin, showPricing])
 
   const goToTab = (next: Tab) => {
     setShowAdmin(false)
+    setShowPricing(false)
     setTab(next)
+  }
+  const openPricing = () => {
+    // Study is its own branch; leaving it is what makes the pricing screen reachable at all.
+    setStudyDeckId(null)
+    setShowAdmin(false)
+    setShowPricing(true)
   }
 
   const exitStudy = () => {
@@ -95,7 +106,7 @@ export default function App() {
             column beside a 360px rail with 72px between them, which simply doesn't fit in the
             max-w-xl this used to inherit at every width. */}
         <main className="mx-auto max-w-xl px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))] lg:max-w-7xl lg:px-10">
-          <StudyScreen deckId={studyDeckId} onExit={exitStudy} aiGrading={settings?.ai_grading ?? true} aiTutor={settings?.ai_tutor ?? true} />
+          <StudyScreen deckId={studyDeckId} onExit={exitStudy} aiGrading={settings?.ai_grading ?? true} aiTutor={settings?.ai_tutor ?? true} onOpenPricing={openPricing} />
         </main>
       </div>
     )
@@ -113,6 +124,8 @@ export default function App() {
                   says whose countdown it is and nothing more. */}
               {showAdmin ? (
                 <div className="truncate text-[1.375rem] font-bold tracking-tight lg:text-[1.75rem]">Admin</div>
+              ) : showPricing ? (
+                <div className="truncate text-[1.375rem] font-bold tracking-tight lg:text-[1.75rem]">Plans</div>
               ) : tab === 'home' ? (
                 // Phone only. The sidebar already carries the wordmark at desktop widths, and
                 // the design draws no second one in the content area — it read as the page
@@ -142,26 +155,28 @@ export default function App() {
               </button>
             )}
           </div>
-          <div key={showAdmin ? 'admin' : tab}>
+          <div key={showAdmin ? 'admin' : showPricing ? 'pricing' : tab}>
             {showAdmin && <AdminScreen onBack={() => setShowAdmin(false)} />}
-            {!showAdmin && tab === 'home' && (
+            {showPricing && !showAdmin && <PricingScreen onBack={() => setShowPricing(false)} />}
+            {!showAdmin && !showPricing && tab === 'home' && (
               <HomeScreen key={refreshKey} onStudy={setStudyDeckId} onGoToCards={() => setTab('cards')} onOpenExams={() => setTab('calendar')} />
             )}
-            {!showAdmin && tab === 'cards' && (
+            {!showAdmin && !showPricing && tab === 'cards' && (
               <CardsScreen
                 key={refreshKey}
                 onStudy={setStudyDeckId}
                 onChanged={() => setRefreshKey((k) => k + 1)}
                 aiGeneration={settings?.ai_generation ?? true}
+                onOpenPricing={openPricing}
               />
             )}
             {/* Not keyed by refreshKey: its own saves bump the key (for Home/Cards), and a remount
                 here would snap the month back to today and close the sheet mid-edit. */}
-            {!showAdmin && tab === 'calendar' && <ExamsScreen onChanged={() => setRefreshKey((k) => k + 1)} />}
-            {!showAdmin && tab === 'notes' && <NotesScreen onGoToCards={() => setTab('cards')} aiGeneration={settings?.ai_generation ?? true} />}
-            {!showAdmin && tab === 'tutor' && <TutorScreen settings={settings} enterClass="" isOwner={me.is_owner} />}
-            {!showAdmin && tab === 'settings' && (
-              <SettingsScreen me={me} settings={settings} error={settingsError} onChange={updateSettings} onOpenAdmin={() => setShowAdmin(true)} />
+            {!showAdmin && !showPricing && tab === 'calendar' && <ExamsScreen onChanged={() => setRefreshKey((k) => k + 1)} />}
+            {!showAdmin && !showPricing && tab === 'notes' && <NotesScreen onGoToCards={() => setTab('cards')} aiGeneration={settings?.ai_generation ?? true} />}
+            {!showAdmin && !showPricing && tab === 'tutor' && <TutorScreen settings={settings} enterClass="" isOwner={me.is_owner} onOpenPricing={openPricing} />}
+            {!showAdmin && !showPricing && tab === 'settings' && (
+              <SettingsScreen me={me} settings={settings} error={settingsError} onChange={updateSettings} onOpenAdmin={() => setShowAdmin(true)} onOpenPricing={openPricing} />
             )}
           </div>
         </main>

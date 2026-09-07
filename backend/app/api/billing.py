@@ -40,16 +40,23 @@ class Product(str, enum.Enum):
 # Checkout, so there is nothing to create by hand, nothing to keep in sync between two systems,
 # and no dashboard click that can silently change what an account is charged. Amounts are in
 # cents; `credit_hours` is what a purchase adds to the ledger.
+# `kind` and `description` are here too, not just price. The pricing screen is deliberately
+# ignorant of product ids — it groups by `kind` and prints `description` — so a price change, a
+# new pack, or a renamed plan is an edit to this dict and never a frontend change.
 CATALOGUE: dict[Product, dict] = {
     Product.text_monthly: {
-        "label": "Rekall AI, monthly",
+        "label": "Rekall AI",
+        "description": "AI grading, cards from your notes, and the text tutor. Cancel any time.",
+        "kind": "subscription",
         "amount": 500,
         "recurring": True,
         "credit_hours": 0,
         "lifetime": False,
     },
     Product.text_lifetime: {
-        "label": "Rekall AI, one-time",
+        "label": "Rekall AI, forever",
+        "description": "Everything in the monthly plan. Pay once, keep it.",
+        "kind": "lifetime",
         "amount": 5000,
         "recurring": False,
         "credit_hours": 0,
@@ -57,6 +64,8 @@ CATALOGUE: dict[Product, dict] = {
     },
     Product.voice_10: {
         "label": "10 hours of voice",
+        "description": "Spoken tutoring. Never expires.",
+        "kind": "credits",
         "amount": 1000,
         "recurring": False,
         "credit_hours": 10,
@@ -64,6 +73,8 @@ CATALOGUE: dict[Product, dict] = {
     },
     Product.voice_25: {
         "label": "30 hours of voice",
+        "description": "Spoken tutoring. Never expires.",
+        "kind": "credits",
         "amount": 2500,
         "recurring": False,
         "credit_hours": 30,
@@ -120,6 +131,8 @@ def get_catalogue() -> dict:
             {
                 "id": p.value,
                 "label": c["label"],
+                "description": c["description"],
+                "kind": c["kind"],
                 "amount": c["amount"],
                 "recurring": c["recurring"],
                 "credit_hours": c["credit_hours"],
@@ -147,6 +160,11 @@ def get_status(request: Request, db: Session = Depends(get_db)) -> dict:
 def create_checkout(request: Request, product: Product, db: Session = Depends(get_db)) -> dict:
     """Start a purchase. Returns the Stripe-hosted URL to send the browser to."""
     _require_stripe()
+    # The webhook is the only thing that grants. With no secret it refuses every delivery, so a
+    # checkout started now would take the money and deliver nothing — refused here instead, and
+    # the refusal lifts on its own the moment the secret is configured.
+    if not settings.stripe_webhook_secret:
+        raise HTTPException(503, "Purchases aren't switched on yet.")
     user = get_current_user(request, db)
     item = CATALOGUE[product]
 

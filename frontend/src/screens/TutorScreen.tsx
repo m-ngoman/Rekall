@@ -1,17 +1,5 @@
 import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import {
-  createMemoryNote,
-  createTutorSession,
-  deleteMemoryNote,
-  listBugs,
-  listMemoryNotes,
-  listTutorVoices,
-  reportBug,
-  resolveBug,
-  sendTextTurn,
-  sendVoiceTurnText,
-  updateTutorSession,
-} from '../api'
+import { PaymentRequired, createMemoryNote, createTutorSession, deleteMemoryNote, listBugs, listMemoryNotes, listTutorVoices, reportBug, resolveBug, sendTextTurn, sendVoiceTurnText, updateTutorSession } from '../api'
 import type { BugReport } from '../api'
 import MemoryPicker from '../components/MemoryPicker'
 import PersonalityPicker, { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
@@ -185,10 +173,15 @@ interface Props {
   enterClass?: string
   /** Adam's account only. Enables the /bug commands in the composer — see handleCommand. */
   isOwner?: boolean
+  /** Where a 402 sends you. The tutor is a paid feature end to end, so this is reachable from
+   * starting a session as well as from any turn. */
+  onOpenPricing: () => void
 }
 
-export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
+export default function TutorScreen({ settings, enterClass, isOwner, onOpenPricing }: Props) {
   const [session, setSession] = useState<TutorSession | null>(null)
+  // The last error was a 402, so the message carries a link to plans.
+  const [paywall, setPaywall] = useState(false)
   // Only used by the empty state's starters, and it rides the same cache the Calendar tab fills,
   // so opening Tutor after Calendar costs no request.
   const [exams] = useCachedResource<Exam[]>('exams', listExams, () => [])
@@ -317,7 +310,10 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
   useEffect(() => {
     createTutorSession()
       .then(setSession)
-      .catch(() => setError('Could not start a tutor session.'))
+      .catch((e) => {
+        setPaywall(e instanceof PaymentRequired)
+        setError(e instanceof PaymentRequired ? e.message : 'Could not start a tutor session.')
+      })
     listTutorVoices()
       .then(setVoices)
       .catch(() => setVoices([]))
@@ -731,8 +727,9 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
         image ?? undefined,
         offerExam,
       )
-    } catch {
-      setError('Something went wrong reaching the tutor.')
+    } catch (e) {
+      setPaywall(e instanceof PaymentRequired)
+      setError(e instanceof PaymentRequired ? e.message : 'Something went wrong reaching the tutor.')
     }
   }
 
@@ -836,10 +833,11 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
         if (voiceModeRef.current) startListenCycle()
         else setOrbState('idle')
       }
-    } catch {
+    } catch (e) {
       replyInFlightRef.current = false
       if (controller.signal.aborted) return // interrupted on purpose — the interrupter already handles state
-      setError('Something went wrong reaching the tutor.')
+      setPaywall(e instanceof PaymentRequired)
+      setError(e instanceof PaymentRequired ? e.message : 'Something went wrong reaching the tutor.')
       setOrbState('idle')
     }
   }
@@ -1098,6 +1096,11 @@ export default function TutorScreen({ settings, enterClass, isOwner }: Props) {
             style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}
           >
             {error}
+            {paywall && (
+              <button onClick={onOpenPricing} className="ml-2 underline underline-offset-4">
+                See plans
+              </button>
+            )}
           </div>
         )}
         <div ref={bottomRef} />
