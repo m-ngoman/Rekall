@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { NotSignedIn, PaymentRequired, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
+
 import { daysUntil } from '../lib/dates'
 import type { Exam, ReviewResult, StudyCard } from '../types'
 
@@ -63,6 +64,22 @@ function formatDue(iso: string): string {
   return `Back in ${days} days`
 }
 
+/** What a phone keyboard can't reach. Unicode rather than LaTeX: the student is writing an
+ * answer, not authoring notation, and the grader is explicitly told to accept these as equal to
+ * the properly-typeset form. Ordered by how often a school-level answer needs them. */
+/** KaTeX is ~270kB of JS and its own stylesheet — far too much to put in front of every user for
+ * a feature most decks never touch. Loaded the first time a maths card actually renders, the same
+ * way the notes editor is. */
+const MathText = lazy(() => import('../components/MathText'))
+
+/** What to show for the instant before that chunk arrives: the same text with the dollar
+ * delimiters taken out, which reads as an ordinary sentence rather than as markup. */
+function PlainMath({ text }: { text: string }) {
+  return <>{text.replace(/\$\$?/g, '')}</>
+}
+
+const MATH_SYMBOLS = ['√', 'π', '²', '³', '^', '≤', '≥', '≠', '±', '×', '÷', '∫', 'θ', 'Δ', '∞', '°']
+
 export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpenPricing }: Props) {
   const [queue, setQueue] = useState<StudyCard[]>([])
   const [deckName, setDeckName] = useState('')
@@ -90,6 +107,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
   const [queued, setQueued] = useState(false)
   // The last error was a 402: the panel gets a link to plans instead of just a sentence.
   const [paywall, setPaywall] = useState(false)
+  const answerRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     getStudyQueue(deckId)
@@ -188,6 +206,22 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
       setPaywall(e instanceof PaymentRequired)
       setError(message(e, 'Grading failed.'))
     }
+  }
+
+  /** Puts a symbol where the caret is and leaves it there, so a student can keep typing.
+   * Appending to the end instead would make anything but the last character a nuisance. */
+  const insertSymbol = (sym: string) => {
+    const el = answerRef.current
+    if (!el) {
+      setAnswer((a) => a + sym)
+      return
+    }
+    const { selectionStart: start, selectionEnd: end } = el
+    setAnswer((a) => a.slice(0, start) + sym + a.slice(end))
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(start + sym.length, start + sym.length)
+    })
   }
 
   const handleAddToStudyList = async () => {
@@ -349,7 +383,9 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
           {modelAnswer && (
             <div className="border-t border-[var(--rule)] pt-3">
               <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">Model answer</div>
-              <p className="mt-1.5 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">{modelAnswer}</p>
+              <p className="mt-1.5 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">
+                {current.is_math ? <Suspense fallback={<PlainMath text={modelAnswer} />}><MathText text={modelAnswer} /></Suspense> : modelAnswer}
+              </p>
             </div>
           )}
         </div>
@@ -382,14 +418,16 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
       <div className="contents lg:flex lg:flex-col lg:gap-10">
       <div>
         {current.subtopic && <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">{current.subtopic}</div>}
-        <div className={`mt-2 font-bold leading-snug [text-wrap:pretty] ${graded ? 'text-[1.125rem]' : 'text-[1.5rem] lg:text-[2rem]'}`}>{current.question}</div>
+        <div className={`mt-2 font-bold leading-snug [text-wrap:pretty] ${graded ? 'text-[1.125rem]' : 'text-[1.5rem] lg:text-[2rem]'}`}>
+          {current.is_math ? <Suspense fallback={<PlainMath text={current.question} />}><MathText text={current.question} /></Suspense> : current.question}
+        </div>
       </div>
 
       {!aiGrading ? (
         revealed !== null && (
           <div>
             <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">Answer</div>
-            <div className="mt-1.5 text-[0.9375rem] leading-relaxed">{revealed}</div>
+            <div className="mt-1.5 text-[0.9375rem] leading-relaxed">{current.is_math ? <Suspense fallback={<PlainMath text={revealed} />}><MathText text={revealed} /></Suspense> : revealed}</div>
             {/* Confirms what actually got recorded — you chose it, but seeing it land is the
                 difference between "I tapped Hard" and "Hard was saved". */}
             {result && (
@@ -401,7 +439,9 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
           </div>
         )
       ) : phase === 'answering' ? (
+        <div>
         <textarea
+          ref={answerRef}
           autoFocus
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
@@ -411,6 +451,22 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
           placeholder="Type your answer"
           className="min-h-[132px] w-full resize-none rounded-[var(--r-md)] bg-[var(--surface)] px-4 py-3.5 text-[0.9375rem] leading-relaxed outline-none placeholder:text-[var(--text-muted)]"
         />
+        {current.is_math && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {MATH_SYMBOLS.map((sym) => (
+              <button
+                key={sym}
+                type="button"
+                aria-label={`Insert ${sym}`}
+                onClick={() => insertSymbol(sym)}
+                className="h-9 min-w-[2.25rem] rounded-[var(--r-sm)] bg-[var(--surface)] px-2 text-[0.9375rem] font-semibold"
+              >
+                {sym}
+              </button>
+            ))}
+          </div>
+        )}
+        </div>
       ) : (
         <div>
           {/* The score is the hero: a numeral out of 5 in its grade colour. While grading, the
@@ -439,7 +495,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
             </>
           )}
           <p className={`text-[0.9375rem] leading-relaxed ${graded ? 'mt-4' : ''}`}>
-            {streamedExplanation}
+            {current.is_math ? <Suspense fallback={<PlainMath text={streamedExplanation} />}><MathText text={streamedExplanation} /></Suspense> : streamedExplanation}
             {phase === 'grading' && <span className="ml-0.5 inline-block h-[18px] w-[2px] align-text-bottom bg-[var(--accent)]" />}
           </p>
           <div className="mt-5 border-t border-[var(--rule)] pt-3 lg:hidden">

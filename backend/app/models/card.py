@@ -24,6 +24,15 @@ class Card(UUIDPKMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("decks.id", ondelete="CASCADE"), index=True
     )
     subtopic: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Whether `question` and `answer` may contain LaTeX, and should be rendered as maths rather
+    # than printed as text. Set by the generator's own classification, not inferred at render
+    # time: "$" appears in plenty of non-maths cards, and guessing per-render would mangle one
+    # about currency the first time somebody wrote one.
+    #
+    # It also changes how the card is *graded* — a maths card's explanation is allowed the
+    # notation, where every other card has it stripped — so it has to be a property of the card
+    # the server can read, not a display hint the client applies afterwards.
+    is_math: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     question: Mapped[str] = mapped_column(Text)
     answer: Mapped[str] = mapped_column(Text)  # reference answer the grading pipeline scores typed/spoken input against
 

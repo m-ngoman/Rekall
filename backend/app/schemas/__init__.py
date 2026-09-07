@@ -191,6 +191,7 @@ class CardOut(BaseModel):
     answer: str
     state: CardState
     reviews: int
+    is_math: bool
 
 
 class CardCreate(BaseModel):
@@ -214,6 +215,7 @@ class StudyCardOut(BaseModel):
     subtopic: str | None
     question: str
     is_new: bool
+    is_math: bool
 
 
 class StudyQueueOut(BaseModel):
@@ -312,6 +314,7 @@ class GeneratedCardOut(BaseModel):
     subtopic: str | None
     question: str
     answer: str
+    is_math: bool
 
 
 class DroppedCardOut(BaseModel):

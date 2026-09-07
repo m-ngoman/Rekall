@@ -63,6 +63,7 @@ def _card_out(card: Card) -> CardOut:
         answer=card.answer,
         state=card.state,
         reviews=card.reviews,
+        is_math=card.is_math,
     )
 
 
@@ -231,7 +232,7 @@ def study_queue(request: Request, deck_id: uuid.UUID, db: Session = Depends(get_
         deck_id=deck.id,
         deck_name=deck.name,
         cards=[
-            StudyCardOut(id=c.id, subtopic=c.subtopic, question=c.question, is_new=c.state == CardState.new)
+            StudyCardOut(id=c.id, subtopic=c.subtopic, question=c.question, is_new=c.state == CardState.new, is_math=c.is_math)
             for c in queue
         ],
     )

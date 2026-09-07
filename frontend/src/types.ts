@@ -35,6 +35,9 @@ export interface StudyCard {
   subtopic: string | null
   question: string
   is_new: boolean
+  /** Question and answer may carry LaTeX and should be rendered as maths. Set by the generator's
+   * own classification — see Card.is_math on the backend for why it isn't inferred at render. */
+  is_math: boolean
 }
 
 export interface StudyQueue {

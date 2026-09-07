@@ -61,11 +61,11 @@ GradeStreamItem = Union[str, GradeResult]
 
 class Grader(Protocol):
     def grade(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
+        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> GradeResult: ...
     def _explain_tokens(self, prompt: str) -> Iterator[str]: ...
     def grade_stream(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
+        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> Iterator[GradeStreamItem]: ...
 
 
@@ -84,12 +84,12 @@ class StubGrader:
     """
 
     def grade(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
+        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> GradeResult:
-        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness))
+        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness, math))
 
     def grade_stream(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
+        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> Iterator[GradeStreamItem]:
         submitted = submitted_answer.strip()
         if not submitted:
@@ -218,9 +218,9 @@ class PrometheusGrader:
         self._rewrite_model = rewrite_model
 
     def grade(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
+        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> GradeResult:
-        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness))
+        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness, math))
 
     def _judge(self, question: str, reference_answer: str, submitted_answer: str) -> tuple[int, str]:
         prompt = _PROMETHEUS_PROMPT.format(
@@ -247,7 +247,7 @@ class PrometheusGrader:
         return score, explanation
 
     def grade_stream(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
+        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> Iterator[GradeStreamItem]:
         # strictness is accepted and ignored: Prometheus is fixed to its own fine-tuned rubric and
         # demonstrably ignores added instructions (see this class's docstring). Silently accepting
@@ -340,7 +340,7 @@ Grade the student's answer on a 1-5 scale:
 If the grade is 4-5: respond with ONE short sentence of confirmation.
 If the grade is 1-3: respond with 2-3 short sentences that actually teach — explain the correct reasoning or solution, not just that the answer was "incomplete" or "lacked depth". Help the student understand why the reference answer is right.
 
-Never use LaTeX or math markup (no backslash-parenthesis delimiters, \cdot, curly-brace exponents, etc.) — this is displayed as plain text, so LaTeX shows up as broken backslash symbols. Write math in plain text instead: "x^2" not LaTeX-wrapped, "2 * x" or "2 times x" not "2 \cdot x".
+{notation}
 
 Output format exactly, nothing else — the feedback text, then the score on its own line:
 <feedback text>
@@ -362,11 +362,26 @@ Open by taking the pressure off in a few words, then teach: what the answer is, 
 rather than something else. If there is a way to remember it or a hook that makes it stick, give it.
 Two to four short sentences. No preamble, no closing question, no bullet points.
 
-Never use LaTeX or math markup (no backslash-parenthesis delimiters, \cdot, curly-brace exponents,
-etc.) — this is displayed as plain text. Write "x^2" and "2 * x" in plain text instead.
+{notation}
 
 Question: {question}
 The answer: {reference}"""
+
+
+# Two notation rules, because two kinds of card reach the same grader.
+#
+# An ordinary card is displayed as plain text, so LaTeX in its feedback arrives as broken
+# backslashes — hence the prohibition, and _clean_latex stripping whatever slips past it. A card
+# flagged `is_math` is rendered, so the same markup is the point rather than a defect, and the
+# stripping is skipped for it. Getting this backwards in either direction produces visible
+# garbage, which is why it follows the card's own flag and is never guessed from the text.
+_NOTATION_PLAIN = r"""Never use LaTeX or math markup (no backslash-parenthesis delimiters, \cdot, curly-brace exponents, etc.) — this is displayed as plain text, so LaTeX shows up as broken backslash symbols. Write math in plain text instead: "x^2" not LaTeX-wrapped, "2 * x" or "2 times x" not "2 \cdot x"."""
+
+_NOTATION_MATH = r"""This card is rendered as maths, so write any notation as LaTeX between single dollar signs: "the derivative is $2x$". Keep the prose around it plain. The student is typing on a phone keyboard and may write "sqrt(2)", "x^2", or unicode like √ and π — treat those as equivalent to the same maths properly written, and never mark an answer down for how it was typed."""
+
+
+def _notation(math: bool) -> str:
+    return _NOTATION_MATH if math else _NOTATION_PLAIN
 
 
 _LOCAL_RESULT_RE = re.compile(r"###SCORE:\s*(\d)")
@@ -411,14 +426,17 @@ _LATEX_CLEANUP = [
 ]
 
 
-def _clean_latex(text: str) -> str:
+def _clean_latex(text: str, math: bool = False) -> str:
+    # A maths card is rendered, so its notation is the payload rather than noise to strip.
+    if math:
+        return text
     for pattern, repl in _LATEX_CLEANUP:
         text = pattern.sub(repl, text)
     return _STRAY_BRACKETS.sub(r"\1", text)
 
 
 
-def _explain_only(tokens, question: str, reference_answer: str) -> Iterator[GradeStreamItem]:
+def _explain_only(tokens, question: str, reference_answer: str, math: bool = False) -> Iterator[GradeStreamItem]:
     """Stream a taught explanation, then the grade that was never in question.
 
     `tokens` is the grader's own transport, so this borrows whichever backend is configured rather
@@ -432,13 +450,13 @@ def _explain_only(tokens, question: str, reference_answer: str) -> Iterator[Grad
     """
     text = ""
     try:
-        for piece in tokens(_EXPLAIN_PROMPT.format(question=question, reference=reference_answer.strip())):
+        for piece in tokens(_EXPLAIN_PROMPT.format(question=question, reference=reference_answer.strip(), notation=_notation(math))):
             text += piece
             yield piece
     except Exception:
         logger.exception("explanation for a don't-know answer failed; falling back to the reference")
 
-    cleaned = _clean_latex(text).strip()
+    cleaned = _clean_latex(text, math).strip()
     if not cleaned:
         yield _dont_know_fallback(reference_answer)
         return
@@ -466,9 +484,9 @@ class LocalLLMGrader:
         self._model = model
 
     def grade(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
+        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> GradeResult:
-        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness))
+        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness, math))
 
     def _explain_tokens(self, prompt: str) -> Iterator[str]:
         with httpx.stream(
@@ -497,11 +515,11 @@ class LocalLLMGrader:
                     break
 
     def grade_stream(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
+        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> Iterator[GradeStreamItem]:
         submitted = submitted_answer.strip()
         if _is_dont_know(submitted):
-            yield from _explain_only(self._explain_tokens, question, reference_answer)
+            yield from _explain_only(self._explain_tokens, question, reference_answer, math)
             return
 
         prompt = _LOCAL_PROMPT.format(
@@ -509,6 +527,7 @@ class LocalLLMGrader:
             reference=reference_answer.strip(),
             submitted=submitted,
             strictness=_STRICTNESS_CLAUSES.get(strictness, _STRICTNESS_CLAUSES[DEFAULT_STRICTNESS]),
+            notation=_notation(math),
         )
 
         full_text = ""
@@ -533,7 +552,7 @@ class LocalLLMGrader:
                 # Recomputed on the whole text each step (cheap at this length) so a LaTeX pair
                 # split across two network chunks still gets cleaned correctly — sent_len and the
                 # holdback margin are both in cleaned-text space, not raw.
-                cleaned = _clean_latex(full_text)
+                cleaned = _clean_latex(full_text, math)
                 safe_len = max(0, len(cleaned) - _HOLDBACK_CHARS)
                 if safe_len > sent_len:
                     yield cleaned[sent_len:safe_len]
@@ -541,7 +560,7 @@ class LocalLLMGrader:
                 if chunk.get("done"):
                     break
 
-        cleaned = _clean_latex(full_text)
+        cleaned = _clean_latex(full_text, math)
         match = _LOCAL_RESULT_RE.search(cleaned)
         explanation_end = match.start() if match else len(cleaned)
         if explanation_end > sent_len:
@@ -569,9 +588,9 @@ class CloudGrader:
         self._model = model
 
     def grade(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
+        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> GradeResult:
-        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness))
+        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness, math))
 
     def _explain_tokens(self, prompt: str) -> Iterator[str]:
         with httpx.stream(
@@ -605,11 +624,11 @@ class CloudGrader:
                         yield piece
 
     def grade_stream(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
+        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> Iterator[GradeStreamItem]:
         submitted = submitted_answer.strip()
         if _is_dont_know(submitted):
-            yield from _explain_only(self._explain_tokens, question, reference_answer)
+            yield from _explain_only(self._explain_tokens, question, reference_answer, math)
             return
 
         prompt = _LOCAL_PROMPT.format(
@@ -617,6 +636,7 @@ class CloudGrader:
             reference=reference_answer.strip(),
             submitted=submitted,
             strictness=_STRICTNESS_CLAUSES.get(strictness, _STRICTNESS_CLAUSES[DEFAULT_STRICTNESS]),
+            notation=_notation(math),
         )
 
         full_text = ""
@@ -651,13 +671,13 @@ class CloudGrader:
                 if not choices:
                     continue
                 full_text += choices[0].get("delta", {}).get("content") or ""
-                cleaned = _clean_latex(full_text)
+                cleaned = _clean_latex(full_text, math)
                 safe_len = max(0, len(cleaned) - _HOLDBACK_CHARS)
                 if safe_len > sent_len:
                     yield cleaned[sent_len:safe_len]
                     sent_len = safe_len
 
-        cleaned = _clean_latex(full_text)
+        cleaned = _clean_latex(full_text, math)
         match = _LOCAL_RESULT_RE.search(cleaned)
         explanation_end = match.start() if match else len(cleaned)
         if explanation_end > sent_len:

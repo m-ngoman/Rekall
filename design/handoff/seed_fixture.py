@@ -65,6 +65,10 @@ DECKS = [
     ("Anatomy", 95, 0, -12),
 ]
 
+# One genuinely mathematical card, so rendering and the symbol bar have something to exercise.
+MATH_Q = r"What is $\frac{d}{dx}\left(x^2 \sin x\right)$?"
+MATH_A = r"By the product rule, $2x\sin x + x^2\cos x$."
+
 SN1_Q = "Why does an SN1 reaction give a racemic mixture when the substrate is a single enantiomer?"
 SN1_A = (
     "The leaving group departs first, giving a planar sp2 carbocation intermediate. The nucleophile "
@@ -149,8 +153,17 @@ with Session(engine) as db:
                 Card(
                     deck_id=deck.id,
                     subtopic="Substitution reactions" if name == "Organic Chemistry II" else None,
-                    question=SN1_Q if (name == "Organic Chemistry II" and i == 0) else f"{name} card {i + 1}: what is the mechanism, and why does it matter clinically?",
-                    answer=SN1_A if (name == "Organic Chemistry II" and i == 0) else f"The reference answer for {name} card {i + 1}.",
+                    question=(
+                        SN1_Q if (name == "Organic Chemistry II" and i == 0)
+                        else MATH_Q if (name == "Pharmacology" and i == 0)
+                        else f"{name} card {i + 1}: what is the mechanism, and why does it matter clinically?"
+                    ),
+                    answer=(
+                        SN1_A if (name == "Organic Chemistry II" and i == 0)
+                        else MATH_A if (name == "Pharmacology" and i == 0)
+                        else f"The reference answer for {name} card {i + 1}."
+                    ),
+                    is_math=(name == "Pharmacology" and i == 0),
                     state=CardState.review,
                     stability=5.0,
                     difficulty=5.0,

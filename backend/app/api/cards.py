@@ -74,6 +74,7 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
     # never cared where a 1-4 came from. It stays available even with AI grading on, because
     # some cards (a diagram, a formula) are genuinely easier to judge yourself.
     self_assessed = payload.input_mode == InputMode.self_assessed
+    is_math = card.is_math
     if self_assessed:
         if payload.grade not in (1, 2, 3, 4):
             raise HTTPException(400, "A self-assessed review needs a grade from 1 to 4")
@@ -96,6 +97,9 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
                 question=card.question,
                 reference_answer=card.answer,
                 submitted_answer=payload.answer_input,
+                # Read before the stream opens, like the settings above: the generator runs on a
+                # worker thread and must not touch the ORM row from there.
+                math=is_math,
                 strictness=strictness,
             ):
                 if isinstance(item, GradeResult):
@@ -216,6 +220,7 @@ def update_card(request: Request, card_id: uuid.UUID, payload: CardUpdate, db: S
         answer=card.answer,
         state=card.state,
         reviews=card.reviews,
+        is_math=card.is_math,
     )
 
 

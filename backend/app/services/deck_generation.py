@@ -29,6 +29,21 @@ TEXT_LAYER_CHARS_PER_PAGE = 40
 _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 
 
+# What the model is told about notation, and what the client can render.
+#
+# Only cards flagged `is_math` may carry LaTeX; everything else stays plain text, because the
+# renderer only runs on flagged cards and a stray "$" in an ordinary card would otherwise be
+# picked up as a delimiter. The flag and the notation travel together for that reason — a card
+# claiming maths without the markup renders the same as before, and markup without the flag never
+# renders at all.
+_MATH_NOTATION = """
+Mark a card "is_math": true when its question or answer is genuinely mathematical notation —
+equations, integrals, matrices, fractions, roots — rather than prose that happens to mention
+numbers. On those cards, and only those, write the maths as LaTeX between single dollar signs:
+"What is $\\frac{d}{dx}\\sin x$?" with answer "$\\cos x$". Everything else must be plain text
+with "is_math": false and no dollar signs or backslashes anywhere.
+"""
+
 def _strip_fence(text: str) -> str:
     return _FENCE_RE.sub("", text.strip())
 
@@ -101,9 +116,9 @@ def _call_json(system_prompt: str, user_content: list[dict]) -> dict:
 _DRAFT_SYSTEM_PROMPT = """You are helping a student turn their notes into spaced-repetition flashcards for the Rekall app. Read the provided material carefully — it may be a photo of handwritten or printed notes, or extracted text from a PDF.
 
 Produce flashcards only for genuinely test-worthy facts, definitions, and concepts — skip trivial or redundant restatements, and skip material that isn't actually study content (blank margins, doodles, unrelated text). Group related cards under a short "subtopic" label. Also propose a short, specific deck name (2-5 words) describing the subject.
-
+""" + _MATH_NOTATION + """
 Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:
-{"deck_name": "string", "cards": [{"subtopic": "string", "question": "string", "answer": "string"}]}"""
+{"deck_name": "string", "cards": [{"subtopic": "string", "question": "string", "answer": "string", "is_math": true|false}]}"""
 
 
 def generate_draft(images: list[bytes], text: str | None) -> dict:
@@ -116,7 +131,7 @@ _VERIFY_SYSTEM_PROMPT = """You are fact-checking a set of AI-drafted flashcards 
 For each draft card, check that its question and answer are actually supported by the source material. Fix minor wording issues if needed. Drop any card that misrepresents the source, invents information not present in it, or isn't meaningfully supported by it.
 
 Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:
-{"cards": [{"subtopic": "string", "question": "string", "answer": "string"}], "dropped": [{"question": "string", "reason": "string"}]}"""
+{"cards": [{"subtopic": "string", "question": "string", "answer": "string", "is_math": true|false}], "dropped": [{"question": "string", "reason": "string"}]}"""
 
 
 def verify_cards(images: list[bytes], text: str | None, draft_cards: list[dict]) -> dict:
@@ -182,9 +197,9 @@ Stay on the standard, mainstream treatment of the topic. Do not invent specific 
 If the student's own notes are provided, use them to see how this topic is taught on their course — its depth, vocabulary, notation and emphasis — and follow their framing wherever the notes cover the requested topic. The notes are context for the topic, not a replacement for it: where they say little or nothing about what was asked for, write standard cards for the requested topic anyway, and do not substitute material from the notes that is about something else.
 
 Group related cards under a short "subtopic" label. Also propose a short, specific deck name (2-5 words).
-
+""" + _MATH_NOTATION + """
 Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:
-{"deck_name": "string", "cards": [{"subtopic": "string", "question": "string", "answer": "string"}]}"""
+{"deck_name": "string", "cards": [{"subtopic": "string", "question": "string", "answer": "string", "is_math": true|false}]}"""
 
 
 _TOPIC_VERIFY_GROUNDED_PROMPT = """You are fact-checking AI-drafted flashcards for a student, against the notes they were actually taught from.
@@ -192,7 +207,7 @@ _TOPIC_VERIFY_GROUNDED_PROMPT = """You are fact-checking AI-drafted flashcards f
 Drop any card that contradicts the notes, or that states a specific fact — a figure, date, name, or example — which is neither in the notes nor standard, uncontested textbook material for this topic. Also drop cards that are about a different topic than the one requested, even if the notes cover that other topic: the student asked for a specific thing. Keep cards that go beyond the notes where they are plainly standard curriculum content for the requested topic. Fix minor wording issues.
 
 Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:
-{"cards": [{"subtopic": "string", "question": "string", "answer": "string"}], "dropped": [{"question": "string", "reason": "string"}]}"""
+{"cards": [{"subtopic": "string", "question": "string", "answer": "string", "is_math": true|false}], "dropped": [{"question": "string", "reason": "string"}]}"""
 
 
 _TOPIC_VERIFY_UNGROUNDED_PROMPT = """You are reviewing AI-drafted flashcards before they enter a student's study queue. There is no source document — the cards were written from a topic description alone, so your job is to catch what that process gets wrong.
@@ -204,7 +219,7 @@ Drop a card if it states a specific figure, date, named study, statistic or exam
 Be willing to drop a lot. A short deck of solid cards is worth more than a long one a student has to second-guess.
 
 Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:
-{"cards": [{"subtopic": "string", "question": "string", "answer": "string"}], "dropped": [{"question": "string", "reason": "string"}]}"""
+{"cards": [{"subtopic": "string", "question": "string", "answer": "string", "is_math": true|false}], "dropped": [{"question": "string", "reason": "string"}]}"""
 
 
 def _topic_brief(subject: str, topic: str, grade_level: str | None, curriculum: str | None) -> str:

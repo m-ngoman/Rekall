@@ -478,7 +478,16 @@ def _persist_cards(
         answer = (c.get("answer") or "").strip()
         if not question or not answer:
             continue
-        card = Card(deck_id=deck.id, subtopic=(c.get("subtopic") or None), question=question, answer=answer)
+        card = Card(
+            deck_id=deck.id,
+            subtopic=(c.get("subtopic") or None),
+            question=question,
+            answer=answer,
+            # Anything but an explicit true is false: a model that omits the key, or answers with
+            # a string, must not end up flagging an ordinary card as maths — that would hand its
+            # text to a LaTeX renderer and mangle it.
+            is_math=c.get("is_math") is True,
+        )
         db.add(card)
         cards_added.append(card)
     db.flush()
@@ -497,7 +506,8 @@ def _persist_cards(
         deck_id=deck.id,
         deck_name=deck.name,
         cards_added=[
-            GeneratedCardOut(id=c.id, subtopic=c.subtopic, question=c.question, answer=c.answer) for c in cards_added
+            GeneratedCardOut(id=c.id, subtopic=c.subtopic, question=c.question, answer=c.answer, is_math=c.is_math)
+            for c in cards_added
         ],
         cards_dropped=[
             DroppedCardOut(question=d.get("question", ""), reason=d.get("reason", ""))
