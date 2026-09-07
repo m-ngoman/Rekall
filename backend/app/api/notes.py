@@ -31,6 +31,7 @@ from app.schemas import (
     NoteUpdate,
 )
 from app.services.deck_generation import (
+    looks_like_latex,
     extract_pdf,
     generate_draft,
     generate_topic_draft,
@@ -483,10 +484,11 @@ def _persist_cards(
             subtopic=(c.get("subtopic") or None),
             question=question,
             answer=answer,
-            # Anything but an explicit true is false: a model that omits the key, or answers with
-            # a string, must not end up flagging an ordinary card as maths — that would hand its
-            # text to a LaTeX renderer and mangle it.
-            is_math=c.get("is_math") is True,
+            # The model's own label, ORed with what it actually wrote. It reliably emits the
+            # notation and unreliably labels it — it wrote "$x^0$" and "$3$" and still answered
+            # false, reading a y-intercept as prose that mentions a number. Either signal alone
+            # misses cards; the text is the one that can't be argued with.
+            is_math=c.get("is_math") is True or looks_like_latex(question, answer),
         )
         db.add(card)
         cards_added.append(card)

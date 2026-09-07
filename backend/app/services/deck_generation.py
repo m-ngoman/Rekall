@@ -37,12 +37,42 @@ _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 # claiming maths without the markup renders the same as before, and markup without the flag never
 # renders at all.
 _MATH_NOTATION = """
-Mark a card "is_math": true when its question or answer is genuinely mathematical notation —
-equations, integrals, matrices, fractions, roots — rather than prose that happens to mention
-numbers. On those cards, and only those, write the maths as LaTeX between single dollar signs:
-"What is $\\frac{d}{dx}\\sin x$?" with answer "$\\cos x$". Everything else must be plain text
-with "is_math": false and no dollar signs or backslashes anywhere.
+Write any mathematical notation — equations, values, variables, integrals, fractions, roots — as
+LaTeX between single dollar signs: "What is $\\frac{d}{dx}\\sin x$?" with answer "$\\cos x$". This
+applies to short ones too: a coefficient is "$3$", not 3.
+
+Set "is_math": true on every card where you did that, however small the notation, and false only
+on cards with no dollar signs at all. The two go together — if the card contains "$", it is a
+maths card. Cards with no notation stay plain text with no dollar signs or backslashes anywhere.
 """
+
+# Whether a card's text actually contains LaTeX, independent of what the model said about it.
+#
+# The model turns out to be reliable about *writing* the notation and unreliable about *labelling*
+# it: asked whether a card is "genuinely mathematical", it wrote "$x^0$" and "$3$" and then
+# answered no, because a y-intercept reads to it as prose that mentions a number. The delimiters
+# are the fact; the judgement is an opinion, so the flag is derived from the fact.
+#
+# Deliberately not a bare "contains a $ pair" — "it costs $5 and $10 more" pairs up too, and
+# flagging that would hand a money card to a maths renderer. A pair only counts when its contents
+# carry a LaTeX signal (a command, a script, a relation) or are a single unspaced token, which is
+# what "$3$" is and what "5 and " is not.
+_LATEX_PAIR = re.compile(r"\$([^$\n]{1,120})\$")
+_LATEX_SIGNALS = "\\^_=<>"
+
+
+def looks_like_latex(*texts: str | None) -> bool:
+    for text in texts:
+        for match in _LATEX_PAIR.finditer(text or ""):
+            body = match.group(1).strip()
+            if not body:
+                continue
+            if any(c in body for c in _LATEX_SIGNALS):
+                return True
+            if " " not in body:
+                return True
+    return False
+
 
 def _strip_fence(text: str) -> str:
     return _FENCE_RE.sub("", text.strip())
