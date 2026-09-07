@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NotSignedIn, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
+import { NotSignedIn, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
 import { daysUntil } from '../lib/dates'
 import type { Exam, ReviewResult, StudyCard } from '../types'
 
@@ -9,6 +9,9 @@ interface Props {
   /** False when AI grading is off in settings: the card reveals its answer and you rate your own
    * recall instead of typing an answer for the grader. */
   aiGrading: boolean
+  /** Whether the tutor is switched on. Only decides whether the offer to go over a missed card is
+   * shown — the list itself is a note the student makes to themselves and is recorded either way. */
+  aiTutor: boolean
 }
 
 type Phase = 'loading' | 'answering' | 'grading' | 'graded' | 'done' | 'empty' | 'unavailable'
@@ -57,7 +60,7 @@ function formatDue(iso: string): string {
   return `Back in ${days} days`
 }
 
-export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
+export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor }: Props) {
   const [queue, setQueue] = useState<StudyCard[]>([])
   const [deckName, setDeckName] = useState('')
   const [current, setCurrent] = useState<StudyCard | null>(null)
@@ -81,6 +84,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
   const [error, setError] = useState<string | null>(null)
   // Reporting is a per-card thing, so this resets with the card rather than with the session.
   const [reported, setReported] = useState(false)
+  const [queued, setQueued] = useState(false)
 
   useEffect(() => {
     getStudyQueue(deckId)
@@ -111,6 +115,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
     setRevealed(null)
     setModelAnswer(null)
     setReported(false)
+    setQueued(false)
     setQueue((prevQueue) => {
       if (prevQueue.length === 0) {
         setCurrent(null)
@@ -176,6 +181,16 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
       setPhase('answering')
       setStreamedExplanation('')
       setError(message(e, 'Grading failed.'))
+    }
+  }
+
+  const handleAddToStudyList = async () => {
+    if (!current) return
+    try {
+      await addToStudyList(current.id)
+      setQueued(true)
+    } catch (e) {
+      setError(message(e, "Couldn't add that to your study list."))
     }
   }
 
@@ -490,6 +505,23 @@ export default function StudyScreen({ deckId, onExit, aiGrading }: Props) {
               actually knows whether the card was wrong. It is the only check on cards generated
               from a topic rather than from their own notes, which have no review screen by
               design. Muted, not accent: it's an escape hatch, not an action to encourage. */}
+          {/* Only on a card they actually missed. Offering to queue a card they just got right
+              would be noise on the majority of reviews, and the tutor's list is worth more when
+              everything on it is there for a reason. */}
+          {aiTutor && result !== null && result.grade <= 2 && (
+            queued ? (
+              <span className="self-start text-[0.8125rem] text-[var(--text-muted)] lg:self-auto">
+                Added — the tutor will start here.
+              </span>
+            ) : (
+              <button
+                onClick={handleAddToStudyList}
+                className="self-start text-[0.8125rem] font-semibold text-[var(--text-muted)] underline decoration-[var(--rule)] underline-offset-4 lg:self-auto"
+              >
+                Go over this with the tutor
+              </button>
+            )
+          )}
           {!reported ? (
             <button
               onClick={handleReport}

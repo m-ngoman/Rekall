@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import logging
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -19,6 +20,8 @@ from typing import Protocol, Union
 import httpx
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Declared here rather than beside the clause table below because the Grader protocol's signatures
 # reference it, and those come first in the file.
@@ -60,6 +63,7 @@ class Grader(Protocol):
     def grade(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
     ) -> GradeResult: ...
+    def _explain_tokens(self, prompt: str) -> Iterator[str]: ...
     def grade_stream(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
     ) -> Iterator[GradeStreamItem]: ...
@@ -342,6 +346,29 @@ Output format exactly, nothing else — the feedback text, then the score on its
 <feedback text>
 ###SCORE: <1-5>"""
 
+# Saying you don't know still gets taught, it just doesn't get graded by a model.
+#
+# The grade stays a code decision for the reason recorded at _DONT_KNOW: the model repeatedly
+# scored these as partial credit no matter how the rubric was worded, and "no idea" needs no
+# judgement to score. What *does* need a model is the explanation — reciting the reference answer
+# back, which is what this path used to do, teaches nobody. Splitting the two keeps the guaranteed
+# 1 and buys a real explanation for the cost of one short completion.
+_EXPLAIN_PROMPT = r"""A student drew a blank on a flashcard — they said they don't know, rather than
+guessing. You are not grading anything. Teach them the answer.
+
+Write TO the student, as "you". Never write "the student" or "the answer given".
+
+Open by taking the pressure off in a few words, then teach: what the answer is, and why it is that
+rather than something else. If there is a way to remember it or a hook that makes it stick, give it.
+Two to four short sentences. No preamble, no closing question, no bullet points.
+
+Never use LaTeX or math markup (no backslash-parenthesis delimiters, \cdot, curly-brace exponents,
+etc.) — this is displayed as plain text. Write "x^2" and "2 * x" in plain text instead.
+
+Question: {question}
+The answer: {reference}"""
+
+
 _LOCAL_RESULT_RE = re.compile(r"###SCORE:\s*(\d)")
 
 # Strictness moves the precision bar only. It deliberately says nothing about how much detail is
@@ -390,6 +417,44 @@ def _clean_latex(text: str) -> str:
     return _STRAY_BRACKETS.sub(r"\1", text)
 
 
+
+def _explain_only(tokens, question: str, reference_answer: str) -> Iterator[GradeStreamItem]:
+    """Stream a taught explanation, then the grade that was never in question.
+
+    `tokens` is the grader's own transport, so this borrows whichever backend is configured rather
+    than introducing a second one. The grade is fixed at 1 before the call and does not depend on
+    what comes back — the model is being asked to teach, not to judge, and cannot influence
+    scheduling even if it answers oddly.
+
+    Any failure degrades to reciting the reference. A blank answer must still return a grade: the
+    card was attempted, FSRS is waiting for a rating, and losing that to a flaky explanation would
+    turn a nice-to-have into a broken review.
+    """
+    text = ""
+    try:
+        for piece in tokens(_EXPLAIN_PROMPT.format(question=question, reference=reference_answer.strip())):
+            text += piece
+            yield piece
+    except Exception:
+        logger.exception("explanation for a don't-know answer failed; falling back to the reference")
+
+    cleaned = _clean_latex(text).strip()
+    if not cleaned:
+        yield _dont_know_fallback(reference_answer)
+        return
+    yield GradeResult(grade=1, explanation=cleaned, score=1)
+
+
+def _dont_know_fallback(reference_answer: str) -> GradeResult:
+    """What a blank answer gets when the explaining call can't be made or fails.
+
+    Reciting the reference is weak teaching, which is exactly why it is no longer the normal path
+    — but it is strictly better than an empty panel, and a grading request must never fail because
+    the nice-to-have half of it did.
+    """
+    return GradeResult(grade=1, explanation="No problem — here's the answer:\n\n" + reference_answer.strip(), score=1)
+
+
 class LocalLLMGrader:
     """Grades and explains in one streamed call using a general instruct model — see the
     `local_grading_model` setting docstring in config.py for why this replaced Prometheus as the
@@ -405,12 +470,38 @@ class LocalLLMGrader:
     ) -> GradeResult:
         return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness))
 
+    def _explain_tokens(self, prompt: str) -> Iterator[str]:
+        with httpx.stream(
+            "POST",
+            f"{self._base_url}/api/generate",
+            json={
+                "model": self._model,
+                "prompt": prompt,
+                "stream": True,
+                "options": {"temperature": 0.3, "num_predict": 220},
+            },
+            timeout=60.0,
+        ) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                try:
+                    chunk = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                piece = chunk.get("response") or ""
+                if piece:
+                    yield piece
+                if chunk.get("done"):
+                    break
+
     def grade_stream(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
     ) -> Iterator[GradeStreamItem]:
         submitted = submitted_answer.strip()
         if _is_dont_know(submitted):
-            yield GradeResult(grade=1, explanation="No problem — here's the answer:\n\n" + reference_answer.strip(), score=1)
+            yield from _explain_only(self._explain_tokens, question, reference_answer)
             return
 
         prompt = _LOCAL_PROMPT.format(
@@ -482,12 +573,43 @@ class CloudGrader:
     ) -> GradeResult:
         return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness))
 
+    def _explain_tokens(self, prompt: str) -> Iterator[str]:
+        with httpx.stream(
+            "POST",
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"},
+            json={
+                "model": self._model,
+                "stream": True,
+                "max_tokens": 220,
+                "temperature": 0.3,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=60.0,
+        ) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line.startswith("data: "):
+                    continue
+                payload = line[6:].strip()
+                if payload == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+                choices = chunk.get("choices") or []
+                if choices:
+                    piece = choices[0].get("delta", {}).get("content") or ""
+                    if piece:
+                        yield piece
+
     def grade_stream(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS
     ) -> Iterator[GradeStreamItem]:
         submitted = submitted_answer.strip()
         if _is_dont_know(submitted):
-            yield GradeResult(grade=1, explanation="No problem — here's the answer:\n\n" + reference_answer.strip(), score=1)
+            yield from _explain_only(self._explain_tokens, question, reference_answer)
             return
 
         prompt = _LOCAL_PROMPT.format(

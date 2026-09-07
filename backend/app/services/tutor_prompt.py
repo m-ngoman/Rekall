@@ -10,7 +10,7 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Card, CardState, Deck, Exam, MemorySource, StudentMemoryNote, TutorPersonality
+from app.models import Card, CardState, Deck, Exam, MemorySource, StudentMemoryNote, StudyListEntry, TutorPersonality
 from app.services.exam_status import today_utc
 
 _BASE_PROMPT = """You are a friendly study tutor inside Rekall, a flashcard app. You only discuss the \
@@ -78,18 +78,49 @@ _PERSONALITY_PROMPTS = {
 
 
 def _weak_cards_context(db: Session, user_id, deck_id) -> str:
+    """What to bring up, from two sources that are not the same thing.
+
+    Cards the student explicitly asked to go over come first and are labelled as such. That is a
+    stated intention — they saw the answer, still didn't follow it, and said so — and it beats any
+    inference from the scheduler, which can only report that something keeps being forgotten and
+    not that the student knows why. The FSRS-derived list fills the rest of the budget, minus
+    anything already named, so the same card is never listed twice under two headings.
+    """
+    asked = (
+        db.query(Card)
+        .join(StudyListEntry, StudyListEntry.card_id == Card.id)
+        .join(Deck, Card.deck_id == Deck.id)
+        .filter(StudyListEntry.user_id == user_id, Deck.user_id == user_id)
+    )
+    if deck_id is not None:
+        asked = asked.filter(Deck.id == deck_id)
+    asked_cards = asked.order_by(StudyListEntry.created_at.desc()).limit(5).all()
+
     query = db.query(Card).join(Deck, Card.deck_id == Deck.id).filter(Deck.user_id == user_id)
     if deck_id is not None:
         query = query.filter(Deck.id == deck_id)
     query = query.filter(Card.state != CardState.new, Card.reviews > 0)
-    weak_cards = query.order_by(Card.lapses.desc(), Card.stability.asc().nulls_last()).limit(5).all()
+    if asked_cards:
+        query = query.filter(Card.id.notin_([c.id for c in asked_cards]))
+    weak_cards = query.order_by(Card.lapses.desc(), Card.stability.asc().nulls_last()).limit(
+        max(0, 5 - len(asked_cards))
+    ).all()
 
-    if not weak_cards:
-        return ""
+    def listing(cards):
+        return "\n".join(f'- "{c.question}" (reference: {c.answer})' for c in cards)
 
-    lines = [f'- "{c.question}" (reference: {c.answer})' for c in weak_cards]
-    return "\n\nThe student has been struggling with these specific cards recently — bring them up " \
-        "naturally if relevant, don't just recite the list:\n" + "\n".join(lines)
+    blocks = []
+    if asked_cards:
+        blocks.append(
+            "\n\nThe student asked to go over these with you — this is what they came for, so "
+            "start here unless they steer elsewhere:\n" + listing(asked_cards)
+        )
+    if weak_cards:
+        blocks.append(
+            "\n\nThe student has been struggling with these specific cards recently — bring them up "
+            "naturally if relevant, don't just recite the list:\n" + listing(weak_cards)
+        )
+    return "".join(blocks)
 
 
 def _exam_context(db: Session, user_id) -> str:

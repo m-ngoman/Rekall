@@ -384,6 +384,12 @@ export async function generateDeckFromTopic(
  * Suspends rather than deletes: the card is kept because it's the evidence for whether generated
  * cards are any good, and because the student may have been mistaken.
  */
+/** Adds a card to the list the tutor opens on. Idempotent server-side, so a double tap or a
+ * relearn of the same card is harmless. */
+export function addToStudyList(cardId: string): Promise<void> {
+  return request(`/cards/${cardId}/study-list`, { method: 'POST' })
+}
+
 export function reportCard(cardId: string): Promise<void> {
   return request(`/cards/${cardId}/report`, { method: 'POST' })
 }

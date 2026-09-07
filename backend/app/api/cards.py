@@ -12,7 +12,7 @@ from app.core.entitlements import require_text_ai
 from app.core.sse import guard, sse_event
 from app.core.usage import record
 from app.db import get_db
-from app.models import Card, CardState, Deck, Feedback, FeedbackCategory, InputMode, ReviewLog, UsageEventType
+from app.models import Card, CardState, Deck, Feedback, FeedbackCategory, InputMode, ReviewLog, StudyListEntry, UsageEventType
 from app.schemas import CardOut, CardUpdate, ReviewRequest
 from app.services.fsrs import SchedulingState, review_card
 from app.services.grading import GradeResult, get_grader
@@ -273,3 +273,46 @@ def report_card(request: Request, card_id: uuid.UUID, db: Session = Depends(get_
             )
         )
         db.commit()
+
+
+@router.post("/{card_id}/study-list", status_code=204)
+def add_to_study_list(request: Request, card_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
+    """"Go over this with the tutor" — from the review screen, after a card was missed.
+
+    Deliberately not gated on tutor entitlement. The list is a note the student is making to
+    themselves about what they don't understand, and it stays true whether or not they can afford
+    a tutor session this month; gating the *record* on the ability to act on it would throw away
+    the one thing they knew at the moment they knew it. The offer to add is what the client hides
+    when the tutor is unavailable — see StudyScreen.
+
+    Idempotent: asking twice is the same as asking once, which matters because the button is
+    reachable again on a relearn of the same card.
+    """
+    user = get_current_user(request, db)
+    card = (
+        db.query(Card)
+        .join(Deck, Card.deck_id == Deck.id)
+        .filter(Card.id == card_id, Deck.user_id == user.id)
+        .one_or_none()
+    )
+    if card is None:
+        raise HTTPException(404, "Card not found")
+
+    exists = (
+        db.query(StudyListEntry)
+        .filter(StudyListEntry.user_id == user.id, StudyListEntry.card_id == card.id)
+        .one_or_none()
+    )
+    if exists is None:
+        db.add(StudyListEntry(user_id=user.id, card_id=card.id))
+        db.commit()
+
+
+@router.delete("/{card_id}/study-list", status_code=204)
+def remove_from_study_list(request: Request, card_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
+    """Off the list — once it has been gone over, or was added by mistake."""
+    user = get_current_user(request, db)
+    db.query(StudyListEntry).filter(
+        StudyListEntry.user_id == user.id, StudyListEntry.card_id == card_id
+    ).delete()
+    db.commit()

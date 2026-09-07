@@ -8,6 +8,7 @@ from app.models.feedback import Feedback, FeedbackCategory
 from app.models.memory import MemoryCategory, MemorySource, StudentMemoryNote
 from app.models.note import Note, NoteFileType
 from app.models.review_log import InputMode, ReviewLog
+from app.models.study_list import StudyListEntry
 from app.models.tutor import TutorMessage, TutorMessageRole, TutorPersonality, TutorSession
 from app.models.usage_event import UsageEvent, UsageEventType
 from app.models.user import User, UserTier
@@ -35,6 +36,7 @@ __all__ = [
     "StudentMemoryNote",
     "MemoryCategory",
     "MemorySource",
+    "StudyListEntry",
     "UsageEvent",
     "UsageEventType",
     "CreditLedger",
