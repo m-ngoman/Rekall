@@ -4,7 +4,10 @@
 
 Live at **[rekall.study](https://rekall.study)**
 
-<!-- TODO: drop a screenshot or a short GIF of the study loop here. It matters more than any paragraph below. -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/study-loop-dark.png">
+  <img alt="A card asking why an SN1 reaction gives a racemic mixture. The typed answer &quot;You get a carbocation in the middle of the reaction&quot; is graded 3/5, Hard, back in 7 days, with the model explaining that the leaving group departs first to give a planar sp2 carbocation the nucleophile can attack from either face." src="docs/readme/study-loop-light.png">
+</picture>
 
 Conventional flashcards make you grade yourself: flip the card, decide whether you were close
 enough, move on. That self-assessment is where most of the learning leaks out — it is exactly the
