@@ -1,92 +1,148 @@
-# PipCards
+# Rekall
 
-A flashcard/study app, rebuilt from scratch for Adam + friends (self-hosted, not broadly commercialized).
-Full planning context: [`docs/planning-summary.md`](docs/planning-summary.md). The original single-file
-prototype (client-only, localStorage + Google Drive `appdata` sync, vanilla-JS FSRS-4.5) is preserved at
-[`docs/reference/pipcards-prototype.html`](docs/reference/pipcards-prototype.html) for reference — its FSRS
-algorithm has been ported 1:1 into the backend (see `backend/app/services/fsrs.py`).
+**Flashcards that read what you actually wrote or said, and tell you what you missed.**
+
+Live at **[rekall.study](https://rekall.study)**
+
+<!-- TODO: drop a screenshot or a short GIF of the study loop here. It matters more than any paragraph below. -->
+
+Conventional flashcards make you grade yourself: flip the card, decide whether you were close
+enough, move on. That self-assessment is where most of the learning leaks out — it is exactly the
+moment you are least equipped to be honest. Rekall takes a free-recall answer, typed or spoken,
+grades it against the reference with an LLM, tells you specifically what you missed, and feeds the
+resulting grade into FSRS spaced-repetition scheduling.
+
+Around that core loop: an AI tutor with persistent memory of what you keep getting wrong, deck
+generation from photographed or pasted notes, exam countdowns that reshape scheduling, and a
+metered free tier that runs entirely on local inference.
+
+---
+
+## The interesting part: grading free text reliably
+
+Grading free-recall answers well enough to sit in the core loop of a study app was the whole
+problem. Nearly everything below exists because a naive version of it failed in a specific way.
+The implementation is in [`backend/app/services/grading.py`](backend/app/services/grading.py).
+
+**Four interchangeable graders behind one `Grader` protocol**, selected at runtime by
+`get_grader()`, with the routing seam shaped so a per-user tier entitlement can override it at the
+call site:
+
+| Grader | Model | Why it exists |
+|---|---|---|
+| `local` | `qwen2.5:7b` via Ollama | ~0.15s to first token, costs nothing. A metered API can't sit in the core loop of users who pay nothing, so the free tier runs here. The prompt carries extra scaffolding to compensate for a 7B model. |
+| `cloud` | `google/gemini-2.5-flash` via OpenRouter | ~0.62s to first token, noticeably better writing. Roughly $0.50 per user per month at 200 reviews/day. |
+| `prometheus` | `prometheus-7b-v2.0` + `qwen2.5:7b` | A purpose-built LLM-as-judge model, kept for comparison. Prometheus emits a rubric verdict, then a general instruct model restyles it into something worth showing a student. |
+| `stub` | fuzzy string match | No model at all. Tests and offline work. |
+
+**Problems this had to solve, and how:**
+
+- **The score marker must never flash on screen.** Feedback streams token by token, but the
+  verdict arrives as a trailing `###SCORE: n` / `[RESULT] (n)` marker inside the same stream.
+  A 24-character holdback margin keeps the tail unflushed until it is known to be a marker rather
+  than genuine content.
+- **Strictness is a user setting, not a prompt tweak.** The judge's 1–5 score collapses into
+  FSRS's 1–4 grade through a different mapping per strictness level, with matching prompt clauses,
+  so "lenient" and "harsh" stay coherent between the wording and the scheduling consequences.
+- **Notation must never be penalised.** A student typing `sqrt(2)`, `x^2`, `√`, or `π` on a phone
+  keyboard is answering correctly. Cards carry an `is_math` flag that switches the prompt between
+  plain-text and LaTeX notation modes, and the grader is instructed to treat typed approximations
+  as equivalent to properly-set maths.
+- **Explanation is structurally separated from grade.** `ReviewLog.grading_explanation` is a
+  distinct field from `grade`, and the explanation never reaches scheduling logic. Prose cannot
+  contaminate the algorithm.
+- **"I don't know" is not a wrong answer.** Blank and don't-know responses route to an
+  explain-only path that teaches the card instead of grading a non-attempt, with a fallback if the
+  model fails.
+- **Model output is post-processed defensively** — LaTeX cleanup, stray-bracket stripping — because
+  models emit markup the renderer was never going to handle.
+
+**Models are chosen per task on cost and capability**, not picked once globally: Claude Sonnet 5
+for tutor chat, Gemini 2.5 Flash for the deliberately-cheaper memory extraction pass, Claude
+Haiku 4.5 for deck generation from images (the local model isn't a vision model). The reasoning
+for each is documented inline in [`backend/app/config.py`](backend/app/config.py).
+
+---
 
 ## Stack
 
-- **Backend**: FastAPI (Python), SQLAlchemy 2.0, Alembic, PostgreSQL
-- **Frontend**: React + TypeScript + Vite + Tailwind
-- **Local ML jobs** (grading, STT, TTS, tutor mode): planned as separate services on the laptop/desktop
-  split described in the planning doc — not part of this repo's foundation yet
+- **Backend** — FastAPI, SQLAlchemy 2.0, Alembic, PostgreSQL
+- **Frontend** — React, TypeScript, Vite, Tailwind
+- **Inference** — Ollama locally, OpenRouter for cloud models
+- **Voice** — Deepgram and Groq for STT, Cartesia for TTS
+- **Auth** — Google OAuth, server-side sessions
 
-This is the foundation layer only: data model + empty API/frontend shells. Grading pipeline, voice mode,
-tutor mode, and the review UI are not built yet — see [Open items](docs/planning-summary.md#open-items--not-yet-done)
-in the planning doc for what's next.
+## What's in here
 
-## Data model
+```
+backend/
+├── app/
+│   ├── api/        12 routers — auth, decks, cards, notes, tutor, exams,
+│   │               memory, settings, billing, dashboard, bugs, admin
+│   ├── services/   grading, deck generation, FSRS, STT/TTS, tutor prompt
+│   │               construction, tutor memory extraction
+│   ├── core/       auth, entitlements, usage metering, settings store, SSE
+│   └── models/     SQLAlchemy models
+├── alembic/        22 migrations
+└── tests/          pytest suite
 
-Seven tables, defined in `backend/app/models/`:
+frontend/src/
+├── screens/        14 screens — study, cards, notes, tutor, generate,
+│                   import, exams, settings, admin, pricing, onboarding
+├── hooks/          mic recording, audio playback
+└── components/
+```
 
-| Table | Purpose |
-|---|---|
-| `users` | Google-identified account, `tier` field (`friend`/`public`) for the cost-passthrough billing split |
-| `decks` | Owned by a user |
-| `cards` | FSRS scheduling fields (`stability`, `difficulty`, `due`, ...) + `question`/`answer` |
-| `review_logs` | One row per graded answer — append-only history; also what tutor mode reads for "recent again ratings" |
-| `notes` | Digital copy of source notes (image/PDF), linked to a deck; `ocr_text` is unwired (stretch goal) |
-| `feedback` | Bug reports, split into `wrong_grade` vs `malformed_response`, with auto-captured `context` JSON |
-| `tutor_sessions` / `tutor_messages` | Conversational tutor mode, personality preset + optional custom prompt |
+Beyond grading, the pieces worth a look:
 
-Notable design choices carried over from planning:
-- `ReviewLog.grading_explanation` is a separate field from `grade` — the explanation must never leak into
-  scheduling logic.
-- `Feedback.context` is meant to be populated by the app (card id, raw model output, timestamp), not typed
-  by the user.
-- `TutorSession.custom_prompt` only applies when `personality == custom`; the non-overridable base prompt
-  layer from planning is applied server-side at inference time, not stored per-session.
+- **Tutor with persistent memory** — [`services/memory_extraction.py`](backend/app/services/memory_extraction.py)
+  reads review history and conversation for durable facts about the student, so the tutor knows
+  what you keep failing. Prompt assembly is in [`services/tutor_prompt.py`](backend/app/services/tutor_prompt.py),
+  with a non-overridable base layer applied server-side at inference time so a custom personality
+  can't escape it.
+- **Deck generation** — [`services/deck_generation.py`](backend/app/services/deck_generation.py)
+  turns photographed or pasted notes into cards via a vision model.
+- **Metering and entitlements** — [`core/usage.py`](backend/app/core/usage.py) and
+  [`core/entitlements.py`](backend/app/core/entitlements.py). Cost-passthrough billing, credits,
+  and the free/paid split that makes local inference worth the trouble.
+- **Notes** — Postgres full-text search over stored source material, linked to decks.
+- **FSRS** — [`services/fsrs.py`](backend/app/services/fsrs.py), ported 1:1 from the original
+  vanilla-JS prototype preserved in [`docs/reference/`](docs/reference/), with regression tests
+  pinning the port to the original's output.
 
-## Backend setup
+## Tests
+
+`backend/tests/` covers the parts that actually break: FSRS scheduling, strictness mapping,
+streaming failure modes, entitlement logic, usage meters, and tutor prompt assembly.
 
 ```bash
+cd backend && pytest
+```
+
+## Running it locally
+
+```bash
+# Postgres
+docker compose up -d          # or podman compose up -d
+
+# Backend
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-
-# Postgres — via podman (no compose plugin installed yet; this is the one-liner fallback):
-podman run -d --name pipcards-db \
-  -e POSTGRES_USER=pipcards -e POSTGRES_PASSWORD=pipcards -e POSTGRES_DB=pipcards \
-  -p 5432:5432 -v pipcards_db_data:/var/lib/postgresql/data \
-  docker.io/postgres:16
-# Or, once you have a compose plugin: docker compose up -d / podman compose up -d (uses docker-compose.yml)
-
-cp ../.env.example .env   # adjust DATABASE_URL if needed
-
-# First migration hasn't been generated yet — do this once Postgres is up:
-alembic revision --autogenerate -m "init"
+cp ../.env.example .env       # set GOOGLE_CLIENT_ID and SESSION_SECRET
 alembic upgrade head
+uvicorn app.main:app --reload # http://localhost:8000
 
-uvicorn app.main:app --reload   # http://localhost:8000/health
-pytest                          # runs the FSRS regression tests
-```
-
-## Frontend setup
-
-```bash
-cd frontend
+# Frontend
+cd ../frontend
 npm install
-npm run dev   # http://localhost:5173, proxies /api to localhost:8000
+npm run dev                   # http://localhost:5173, proxies /api to :8000
 ```
 
-## Repo layout
+`GRADER=local` is the default and needs [Ollama](https://ollama.com) with `qwen2.5:7b` pulled.
+`GRADER=stub` runs with no model at all if you just want the app up. `GRADER=cloud` needs
+`OPENROUTER_API_KEY`. Voice features need the Deepgram/Groq/Cartesia keys in `.env.example`;
+everything else works without them.
 
-```
-PipCards/
-├── docs/
-│   ├── planning-summary.md          # full planning context
-│   └── reference/pipcards-prototype.html
-├── backend/
-│   ├── app/
-│   │   ├── models/                  # SQLAlchemy models (the data model above)
-│   │   ├── services/fsrs.py         # ported scheduling algorithm
-│   │   ├── api/                     # routers (empty so far)
-│   │   └── main.py, config.py, db.py
-│   ├── tests/
-│   └── alembic/                     # migrations (no versions generated yet)
-├── frontend/
-│   └── src/                         # Vite + React + TS + Tailwind, placeholder App only
-└── docker-compose.yml               # Postgres for local dev
-```
+Database identifiers still use the project's original `pipcards` name — harmless, and changing
+them means a migration, so they've been left alone.
