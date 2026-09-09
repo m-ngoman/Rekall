@@ -86,8 +86,11 @@ runs cannot measure a tail, so treat this as a screening pass rather than a benc
 across three of them was enough for me to stop looking at DeepSeek, which is a different claim from
 having characterised its p99.
 
-Grading accuracy was equal across all three. For a well-scaffolded grading prompt with a reference
-answer in context, the model tier stopped mattering long before the price did.
+I did not test grading accuracy properly. Across the limited set of answers I ran through all
+three, I saw little to no difference between them, which is an impression rather than a
+measurement. It points at something I suspect and have not shown: that with a well-scaffolded
+prompt and a reference answer in context, model tier stops mattering long before price does. That
+one deserves a real eval and I haven't run it.
 
 ## 4. The bigger local model was slower for a reason that had nothing to do with the prompt
 
