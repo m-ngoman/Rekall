@@ -81,8 +81,10 @@ This latency sits between a user submitting an answer and seeing whether they go
 single highest-attention moment in the entire app. A four-second worst case there doesn't average
 out with a fast one. It reads as "broken," and one broken-feeling review poisons a session.
 
-For anything inside an interactive loop, the number you are buying is p99. Three runs is a small
-sample, but a 4x spread across three runs is enough signal to walk away.
+For anything inside an interactive loop, the tail is what you are buying, not the average. Three
+runs cannot measure a tail, so treat this as a screening pass rather than a benchmark: an 8x spread
+across three of them was enough for me to stop looking at DeepSeek, which is a different claim from
+having characterised its p99.
 
 Grading accuracy was equal across all three. For a well-scaffolded grading prompt with a reference
 answer in context, the model tier stopped mattering long before the price did.
