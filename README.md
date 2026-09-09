@@ -35,6 +35,13 @@ call site:
 | `prometheus` | `prometheus-7b-v2.0` + `qwen2.5:7b` | A purpose-built LLM-as-judge model, kept for comparison. Prometheus emits a rubric verdict, then a general instruct model restyles it into something worth showing a student. |
 | `stub` | fuzzy string match | No model at all. Tests and offline work. |
 
+*The latency and cost figures here and elsewhere in this README are my own measurements, on my own
+hardware and my own traffic, taken August–September 2026. They are not benchmarks and they are not
+a claim about how these models perform generally. Local timings depend entirely on the GPU they
+were taken on, and vendor pricing changes without notice. Treat them as the reasoning behind a
+decision rather than as numbers to plan against, and measure your own before relying on any of
+them.*
+
 **Problems this had to solve, and how:**
 
 - **The score marker must never flash on screen.** Feedback streams token by token, but the
