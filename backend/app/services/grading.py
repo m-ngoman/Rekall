@@ -35,10 +35,13 @@ DEFAULT_STRICTNESS = "balanced"
 # rubric was ignored across repeated attempts: it keeps scoring these as partial credit, the same
 # way it ignored the strictness override (see _SCORE_TO_GRADE_BY_STRICTNESS). Deciding that "no
 # idea" means you didn't know it needs no judgement, so it shouldn't cost an LLM round-trip either.
+#
+# Bare "no" is deliberately NOT in this set: it is a legitimate answer to yes/no questions, and
+# treating it as a blank would grade a correct answer as Forgot and wipe the card's schedule.
 _DONT_KNOW = {
     "", "?", "-", "idk", "i dont know", "i don't know", "dont know", "don't know", "no idea",
     "not sure", "im not sure", "i'm not sure", "no clue", "cant remember", "can't remember",
-    "i forget", "i forgot", "forgot", "blank", "nothing", "no", "n/a", "na", "pass", "skip",
+    "i forget", "i forgot", "forgot", "blank", "nothing", "n/a", "na", "pass", "skip",
 }
 
 
