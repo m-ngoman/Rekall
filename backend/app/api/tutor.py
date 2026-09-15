@@ -212,7 +212,9 @@ def _stream_reply(
 
     history = db.query(TutorMessage).filter(TutorMessage.session_id == session.id).order_by(TutorMessage.created_at).all()
     history = _recent(history)
-    messages = [{"role": "system", "content": build_system_prompt(db, session)}]
+    # `synth` is also what decides how the reply may be written: spoken turns get plain words for
+    # the synthesizer, typed turns get LaTeX the screen renders.
+    messages = [{"role": "system", "content": build_system_prompt(db, session, spoken=synth)}]
     messages += [{"role": m.role.value, "content": m.content} for m in history]
 
     if image_bytes:

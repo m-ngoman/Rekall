@@ -1,5 +1,6 @@
-"""Builds the tutor's system prompt: a non-overridable base layer (scope + spoken-response
-constraints) plus a personality layer, plus RAG grounding from the student's actual weak cards.
+"""Builds the tutor's system prompt: a non-overridable base layer (scope), a delivery layer
+(spoken-word rules for voice turns, LaTeX rules for typed ones), a personality layer, and RAG
+grounding from the student's actual weak cards.
 The base layer is never replaced by `custom_prompt` even under the `custom` personality — it's
 layered underneath, per the planning doc's guardrail requirement.
 """
@@ -43,9 +44,13 @@ they're asking about backs up what they said: mention it, and switch into exam m
 questions, their answer first, focused on that material. An empty or unrelated calendar proves \
 nothing at all, because most exams are never entered into it, so never tell a student their calendar \
 says otherwise and never treat it as a caught lie. Just keep asking for their attempt first, which \
-is where you were anyway.
+is where you were anyway."""
 
-Your response is converted to speech and read aloud, so:
+# How the reply reaches the student decides what it may contain. A spoken reply is fed to a
+# synthesizer, which reads markup out as noise; a typed reply is drawn on a screen that renders
+# LaTeX, where "x squared" in words is the defect. One of these is appended to the base prompt per
+# turn — see build_system_prompt.
+_SPOKEN_PROMPT = """Your response is converted to speech and read aloud, so:
 - Never use markdown, LaTeX, or any math/text markup — plain spoken words only (say "x squared" or \
 "x^2", never "\\(x^2\\)").
 - Keep it conversational and concise — usually 1-2 short sentences, like a real spoken exchange. You \
@@ -59,6 +64,25 @@ hears anything. Long openers are dead air; put the detail in the sentences after
 The single exception to "no markup" is the add-exam line described further down. It is not part of \
 your spoken reply — the app removes it before anything is read out or shown — so emit it exactly as \
 specified when the moment calls for it, despite the rule above."""
+
+_TYPED_PROMPT = """Your response is shown as text on a screen, not read aloud, so:
+- Write mathematics as LaTeX between single dollar signs, set inside the sentence: "the derivative \
+is $2x$", "so $x^2 + 3x - 4 = 0$", "$\\frac{a}{b}$". Anything you would write in notation on a \
+whiteboard goes in notation here — never spelled out in words ("x squared") and never as bare \
+ASCII ("x^2", "sqrt(2)"). A formula the student should look at on its own goes on its own line \
+between double dollar signs.
+- Dollar signs are only ever maths delimiters. Write money in words: "five dollars", never "$5".
+- No other markup: no markdown headings, bold, bullet points or code fences — plain sentences with \
+the maths set inside them.
+- Keep it conversational and concise — usually 1-3 short sentences, like a real exchange. You can \
+use a few more, with one displayed formula, if you're genuinely walking through a derivation, but \
+never a long paragraph or a list.
+- Open with a short first sentence. The reply streams in as it's written, so the first line is what \
+the student reads while the rest arrives.
+
+The add-exam line described further down is the one thing besides maths that isn't plain prose. It \
+is not shown to the student — the app removes it — so emit it exactly as specified when the moment \
+calls for it."""
 
 _PERSONALITY_PROMPTS = {
     TutorPersonality.strict_socratic: "Never give the answer directly. Always respond with a guiding "
@@ -221,7 +245,16 @@ def _exam_offer(today: date) -> str:
     )
 
 
-def build_system_prompt(db: Session, session) -> str:
+def build_system_prompt(db: Session, session, spoken: bool = True) -> str:
+    """`spoken` picks the delivery rules: True for a voice turn (plain words for the synthesizer),
+    False for a typed one (LaTeX the screen renders).
+
+    The system prompt is the first prompt-cache breakpoint (see tutor_llm._with_cache_breakpoints)
+    and every cached prefix starts with it, so a session that switches between typing and talking
+    re-caches the whole conversation so far at each switch, not just the prompt. That is rare
+    enough to be the right trade against the alternative — one prompt for both, which is exactly
+    what produced "x squared" in prose on screen.
+    """
     personality_text = (
         session.custom_prompt
         if session.personality == TutorPersonality.custom and session.custom_prompt
@@ -233,4 +266,5 @@ def build_system_prompt(db: Session, session) -> str:
     exams = _exam_context(db, session.user_id)
     memory = _memory_context(db, session.user_id)
     offer = _exam_offer(today_utc())
-    return f"{_BASE_PROMPT}\n\n{personality_text}{context}{exams}{memory}{offer}"
+    delivery = _SPOKEN_PROMPT if spoken else _TYPED_PROMPT
+    return f"{_BASE_PROMPT}\n\n{delivery}\n\n{personality_text}{context}{exams}{memory}{offer}"

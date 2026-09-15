@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import PlainMath from '../components/PlainMath'
 import { NotSignedIn, PaymentRequired, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
 
 import { daysUntil } from '../lib/dates'
@@ -71,12 +72,6 @@ function formatDue(iso: string): string {
  * a feature most decks never touch. Loaded the first time a maths card actually renders, the same
  * way the notes editor is. */
 const MathText = lazy(() => import('../components/MathText'))
-
-/** What to show for the instant before that chunk arrives: the same text with the dollar
- * delimiters taken out, which reads as an ordinary sentence rather than as markup. */
-function PlainMath({ text }: { text: string }) {
-  return <>{text.replace(/\$\$?/g, '')}</>
-}
 
 const MATH_SYMBOLS = ['√', 'π', '²', '³', '^', '≤', '≥', '≠', '±', '×', '÷', '∫', 'θ', 'Δ', '∞', '°']
 

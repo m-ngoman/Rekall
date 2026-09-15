@@ -1,8 +1,9 @@
-import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { PaymentRequired, createMemoryNote, createTutorSession, deleteMemoryNote, listBugs, listMemoryNotes, listTutorVoices, reportBug, resolveBug, sendTextTurn, sendVoiceTurnText, updateTutorSession } from '../api'
 import type { BugReport } from '../api'
 import MemoryPicker from '../components/MemoryPicker'
 import PersonalityPicker, { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
+import PlainMath from '../components/PlainMath'
 import VoiceOrb, { type OrbState } from '../components/VoiceOrb'
 import VoicePicker from '../components/VoicePicker'
 import { createExam, listExams } from '../api'
@@ -21,6 +22,22 @@ import type {
   TutorVoice,
   WordTiming,
 } from '../types'
+
+/** Typed replies carry LaTeX (the prompt asks for it — see tutor_prompt._TYPED_PROMPT), so every
+ * assistant message is rendered through KaTeX. Lazy for the same reason as on the study screen:
+ * ~270kB that a conversation about history never needs, loaded the first time a reply renders.
+ * Spoken replies are plain words by instruction, so they pass through unchanged. */
+const MathText = lazy(() => import('../components/MathText'))
+
+/** An assistant message, with its maths set. The fallback is the same text minus the delimiters,
+ * so nothing flashes as markup while the chunk loads. */
+function TutorText({ text }: { text: string }) {
+  return (
+    <Suspense fallback={<PlainMath text={text} />}>
+      <MathText text={text} />
+    </Suspense>
+  )
+}
 
 interface Message {
   /** 'system' is local-only — the app talking, not the tutor. Used by the owner-only /bug
@@ -1042,7 +1059,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                 {m.imageUrl && (
                   <img src={m.imageUrl} alt="Attached photo" className="mb-2 max-h-48 w-full rounded-[var(--r-sm)] object-cover" />
                 )}
-                {m.text}
+                <TutorText text={m.text} />
               </div>
             ),
           )
@@ -1384,7 +1401,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                               : 'rgb(255 255 255 / 0.42)',
                         }}
                       >
-                        {m.text}
+                        {m.role === 'user' ? m.text : <TutorText text={m.text} />}
                       </p>
                     ) : null,
                 )}
