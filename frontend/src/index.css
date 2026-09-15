@@ -234,12 +234,35 @@ a,
   animation: none;
 }
 
+/* iOS Safari zooms the page in on any focused field whose font is under 16px, and it doesn't
+   zoom back out afterwards. Element selectors alone never fixed it: Tailwind's size utilities
+   (`.text-sm`) outrank a bare `textarea`, so the old rule here lost every time it mattered. Each
+   size utility this app puts on a field is named so the override actually wins. Each keeps its
+   own size under a 16px floor rather than being pinned to 16px: the threshold is 16 CSS pixels
+   whatever the root scale is, but with Dynamic Type at its largest a `.text-sm` field is
+   already 19.6px and must not be shrunk. Fields set larger than these are left alone, and the
+   note editor keeps the user's chosen size once that is big enough. */
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 1023px) {
     input,
     textarea,
     select {
-      font-size: 16px;
+      font-size: max(16px, 1em);
+    }
+    :is(input, textarea, select).text-xs {
+      font-size: max(16px, 0.75rem);
+    }
+    :is(input, textarea, select).text-sm {
+      font-size: max(16px, 0.875rem);
+    }
+    :is(input, textarea, select).text-\[0\.9375rem\] {
+      font-size: max(16px, 0.9375rem);
+    }
+    :is(input, textarea, select).text-\[0\.6875rem\] {
+      font-size: max(16px, 0.6875rem);
+    }
+    .md.tiptap {
+      font-size: max(16px, var(--note-size, 0.9375rem));
     }
   }
 }
