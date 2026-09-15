@@ -215,6 +215,13 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
   /** Neutral status message. Separate from `error` because falling back to text is expected
    * behaviour, and styling it red would tell the user something broke when nothing did. */
   const [notice, setNotice] = useState<string | null>(null)
+  /** A typed turn is waiting for its first token. Drives the thinking dots in the log: the
+   * reply's placeholder is an empty line until then, and an empty line looks like a hang. */
+  const [replyPending, setReplyPending] = useState(false)
+  /** A typed reply is streaming. Typed turns never touch orbState, so without this a second send
+   * could go out mid-reply and the typewriter — which always writes into the last assistant
+   * message — would splice two replies into one. */
+  const textTurnInFlightRef = useRef(false)
   const [openPopover, setOpenPopover] = useState<'personality' | 'voice' | 'memory' | 'photo' | null>(null)
   const [voices, setVoices] = useState<TutorVoice[] | null>(null)
   const [memoryNotes, setMemoryNotes] = useState<MemoryNote[] | null>(null)
@@ -726,18 +733,21 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
     // Before the session guard: a command is answered locally, so it should still work on the
     // one occasion I most want to file a bug — when the tutor itself didn't come up.
     if (text.startsWith('/') && (await handleCommand(text))) return
-    if ((!text && !image) || !session || orbState !== 'idle') return
+    if ((!text && !image) || !session || orbState !== 'idle' || textTurnInFlightRef.current) return
+    textTurnInFlightRef.current = true
     setDraft('')
     setPendingImage(null)
     setError(null)
     setMessages((prev) => [...prev, { role: 'user', text, imageUrl: image ? URL.createObjectURL(image) : undefined }])
     setMessages((prev) => [...prev, { role: 'assistant', text: '' }])
+    setReplyPending(true)
     let fullText = ''
     try {
       await sendTextTurn(
         session.id,
         text,
         (chunk) => {
+          setReplyPending(false)
           fullText += chunk
           typeInto(fullText)
         },
@@ -745,8 +755,21 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
         offerExam,
       )
     } catch (e) {
+      // A placeholder that never got its reply. Left in, it sits under the error as an empty
+      // line the tutor apparently said. Judged by what arrived, not by what the message shows:
+      // the typewriter reveals on a 20ms tick, so a reply that failed just after its first token
+      // can still be an empty message here, and that text is worth keeping.
+      if (!fullText) {
+        setMessages((prev) => {
+          const last = prev[prev.length - 1]
+          return last?.role === 'assistant' && !last.text ? prev.slice(0, -1) : prev
+        })
+      }
       setPaywall(e instanceof PaymentRequired)
       setError(e instanceof PaymentRequired ? e.message : 'Something went wrong reaching the tutor.')
+    } finally {
+      textTurnInFlightRef.current = false
+      setReplyPending(false)
     }
   }
 
@@ -1059,7 +1082,14 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                 {m.imageUrl && (
                   <img src={m.imageUrl} alt="Attached photo" className="mb-2 max-h-48 w-full rounded-[var(--r-sm)] object-cover" />
                 )}
-                <TutorText text={m.text} />
+                {replyPending && i === messages.length - 1 && !m.text ? (
+                  // Same three dots the voice stage shows while the tutor thinks.
+                  <span aria-label="Thinking" className="animate-pulse tracking-[0.35em] text-[var(--text-muted)]">
+                    •••
+                  </span>
+                ) : (
+                  <TutorText text={m.text} />
+                )}
               </div>
             ),
           )
@@ -1143,32 +1173,6 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
               <span className="truncate text-xs text-[var(--text-muted)]">{pendingImage.name}</span>
             </div>
           )}
-          {!voiceModeActive ? (
-            <textarea
-              ref={textareaRef}
-              rows={1}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSendText()
-                }
-              }}
-              placeholder="Message the tutor…"
-              className="min-w-0 resize-none bg-transparent px-3 py-2 text-sm leading-snug outline-none"
-            />
-          ) : (
-            <div className="flex items-center justify-center py-2.5">
-              <span className="text-xs font-bold text-[var(--text-muted)]">{STATUS_LABEL[orbState]}</span>
-            </div>
-          )}
-
-          {/* Wraps on purpose. Five controls need roughly 380px of label and padding, and a
-              390pt phone only offers ~330px inside the composer — so on a narrow screen the
-              photo/mic pair drops to a second line instead of the chips being squeezed until
-              their labels break apart. `ml-auto` on the photo group does what the old spacer div
-              did (push the pair right) but survives wrapping, which a `flex-1` spacer does not. */}
           {/* One shared click-away layer, rendered before the controls and below them (z-10 vs
               z-20). Each popover used to carry its own `fixed inset-0` backdrop, which painted
               over the neighbouring buttons — so switching from one picker to another took two
@@ -1176,6 +1180,116 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
               it, and a tap on another chip opens that chip directly. */}
           {openPopover && <div className="fixed inset-0 z-10" onClick={() => setOpenPopover(null)} />}
 
+          {/* The message row: photo, text, send. Its own row, apart from the chips below, so the
+              send button is never the control that wraps. It used to close the chip row, and a
+              390pt phone offers ~330px inside the composer against ~380px of chips and buttons —
+              so Send dropped to a line of its own underneath, the one control that has to be
+              where the thumb expects it. Now the chips wrap among themselves and this row is
+              always [photo] [text] [send], whatever the width. */}
+          <div className="relative z-20 flex items-end gap-1.5">
+            {!voiceModeActive && (
+              <div className="relative">
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleSelectImage}
+                  className="hidden"
+                />
+                <input ref={libraryInputRef} type="file" accept="image/*" onChange={handleSelectImage} className="hidden" />
+                <button
+                  onClick={() => setOpenPopover((p) => (p === 'photo' ? null : 'photo'))}
+                  aria-label={pendingImage ? 'Photo attached' : 'Attach a photo'}
+                  className="flex h-8 items-center justify-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-semibold text-[var(--text-muted)]"
+                  style={{ background: pendingImage || openPopover === 'photo' ? 'var(--bg)' : undefined }}
+                >
+                  {PHOTO_ICON}
+                  {pendingImage && <span className="inline">1 photo</span>}
+                </button>
+                {openPopover === 'photo' && (
+                  <div className="absolute bottom-12 left-0 z-20 flex w-44 flex-col gap-1 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-1.5">
+                    <button
+                      onClick={() => {
+                        cameraInputRef.current?.click()
+                        setOpenPopover(null)
+                      }}
+                      className="flex items-center gap-2.5 rounded-[var(--r-sm)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
+                    >
+                      {CAMERA_ICON}
+                      Take Photo
+                    </button>
+                    <button
+                      onClick={() => {
+                        libraryInputRef.current?.click()
+                        setOpenPopover(null)
+                      }}
+                      className="flex items-center gap-2.5 rounded-[var(--r-sm)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
+                    >
+                      {LIBRARY_ICON}
+                      Choose from Library
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!voiceModeActive ? (
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSendText()
+                  }
+                }}
+                placeholder="Message the tutor…"
+                className="min-w-0 flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-snug outline-none"
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center py-2.5">
+                <span className="text-xs font-bold text-[var(--text-muted)]">{STATUS_LABEL[orbState]}</span>
+              </div>
+            )}
+
+            {!voiceModeActive && draft.trim() ? (
+              <button
+                onClick={handleSendText}
+                className="on-accent flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-full)]"
+                style={{ background: 'var(--accent)' }}
+              >
+                {SEND_ICON}
+              </button>
+            ) : (
+              // Stays in the DOM while active (as the FLIP animation's target position) but hidden
+              // and non-interactive — the floating orb is the actual stop control once it's up.
+              <button
+                ref={micButtonRef}
+                onClick={handleToggleVoiceMode}
+                title={settings?.ai_voice === false ? 'Voice mode is turned off in Settings' : 'Start voice mode'}
+                // Hidden rather than greyed, unlike the Tutor tab: the composer is a tight row of
+                // controls, and a dead button wedged between Send and the photo picker reads as
+                // broken. The tab is a place you might go; this is a thing you'd press by mistake.
+                hidden={settings?.ai_voice === false}
+                disabled={voiceModeActive}
+                className="on-accent flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-full)] transition-opacity duration-150"
+                style={{
+                  background: 'var(--accent)',
+                  opacity: voiceModeActive ? 0 : 1,
+                  pointerEvents: voiceModeActive ? 'none' : 'auto',
+                }}
+              >
+                {MIC_ICON}
+              </button>
+            )}
+          </div>
+
+          {/* The chips. They wrap among themselves on a narrow phone rather than squeezing until
+              their labels break apart: the design draws them as flat text chips, and an icon
+              alone doesn't say which style or voice is selected. */}
           <div className="relative z-20 flex flex-wrap items-end gap-1.5">
             <div className="relative">
               <button
@@ -1257,90 +1371,6 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
               )}
             </div>
 
-            {!voiceModeActive && (
-              <div className="relative ml-auto">
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleSelectImage}
-                  className="hidden"
-                />
-                <input ref={libraryInputRef} type="file" accept="image/*" onChange={handleSelectImage} className="hidden" />
-                <button
-                  onClick={() => setOpenPopover((p) => (p === 'photo' ? null : 'photo'))}
-                  aria-label={pendingImage ? 'Photo attached' : 'Attach a photo'}
-                  className="flex h-8 items-center justify-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-semibold text-[var(--text-muted)]"
-                  style={{ background: pendingImage || openPopover === 'photo' ? 'var(--bg)' : undefined }}
-                >
-                  {PHOTO_ICON}
-                  {pendingImage && <span className="inline">1 photo</span>}
-                </button>
-                {openPopover === 'photo' && (
-                  <>
-                      <div className="absolute bottom-12 right-0 z-20 flex w-44 flex-col gap-1 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-1.5">
-                      <button
-                        onClick={() => {
-                          cameraInputRef.current?.click()
-                          setOpenPopover(null)
-                        }}
-                        className="flex items-center gap-2.5 rounded-[var(--r-sm)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
-                      >
-                        {CAMERA_ICON}
-                        Take Photo
-                      </button>
-                      <button
-                        onClick={() => {
-                          libraryInputRef.current?.click()
-                          setOpenPopover(null)
-                        }}
-                        className="flex items-center gap-2.5 rounded-[var(--r-sm)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
-                      >
-                        {LIBRARY_ICON}
-                        Choose from Library
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {!voiceModeActive && draft.trim() ? (
-              <button
-                onClick={handleSendText}
-                className="on-accent flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-full)]"
-                style={{ background: 'var(--accent)' }}
-              >
-                {SEND_ICON}
-              </button>
-            ) : (
-              // Stays in the DOM while active (as the FLIP animation's target position) but hidden
-              // and non-interactive — the floating orb is the actual stop control once it's up.
-              <button
-                ref={micButtonRef}
-                onClick={handleToggleVoiceMode}
-                title={settings?.ai_voice === false ? 'Voice mode is turned off in Settings' : 'Start voice mode'}
-                // Hidden rather than greyed, unlike the Tutor tab: the composer is a tight row of
-                // controls, and a dead button wedged between Send and the photo picker reads as
-                // broken. The tab is a place you might go; this is a thing you'd press by mistake.
-                hidden={settings?.ai_voice === false}
-                disabled={voiceModeActive}
-                // Takes over the photo group's `ml-auto` in voice mode, when that group isn't
-                // rendered. It's invisible by then, but it's still the FLIP animation's target
-                // position — letting it slide left here would land the orb in the wrong place.
-                className={`on-accent flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-full)] transition-opacity duration-150 ${
-                  voiceModeActive ? 'ml-auto' : ''
-                }`}
-                style={{
-                  background: 'var(--accent)',
-                  opacity: voiceModeActive ? 0 : 1,
-                  pointerEvents: voiceModeActive ? 'none' : 'auto',
-                }}
-              >
-                {MIC_ICON}
-              </button>
-            )}
           </div>
         </div>
       </div>

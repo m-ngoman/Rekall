@@ -72,6 +72,15 @@ class Settings(BaseSettings):
     # pays for the higher rate — measured at ~$0.045 per voice-hour against ~$0.094 on Haiku — and
     # the tutor is a better model besides.
     openrouter_model: str = "anthropic/claude-sonnet-5"
+    # Whether the tutor model may think before it answers. Sonnet 5 runs adaptive thinking by
+    # default, and on the real tutor prompt that was measured (2026-09-15, three runs each) at
+    # 7-12s to the first visible token — 100-200 reasoning tokens, then the whole reply in one
+    # burst — against 1.6-1.9s with thinking off. Replies are one to three sentences; nothing in
+    # them needs a plan first, and a chat that sits silent for ten seconds reads as broken. Flip
+    # this on to trade that wait back for whatever judgment the thinking buys. Sent through
+    # OpenRouter's `reasoning` field, which it maps to each provider's own switch; note that
+    # `reasoning.max_tokens: 0` is NOT an off switch (tested: it still thought).
+    tutor_reasoning: bool = False
     ollama_tutor_model: str = "qwen2.5:7b"  # only used when tutor_provider == "ollama"
 
     # Automatic tutor memory — see app/services/memory_extraction.py. Deliberately a cheaper model

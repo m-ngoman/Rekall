@@ -115,6 +115,10 @@ def _stream_openrouter(messages: list[dict]) -> Iterator[str]:
             # Cache hits and writes come back on the final chunk; without this the usage block is
             # omitted from a stream entirely and there is no way to tell whether caching worked.
             "stream_options": {"include_usage": True},
+            # Thinking is the wait before the first word — see config.tutor_reasoning for the
+            # measurement. Omitted rather than sent as `enabled: true` when it is on, so the
+            # provider's own default applies and nothing here has to know what that is.
+            **({} if settings.tutor_reasoning else {"reasoning": {"enabled": False}}),
         },
         timeout=60.0,
     ) as response:
