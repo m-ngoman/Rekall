@@ -1,5 +1,5 @@
 import { type ChangeEvent, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react'
-import { createDeck, createTextNote, deleteNote, getNote, listDecks, listNotes, moveNote, noteFileUrl, renameDeck, saveNoteContent, uploadNotes } from '../api'
+import { createDeck, createTextNote, deleteNote, getNote, listDecks, listNotes, moveNote, noteFileUrl, renameDeck, saveNoteContent, unfileCategory, uploadNotes } from '../api'
 
 // The editor is ProseMirror plus a markdown parser — about half the app again — and most visits
 // never open a note, so it stays out of the main bundle until one does.
@@ -49,6 +49,12 @@ const LIBRARY_ICON = (
 const FOLDER_ICON = (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17.5z" />
+  </svg>
+)
+
+const CROSS_ICON = (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+    <path d="M6 6l12 12M18 6L6 18" />
   </svg>
 )
 
@@ -110,6 +116,20 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
   const [justAdded, setJustAdded] = useState<{ count: number; deckName: string } | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [creatingCategory, setCreatingCategory] = useState(false)
+  /** Decks made from this tab in this session. A category is only listed once it holds notes
+   * (see the grouping below), but one you just created has to be visible before anything is in
+   * it, or "New category" would appear to do nothing. Mirrored into the tab cache: this screen
+   * unmounts on every tab switch, and a category made a minute ago vanishing on the way back
+   * from Cards would read as it having been deleted. */
+  const [revealed, setRevealedState] = useState<Set<string>>(
+    () => new Set(getCached<string[]>('revealed-categories') ?? []),
+  )
+  const setRevealed = (update: (prev: Set<string>) => Set<string>) =>
+    setRevealedState((prev) => {
+      const next = update(prev)
+      setCached('revealed-categories', [...next])
+      return next
+    })
 
   const { drag, onPointerDown, consumeClickSuppression } = useCategoryDrag((noteId, dropKey) =>
     handleMove(noteId, dropKey),
@@ -164,6 +184,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
     try {
       const deck = await createDeck(name.trim())
       setDecks((prev) => [...(prev ?? []), deck])
+      setRevealed((prev) => new Set(prev).add(deck.id))
     } catch {
       setError('Could not create that category.')
     }
@@ -184,6 +205,40 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
     // A category named in the draft was just made server-side; the list needs to know about it.
     if (!draft.deckId && draft.deckName.trim()) setReloadKey((k) => k + 1)
     return created
+  }
+
+  /** Takes a category out of this tab. Its notes go to Unfiled and stay; the deck keeps its
+   * cards. Applied locally first, like a move, so the group folds away on the tap. */
+  const handleRemoveCategory = async (deckId: string) => {
+    const count = notes?.filter((n) => n.deck_id === deckId).length ?? 0
+    const keepsDeck = (decks.find((d) => d.id === deckId)?.total ?? 0) > 0
+    // Mid-search the list only holds the matches, so a count from it would understate what the
+    // server is about to move. The wording goes general rather than quoting a wrong number.
+    const what = query.trim()
+      ? "Move all of this category's notes to Unfiled and remove it from Notes?"
+      : count === 0
+        ? 'Remove this category from Notes?'
+        : `Move ${count} note${count === 1 ? '' : 's'} to Unfiled and remove this category from Notes?`
+    if (!confirm(keepsDeck ? `${what} The deck and its cards stay.` : what)) return
+
+    const wasRevealed = revealed.has(deckId)
+    setNotes((prev) => prev?.map((n) => (n.deck_id === deckId ? { ...n, deck_id: null, deck_name: null } : n)) ?? null)
+    setRevealed((prev) => {
+      const next = new Set(prev)
+      next.delete(deckId)
+      return next
+    })
+    setJustAdded(null)
+    try {
+      const { deck_deleted } = await unfileCategory(deckId)
+      if (deck_deleted) setDecks((prev) => (prev ? prev.filter((d) => d.id !== deckId) : prev))
+    } catch {
+      setError('Could not remove that category.')
+      // The refetch below puts the notes back; an empty just-made category has no notes to
+      // come back with, so its visibility is restored by hand.
+      if (wasRevealed) setRevealed((prev) => new Set(prev).add(deckId))
+      setReloadKey((k) => k + 1)
+    }
   }
 
   const handleRenameCategory = async (deckId: string, name: string) => {
@@ -270,9 +325,12 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
   }
 
   // Deck-grouped by default, per the notes-system plan — a flat list stops being navigable once a
-  // semester's worth of uploads pile up. Every category is rendered even when empty, so a new one
-  // is visible the moment it's made and so there's somewhere to drop a note into it. Unfiled sorts
-  // last so real categories lead.
+  // semester's worth of uploads pile up. Unfiled sorts last so real categories lead.
+  //
+  // A deck is listed here only once it holds notes, or was just made from this tab. Every deck
+  // used to appear, so generating a deck put an empty category in Notes that nobody had asked for
+  // and this tab had no way to remove. The full list still backs the move menus and the upload
+  // picker, so a note can be filed under any deck — and filing one is what makes it appear.
   const byDeck = new Map<string, Note[]>()
   for (const note of notes ?? []) {
     const key = note.deck_id ?? UNFILED_KEY
@@ -286,8 +344,10 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
   ]
   // While searching, an empty category is just noise — it says nothing about the results.
   const searching = query.trim().length > 0
-  const groups = searching ? allGroups.filter((g) => g.notes.length > 0) : allGroups
-  const hasCategories = decks.length > 0
+  const groups = allGroups.filter(
+    (g) => g.notes.length > 0 || (!searching && (g.key === UNFILED_KEY || revealed.has(g.key))),
+  )
+  const hasCategories = groups.some((g) => g.key !== UNFILED_KEY)
 
   return (
     <div className="flex flex-col gap-5">
@@ -346,7 +406,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
               <div className="text-[1.25rem] font-bold leading-snug">No notes yet</div>
               <p className="mt-1.5 max-w-md text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
                 Write a note here, or add a photo or PDF and it's kept with the text the AI read from it, so you
-                can search it later. Notes you turn into flashcards from the Cards tab land here too.
+                can search it later.
               </p>
               <button onClick={onGoToCards} className="mt-4 text-[0.9375rem] font-semibold underline decoration-[var(--rule)] underline-offset-4">
                 Generate flashcards from notes instead
@@ -381,6 +441,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
                   isDropTarget={drag?.overKey === group.key}
                   dragging={drag !== null}
                   onRename={group.key ? (name) => handleRenameCategory(group.key, name) : undefined}
+                  onRemove={group.key ? () => handleRemoveCategory(group.key) : undefined}
                   onOpenNote={handleOpen}
                   onMoveNote={handleMove}
                   onGrabNote={onPointerDown}
@@ -597,6 +658,7 @@ function CategoryGroup({
   isDropTarget,
   dragging,
   onRename,
+  onRemove,
   onOpenNote,
   onMoveNote,
   onGrabNote,
@@ -607,6 +669,8 @@ function CategoryGroup({
   dragging: boolean
   /** Absent for Unfiled, which is the absence of a category rather than one that can be renamed. */
   onRename?: (name: string) => void
+  /** Also absent for Unfiled. Takes the category out of this tab; see handleRemoveCategory. */
+  onRemove?: () => void
   onOpenNote: (id: string) => void
   onMoveNote: (id: string, dropKey: string) => void
   onGrabNote: (noteId: string, label: string) => (e: React.PointerEvent) => void
@@ -640,6 +704,16 @@ function CategoryGroup({
                 className="flex-shrink-0 self-center text-[var(--text-muted)]"
               >
                 {PENCIL_ICON}
+              </button>
+            )}
+            {onRemove && (
+              <button
+                onClick={onRemove}
+                aria-label={`Remove ${group.name} from Notes`}
+                title="Remove from Notes. The notes move to Unfiled; the deck keeps its cards."
+                className="flex-shrink-0 self-center text-[var(--text-muted)]"
+              >
+                {CROSS_ICON}
               </button>
             )}
           </div>

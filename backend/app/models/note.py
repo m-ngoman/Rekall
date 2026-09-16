@@ -17,9 +17,9 @@ class NoteFileType(str, enum.Enum):
 
 
 class Note(UUIDPKMixin, TimestampMixin, Base):
-    """One note: a digital copy of an uploaded page (written both by the Notes tab's own upload and
-    as a byproduct of deck generation, see app/api/notes.py) or a note typed straight into the
-    app. `storage_path` points at the original file on local disk, or is NULL for a typed note.
+    """One note: a digital copy of an uploaded page (written by the Notes tab's own upload, see
+    app/api/notes.py — deck generation no longer files its source material here) or a note typed
+    straight into the app. `storage_path` points at the original file on local disk, or is NULL for a typed note.
     `ocr_text` holds the markdown body — for an upload, that file's transcription from its own
     vision call; for a typed note, what the user wrote — and is what the notes search queries and
     what tutor-mode RAG grounding will eventually read. It is nullable because a transcription

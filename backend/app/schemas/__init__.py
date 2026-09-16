@@ -172,6 +172,16 @@ class NoteUpdate(BaseModel):
     text: str | None = None
 
 
+class UnfileCategory(BaseModel):
+    deck_id: uuid.UUID
+
+
+class UnfileResult(BaseModel):
+    unfiled: int
+    # The deck had no cards, so nothing was left of it once its notes were gone, and it went too.
+    deck_deleted: bool
+
+
 class NoteCreate(BaseModel):
     """A note typed in the app. Either of `deck_id` / `deck_name` files it, as with an upload."""
 

@@ -489,6 +489,13 @@ export function moveNote(id: string, deckId: string | null): Promise<Note> {
   return request(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify({ deck_id: deckId }) })
 }
 
+/** Takes a category out of the Notes tab: its notes go to Unfiled and stay. The deck and its
+ * cards are untouched — unless the deck had no cards, in which case nothing was left of it and
+ * the server removes it; `deck_deleted` says which happened so the deck list can follow. */
+export function unfileCategory(deckId: string): Promise<{ unfiled: number; deck_deleted: boolean }> {
+  return request('/notes/unfile', { method: 'POST', body: JSON.stringify({ deck_id: deckId }) })
+}
+
 /** Names a note, or clears the name back to its transcription preview by passing an empty string.
  * Sent as its own call rather than folded into moveNote so a rename can't accidentally refile —
  * the backend distinguishes an omitted field from a null one, and this omits deck_id entirely. */

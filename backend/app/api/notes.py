@@ -29,6 +29,8 @@ from app.schemas import (
     NoteDetailOut,
     NoteOut,
     NoteUpdate,
+    UnfileCategory,
+    UnfileResult,
 )
 from app.services.deck_generation import (
     looks_like_latex,
@@ -54,7 +56,7 @@ TRANSCRIBE_WORKERS = 4
 
 # Generation is two long model round-trips, so there is plenty of time for one to fail after the
 # response has already committed to 200 and started streaming. Nothing is saved when it does —
-# the cards and notes share one transaction that never reaches its commit.
+# the cards are written in one transaction that never reaches its commit.
 _GENERATION_FAILED = "Card generation failed partway through. Nothing was saved — try again."
 
 
@@ -393,6 +395,34 @@ def update_note(request: Request, note_id: uuid.UUID, payload: NoteUpdate, db: S
     return _note_out(note, note.deck.name if note.deck else None)
 
 
+@router.post("/unfile", response_model=UnfileResult)
+def unfile_category(request: Request, payload: UnfileCategory, db: Session = Depends(get_db)) -> UnfileResult:
+    """Takes a category out of the Notes tab: every note filed under the deck goes to Unfiled.
+
+    The deck is left alone when it has cards — it is still a deck, and its study history is not
+    the Notes tab's to delete. A deck with no cards and now no notes is nothing at all, so that
+    one goes too, rather than surviving as an empty tile in the Cards tab that "remove" visibly
+    failed to remove.
+
+    Declared before the `/{note_id}` routes on purpose: FastAPI matches in registration order,
+    and "unfile" is not a note id.
+    """
+    user = get_current_user(request, db)
+    deck = db.query(Deck).filter(Deck.id == payload.deck_id, Deck.user_id == user.id).one_or_none()
+    if deck is None:
+        raise HTTPException(404, "Category not found")
+    unfiled = (
+        db.query(Note)
+        .filter(Note.user_id == user.id, Note.deck_id == deck.id)
+        .update({Note.deck_id: None}, synchronize_session=False)
+    )
+    deck_deleted = not deck.cards
+    if deck_deleted:
+        db.delete(deck)
+    db.commit()
+    return UnfileResult(unfiled=unfiled, deck_deleted=deck_deleted)
+
+
 @router.delete("/{note_id}", status_code=204)
 def delete_note(request: Request, note_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
     """Removes the row and the file on disk. Cards already generated from this note are left
@@ -434,8 +464,10 @@ def _generate_cards(
 ) -> Generator[str, None, None]:
     """Draft, verify, and persist — shared by both generation entry points so a fresh upload and a
     stored note produce cards the same way. `finish` runs after the cards are flushed and before
-    the commit: it's the only part that differs (saving new notes vs. relinking existing ones), and
-    it lands in the same transaction as the cards.
+    the commit, in the same transaction. Both callers pass a no-op today: it used to save the
+    uploads as notes, or refile the picked ones, and both of those put a category in the Notes
+    tab as a side effect of generating. The hook stays so any later per-deck work lands in the
+    cards' transaction rather than a second one.
     """
     # Card generation sees the batch as one body of material, so the per-file payloads merge.
     text = "\n\n".join(u.text for u in uploads if u.text) or None
@@ -530,9 +562,11 @@ async def generate(request: Request,
     full LLM round-trips, draft then verify, so a bare spinner would feel broken) followed by a
     `done` event carrying the GenerationResultOut payload.
 
-    Every file is also saved as its own note with its own transcription. GenerateScreen currently
-    only ever sends one PDF *or* a set of images, never a mix, but the batch is handled file by
-    file so the endpoint doesn't quietly break if that changes.
+    Cards only. The files used to be saved into the notes library as well, which put a category
+    in the Notes tab that nobody had asked for and that tab had no way to remove. Keeping a copy
+    of a page is the Notes tab's own upload, done on purpose. GenerateScreen currently only ever
+    sends one PDF *or* a set of images, never a mix, but the batch is handled file by file so the
+    endpoint doesn't quietly break if that changes.
     """
     user = get_current_user(request, db)
     require_ai(db, user.id, "generation")
@@ -547,23 +581,7 @@ async def generate(request: Request,
     def stream() -> Generator[str, None, None]:
         yield sse_event("stage", {"label": "Reading your notes…"})
         uploads = [_decompose(*r) for r in raw]
-
-        # Each note gets its own transcription. They don't feed card generation, so they're fired
-        # off here and collected at the end: the round-trips overlap the draft and verify calls
-        # and cost the user no extra waiting.
-        pool = ThreadPoolExecutor(max_workers=min(TRANSCRIBE_WORKERS, len(uploads)))
-        pending = [pool.submit(_transcribe, upload) for upload in uploads]
-        pool.shutdown(wait=False)
-
-        def save(deck: Deck) -> None:
-            for upload, future in zip(uploads, pending):
-                _save_note(db, user.id, deck.id, upload, future.result())
-            # These files land in the notes library exactly as if they'd come through the Notes
-            # tab, so they count as an upload as well as a generation run. Two events for one
-            # action is correct here — they measure two different things the user did.
-            record(db, user.id, UsageEventType.notes_uploaded, count=len(uploads))
-
-        yield from _generate_cards(db, user.id, existing_deck, uploads, save, deck_name)
+        yield from _generate_cards(db, user.id, existing_deck, uploads, lambda deck: None, deck_name)
 
     return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")
 
@@ -609,15 +627,10 @@ def generate_from_notes(request: Request, payload: GenerateFromNotes, db: Sessio
             yield sse_event("error", {"message": "Those notes are empty — write something in them first."})
             return
 
-        def relink(deck: Deck) -> None:
-            # Notes the user has already filed stay where they put them. An unfiled one gets
-            # attached to the deck its cards landed in, which is the same link /generate creates
-            # for a fresh upload and what tutor grounding will follow back to the source.
-            for note in ordered:
-                if note.deck_id is None:
-                    note.deck_id = deck.id
-
-        yield from _generate_cards(db, user.id, existing_deck, uploads, relink, payload.deck_name)
+        # Nothing is refiled. An unfiled note used to be attached to the deck its cards landed in,
+        # which made a category appear in the Notes tab as a side effect of generating. Where a
+        # note lives is the student's call, made in the Notes tab.
+        yield from _generate_cards(db, user.id, existing_deck, uploads, lambda deck: None, payload.deck_name)
 
     return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")
 
