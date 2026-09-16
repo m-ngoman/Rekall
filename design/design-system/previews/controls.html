@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Controls</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+.panel { background: var(--surface); border-radius: var(--r-md); padding: 0 16px; }
+.panel > * + * { border-top: 1px solid var(--rule); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 36px; padding: 14px 0; }
+.row b { font-size: 15px; font-weight: 600; }
+.seg { display: flex; gap: 2px; padding: 2px; border-radius: var(--r-sm); background: var(--bg); }
+.seg span { padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.seg span.on { background: var(--surface); color: var(--text); font-weight: 700; }
+.toggle { position: relative; width: 52px; height: 32px; border-radius: var(--r-full); background: var(--rule); }
+.toggle i { position: absolute; left: 0; top: 4px; width: 24px; height: 24px; border-radius: var(--r-full); background: var(--text-muted); transform: translateX(4px); }
+.toggle.on { background: var(--accent); }
+.toggle.on i { background: oklch(from var(--accent) 0.17 0.02 h); transform: translateX(24px); }
+.step { display: flex; align-items: center; gap: 2px; }
+.step button { width: 36px; height: 36px; border-radius: var(--r-sm); font-size: 18px; color: var(--text-muted); }
+.step .v { min-width: 44px; text-align: center; font-size: 20px; }
+.step .z { min-width: 44px; text-align: center; font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.sw { display: flex; gap: 10px; align-items: center; }
+.sw i { width: 28px; height: 28px; border-radius: var(--r-full); display: block; }
+.sw i.on { outline: 2px solid var(--text); outline-offset: 2px; }
+.sw i.custom { border: 1.5px dashed var(--text-muted); background: none; }
+.field { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-radius: var(--r-sm); background: var(--surface); color: var(--text-muted); font-size: 15px; }
+.area { min-height: 132px; padding: 14px 16px; border-radius: var(--r-md); background: var(--surface); font-size: 15px; color: var(--text-muted); }
+.preset { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; }
+.preset i { width: 8px; height: 8px; border-radius: var(--r-full); background: var(--rule); margin-top: 6px; flex-shrink: 0; }
+.preset i.on { background: var(--accent); }
+.preset b { display: block; font-size: 14px; font-weight: 700; color: var(--text-muted); }
+.preset b.on { color: var(--text); }
+.preset span { font-size: 12px; color: var(--text-muted); }
+</style></head><body><div class="panes">
+<section class="pane theme-dark"><h2>Settings controls</h2>
+<div class="panel">
+<div class="row"><b>Theme</b><div class="seg"><span>System</span><span>Light</span><span class="on">Dark</span></div></div>
+<div class="row"><b>Accent</b><div class="sw"><i class="on" style="background:oklch(0.7 0.145 40)"></i><i style="background:oklch(0.7 0.145 145)"></i><i style="background:oklch(0.7 0.145 250)"></i><i style="background:oklch(0.7 0.145 330)"></i><i class="custom"></i></div></div>
+<div class="row"><b>New cards per day</b><div class="step"><button>−</button><span class="numeral v">20</span><button>+</button></div></div>
+<div class="row"><b>Session size</b><div class="step"><button style="opacity:.4">−</button><span class="z">No limit</span><button>+</button></div></div>
+<div class="row"><b>Let the tutor remember</b><span class="toggle on"><i></i></span></div>
+<div class="row"><b>Voice mode</b><span class="toggle"><i></i></span></div>
+</div>
+<p class="muted" style="font-size:13px">Segmented: --bg track, --surface sliding pill. Toggle 52×32, --rule off / --accent on, knob 24px, no shadow. Stepper 36px flat buttons, value in .numeral 20px.</p>
+</section>
+<section class="pane theme-dark"><h2>Fields and presets</h2><div class="stack">
+<div class="field"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Search your notes</div>
+<div class="area">Type your answer</div>
+<div>
+<div class="preset"><i class="on"></i><div><b class="on">Direct</b><span>Explains freely, actually teaches</span></div></div>
+<div class="preset"><i></i><div><b>Socratic</b><span>Guides with questions, never gives the answer</span></div></div>
+<div class="preset"><i></i><div><b>Encouraging</b><span>Warm and patient, celebrates progress</span></div></div>
+</div>
+<p class="muted" style="font-size:13px;margin:0">Search field --r-sm at 44px; answer textarea --r-md, 132px min. Presets are rows with an 8px dot, never a wash.</p>
+</div></section></div></body></html>

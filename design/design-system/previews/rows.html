@@ -1,0 +1,51 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Rows and panels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+.rows { border-top: 1px solid var(--rule); }
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+.row b { font-size: 15px; font-weight: 600; }
+.row span { font-size: 14px; color: var(--text-muted); }
+.row.past { opacity: .55; }
+.panel { background: var(--surface); border-radius: var(--r-md); padding: 0 16px; }
+.panel > * + * { border-top: 1px solid var(--rule); }
+.prow { padding: 14px 0; }
+.prow .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.prow b { font-size: 15px; font-weight: 600; }
+.prow p { margin: 6px 0 0; font-size: 13px; color: var(--text-muted); }
+.action { display: flex; gap: 14px; align-items: center; }
+.action svg { color: var(--text-muted); flex-shrink: 0; }
+.action b { display: block; font-size: 15px; font-weight: 700; }
+.action span { font-size: 13px; color: var(--text-muted); }
+.chev { color: var(--text-muted); }
+.title { font-size: 15px; font-weight: 700; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: baseline; }
+.title span { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+</style></head><body><div class="panes">
+<section class="pane theme-dark"><h2>Rows on the page (exam list, Home)</h2>
+<div class="rows">
+<div class="row"><b>Organic Chemistry II</b><span>in 34 days</span></div>
+<div class="row"><b>Statistics</b><span>in 40 days</span></div>
+<div class="row past"><b>Anatomy</b><span>passed</span></div>
+</div>
+<p class="title" style="margin-top:32px">Your Library <span>4 decks, 1,127 cards</span></p>
+<p class="muted" style="font-size:13px;margin:0">Section title 15/700 with a muted count on the right. Only where a list needs one.</p>
+<h2 style="margin-top:32px">Starter rows (Tutor empty state)</h2>
+<div class="rows">
+<div class="row"><b>Quiz me on my weak cards</b></div>
+<div class="row"><b>Explain a concept I keep missing</b></div>
+<div class="row"><b>Help me plan for Pharmacology</b><span><span class="numeral" style="font-size:15px;color:var(--text)">16</span> days</span></div>
+</div>
+</section>
+<section class="pane theme-dark"><h2>Rows inside a surface (Settings, Cards actions)</h2>
+<div class="panel">
+<div class="prow"><div class="top"><b>Session size</b><span class="muted" style="font-size:15px">No limit</span></div><p>Caps the whole queue. Due cards are kept before new ones.</p></div>
+<div class="prow"><div class="top"><b>Daily goal</b><span class="muted" style="font-size:15px">Everything due</span></div><p>Caps how many cards Home counts as due today. 0 uses everything due.</p></div>
+<div class="prow"><div class="top"><b>Scheduling details</b><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div></div>
+</div>
+<div class="panel" style="margin-top:24px">
+<div class="prow action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg><div><b>Write your own</b><span>Type questions and answers yourself</span></div></div>
+<div class="prow action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><div><b>Import CSV</b><span>From a spreadsheet or export</span></div></div>
+<div class="prow action" style="opacity:.45"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"/></svg><div><b>Generate with AI</b><span>Turned off in Settings, under AI features</span></div></div>
+</div>
+</section></div></body></html>

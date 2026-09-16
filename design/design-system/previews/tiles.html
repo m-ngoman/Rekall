@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Tiles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+.deck { display: flex; align-items: center; gap: 10px; background: var(--surface); border-radius: var(--r-md); padding: 14px 16px; }
+.deck .n { flex: 1; min-width: 0; }
+.deck b { display: block; font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck small { display: block; margin-top: 2px; font-size: 13px; color: var(--text-muted); }
+.deck .c { font-size: 13px; color: var(--text-muted); flex-shrink: 0; }
+.deck .acts { display: flex; margin-right: -12px; }
+.deck .acts button { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-sm); color: var(--text-muted); }
+.deck.paused { opacity: .6; }
+.notes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.note { background: var(--surface); border-radius: var(--r-md); overflow: hidden; }
+.note .prev { aspect-ratio: 4/3; padding: 10px 12px 0; font-size: 9px; line-height: 1.5; color: var(--text-muted); background: color-mix(in oklab, var(--surface) 55%, var(--bg)); position: relative; overflow: hidden; border-bottom: 1px solid var(--rule); }
+.note .prev::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; background: linear-gradient(to bottom, transparent, color-mix(in oklab, var(--surface) 55%, var(--bg))); }
+.note .photo { aspect-ratio: 4/3; background: linear-gradient(135deg, oklch(0.55 0.05 60), oklch(0.35 0.03 50)); }
+.note .t { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 12px; }
+.note .t b { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.note .t span { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.note .f { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-top: 1px solid var(--rule); font-size: 11px; font-weight: 600; color: var(--text-muted); }
+</style></head><body><div class="panes">
+<section class="pane theme-dark"><h2>Deck tile: the one thing allowed to be a card</h2><div class="stack">
+<div class="deck"><div class="n"><b>Organic Chemistry II</b><small>18 left today</small></div><div class="c">612 cards</div></div>
+<div class="deck"><div class="n"><b>Statistics</b><small>Done for today</small></div><div class="c">180 cards</div></div>
+<div class="deck"><div class="n"><b>Pharmacology</b><small>23 left today</small></div><div class="c">240 cards</div><div class="acts"><button aria-label="Edit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button><button aria-label="Delete"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/></svg></button></div></div>
+<div class="deck paused"><div class="n"><b>Anatomy</b><small>Exam passed. Study anytime.</small></div><div class="c">95 cards</div></div>
+<p class="muted" style="font-size:13px;margin:0">Home: single row, no actions. Library: edit and delete at 44px, overhanging the right padding. Paused decks at 0.6.</p>
+</div></section>
+<section class="pane theme-dark"><h2>Note tile</h2><div class="notes">
+<div class="note"><div class="prev">SN1 vs SN2. SN1 goes through a planar carbocation, so the nucleophile attacks either face and you lose stereochemistry. SN2 is one concerted step with backside attack, so configuration inverts. Tertiary substrates favour SN1; primary favour SN2. Polar protic solvents stabilise the carbocation.</div><div class="t"><b>SN1 vs SN2 mechanisms</b><span>Sep 3</span></div><div class="f"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17.5z"/></svg>Organic Chemistry II</div></div>
+<div class="note"><div class="photo"></div><div class="t"><b>Week 4 lecture</b><span>PDF, Aug 31</span></div><div class="f"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17.5z"/></svg>Pharmacology</div></div>
+</div><p class="muted" style="font-size:13px">2-up on phones, 4-up on desktop. The preview is the tile: a photo shows itself, a PDF or typed note shows its text small with a 28px fade. Footer holds the category select.</p></section>
+</div></body></html>

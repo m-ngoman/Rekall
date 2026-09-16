@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Countdown hero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+.hero { max-width: 350px; }
+.exam { font-size: 20px; font-weight: 700; margin: 0 0 12px; }
+.big { display: flex; align-items: baseline; gap: 12px; }
+.big .n { font-size: 136px; color: var(--accent); }
+.big span { font-size: 17px; font-weight: 600; color: var(--text-muted); }
+.due { display: flex; align-items: baseline; gap: 10px; margin-top: 20px; }
+.due .n { font-size: 32px; }
+.due span { font-size: 15px; font-weight: 600; color: var(--text-muted); }
+.primary { display: block; width: 100%; margin-top: 20px; padding: 16px; border-radius: var(--r-full); background: var(--accent); font-size: 17px; font-weight: 700; text-align: center; }
+.cal { display: flex; align-items: baseline; justify-content: space-between; margin-top: 32px; }
+.cal .n { font-size: 56px; color: var(--accent); }
+.cal small { font-size: 14px; color: var(--text-muted); }
+</style></head><body><div class="panes">
+<section class="pane theme-dark"><div class="hero">
+<p class="exam">Pharmacology</p>
+<div class="big"><span class="numeral n">16</span><span>days</span></div>
+<div class="due"><span class="numeral n">41</span><span>cards due today</span></div>
+<button class="primary on-accent">Start today's 41</button>
+</div></section>
+<section class="pane theme-light"><div class="hero">
+<p class="exam">Pharmacology</p>
+<div class="big"><span class="numeral n">16</span><span>days</span></div>
+<div class="due"><span class="numeral n">41</span><span>cards due today</span></div>
+<button class="primary on-accent">Start today's 41</button>
+<div class="cal"><div><div class="big" style="gap:8px"><span class="numeral n" style="font-size:56px">34</span><span style="font-size:15px">days</span></div></div><small>612 cards before it</small></div>
+<p class="muted" style="font-size:13px">Calendar header variant: 56px numeral, cards-before-it on the right.</p>
+</div></section></div></body></html>

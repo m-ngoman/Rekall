@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Tutor composer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+.composer { max-width: 350px; display: flex; flex-direction: column; gap: 6px; background: var(--surface); border-radius: var(--r-md); padding: 8px; }
+.line { display: flex; align-items: flex-end; gap: 6px; }
+.chip { display: inline-flex; height: 32px; align-items: center; gap: 6px; padding: 0 12px; border-radius: var(--r-sm); font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.chip.active { background: var(--bg); }
+.field { flex: 1; min-width: 0; padding: 8px 12px; font-size: 14px; color: var(--text-muted); }
+.round { display: inline-flex; width: 32px; height: 32px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: var(--r-full); background: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.bubble { max-width: 85%; align-self: flex-end; background: var(--surface); border-radius: var(--r-md); padding: 10px 16px; font-size: 14px; line-height: 1.6; }
+.reply { max-width: 94%; padding: 0 4px; font-size: 15px; line-height: 1.6; }
+.dots { color: var(--text-muted); letter-spacing: .35em; }
+.thread { max-width: 350px; display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px; }
+</style></head><body><div class="panes">
+<section class="pane theme-dark"><h2>Message row, then chips</h2>
+<div class="composer">
+<div class="line"><span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2.5"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="8" cy="9.5" r="1.5"/></svg></span><div class="field">Message the tutor…</div><span class="round on-accent"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></span></div>
+<div class="chips"><span class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"/></svg>Direct</span><span class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M16 8a5 5 0 0 1 0 8"/></svg>Skylar</span><span class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h11a1 1 0 0 1 1 1V21l-6.5-3L4.5 21V4.5a1 1 0 0 1 1-1z"/></svg>2 notes</span></div>
+</div>
+<p class="muted" style="font-size:13px">Send replaces the mic when there is a draft. Mic hidden when voice is off.</p>
+</section>
+<section class="pane theme-dark"><h2>Thread</h2>
+<div class="thread">
+<div class="bubble">What's the derivative of x squared times sine of x?</div>
+<div class="reply">This is a product rule situation: two functions multiplied together. The derivative is 2x·sin x + x²·cos x.</div>
+<div class="bubble">Why does SN1 give a racemic mixture?</div>
+<div class="reply dots">•••</div>
+</div>
+<p class="muted" style="font-size:13px;margin:0">User turns get a quiet surface pill; the tutor's words sit on the page. Three pulsing dots while it thinks. Maths renders through KaTeX.</p>
+</section></div></body></html>

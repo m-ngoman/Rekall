@@ -1,0 +1,94 @@
+/* Rekall design tokens — derived from frontend/src/index.css (the source of truth).
+   Seven colours, three radii, two faces. Nothing else is a token.
+   Dark is the default theme in the app; light derives the accent down to L 0.56 so a
+   mid-lightness pick still clears 4.5:1 on the pale page. */
+
+:root, .theme-light {
+  color-scheme: light;
+  --accent-pick: oklch(0.7 0.145 40);
+
+  --bg: oklch(0.97 0.012 75);
+  --surface: oklch(1 0 0);
+  --rule: oklch(0.9 0.014 75);
+  --text: oklch(0.26 0.02 50);
+  --text-muted: oklch(0.52 0.02 50);
+  --accent: oklch(from var(--accent-pick) 0.56 c h);
+  --accent-dim: color-mix(in oklab, var(--accent) 22%, transparent);
+
+  --r-sm: 6px;
+  --r-md: 14px;
+  --r-full: 999px;
+
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --font-display: 'Barlow Condensed', 'Nunito', system-ui, sans-serif;
+
+  --grade-forgot: oklch(0.62 0.16 25);
+  --grade-forgot-bg: oklch(0.95 0.05 25);
+  --grade-hard: oklch(0.72 0.16 55);
+  --grade-hard-bg: oklch(0.95 0.05 55);
+  --grade-good: oklch(0.62 0.155 145);
+  --grade-good-bg: oklch(0.95 0.04 145);
+}
+
+@supports not (color: oklch(from red l c h)) {
+  :root, .theme-light { --accent: var(--accent-pick); }
+}
+
+:root[data-theme='dark'], .theme-dark {
+  color-scheme: dark;
+  --bg: oklch(0.19 0.014 50);
+  --surface: oklch(0.23 0.015 50);
+  --rule: oklch(0.3 0.014 50);
+  --text: oklch(0.94 0.01 60);
+  --text-muted: oklch(0.64 0.014 55);
+  --accent: var(--accent-pick);
+
+  --grade-forgot: oklch(0.68 0.17 25);
+  --grade-forgot-bg: oklch(0.3 0.08 25);
+  --grade-hard: oklch(0.76 0.16 55);
+  --grade-hard-bg: oklch(0.32 0.08 55);
+  --grade-good: oklch(0.68 0.16 145);
+  --grade-good-bg: oklch(0.28 0.06 145);
+}
+
+html { font-size: 100%; background: var(--bg); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 500;
+  line-height: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Numerals that carry the app: days to the exam, cards due, cards left, score. Never on words. */
+.numeral {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.01em;
+  line-height: 0.85;
+}
+
+/* Text on an accent fill: near-black tinted toward the accent's hue. Never white on accent. */
+.on-accent {
+  color: oklch(0.17 0.015 50);
+  color: oklch(from var(--accent) 0.17 0.02 h);
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
+
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+@media (hover: hover) {
+  button:not(:disabled):hover { filter: brightness(1.06); }
+  button:not(:disabled):active { filter: brightness(0.92); }
+}
+
+/* Preview scaffolding only (not app CSS): two panes, light and dark, side by side. */
+.panes { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; }
+.pane { background: var(--bg); color: var(--text); padding: 24px; }
+.pane h2 { margin: 0 0 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.muted { color: var(--text-muted); }

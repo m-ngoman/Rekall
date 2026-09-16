@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Colours</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+.sw { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.sw figure { margin: 0; min-width: 0; }
+.sw div { border-radius: var(--r-md); height: 56px; border: 1px solid var(--rule); }
+.sw p { margin: 6px 0 0; font-size: 12px; font-weight: 600; white-space: nowrap; overflow-wrap: normal; }
+.sw span { display: block; font-size: 11px; color: var(--text-muted); font-weight: 500; overflow-wrap: normal; }
+</style></head><body><div class="panes">
+<section class="pane theme-dark"><h2>Dark, the default</h2><div class="sw">
+<figure><div style="background:var(--bg)"></div><p>--bg<span>oklch(0.19 0.014 50)</span></p></figure>
+<figure><div style="background:var(--surface)"></div><p>--surface<span>oklch(0.23 0.015 50)</span></p></figure>
+<figure><div style="background:var(--rule)"></div><p>--rule<span>oklch(0.30 0.014 50)</span></p></figure>
+<figure><div style="background:var(--text)"></div><p>--text<span>oklch(0.94 0.01 60)</span></p></figure>
+<figure><div style="background:var(--text-muted)"></div><p>--text-muted<span>oklch(0.64 0.014 55)</span></p></figure>
+<figure><div style="background:var(--accent)"></div><p>--accent<span>= --accent-pick</span></p></figure>
+<figure><div style="background:var(--accent-dim)"></div><p>--accent-dim<span>accent 22% in oklab</span></p></figure>
+<figure><div style="background:var(--grade-good)"></div><p>--grade-good<span>study feedback only</span></p></figure>
+</div></section>
+<section class="pane theme-light"><h2>Light</h2><div class="sw">
+<figure><div style="background:var(--bg)"></div><p>--bg<span>oklch(0.97 0.012 75)</span></p></figure>
+<figure><div style="background:var(--surface)"></div><p>--surface<span>oklch(1 0 0)</span></p></figure>
+<figure><div style="background:var(--rule)"></div><p>--rule<span>oklch(0.90 0.014 75)</span></p></figure>
+<figure><div style="background:var(--text)"></div><p>--text<span>oklch(0.26 0.02 50)</span></p></figure>
+<figure><div style="background:var(--text-muted)"></div><p>--text-muted<span>oklch(0.52 0.02 50)</span></p></figure>
+<figure><div style="background:var(--accent)"></div><p>--accent<span>pick at L 0.56</span></p></figure>
+<figure><div style="background:var(--accent-dim)"></div><p>--accent-dim<span>accent 22% in oklab</span></p></figure>
+<figure><div style="background:var(--grade-good)"></div><p>--grade-good<span>study feedback only</span></p></figure>
+</div></section></div></body></html>

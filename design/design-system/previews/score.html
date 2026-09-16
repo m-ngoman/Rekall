@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Score block</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+.q { font-size: 18px; font-weight: 700; margin: 0 0 24px; text-wrap: pretty; }
+.score { display: flex; align-items: baseline; gap: 16px; }
+.score .n { font-size: 72px; }
+.score .d { font-size: 28px; opacity: .7; margin-left: -12px; }
+.score b { font-size: 17px; font-weight: 700; display: block; }
+.score small { font-size: 13px; color: var(--text-muted); }
+.segs { display: flex; gap: 3px; margin-top: 16px; }
+.segs i { flex: 1; height: 3px; border-radius: 2px; background: var(--rule); }
+.expl { font-size: 15px; line-height: 1.55; margin-top: 16px; }
+.wrote { border-top: 1px solid var(--rule); margin-top: 16px; padding-top: 12px; }
+.wrote small { font-size: 13px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px; }
+.wrote p { margin: 0; font-size: 14px; color: var(--text-muted); }
+.track { height: 3px; background: var(--rule); border-radius: 2px; margin-bottom: 24px; }
+.track i { display: block; height: 100%; width: 22%; background: var(--accent); border-radius: 2px; }
+</style></head><body><div class="panes">
+<section class="pane theme-dark" style="color:var(--grade-good)"><div class="track"><i></i></div>
+<p class="q" style="color:var(--text)">Why does an SN1 reaction give a racemic mixture when the substrate is a single enantiomer?</p>
+<div class="score"><span class="numeral n">5</span><span class="numeral d">/5</span><div><b>Easy</b><small>Back in 28 days</small></div></div>
+<div class="segs"><i style="background:var(--grade-good)"></i><i style="background:var(--grade-good)"></i><i style="background:var(--grade-good)"></i><i style="background:var(--grade-good)"></i><i style="background:var(--grade-good)"></i></div>
+<p class="expl" style="color:var(--text)">Yes, you've got it.</p>
+<div class="wrote"><small>You wrote</small><p>The leaving group departs first, giving a planar carbocation intermediate…</p></div>
+</section>
+<section class="pane theme-dark" style="color:var(--grade-hard)"><div class="track"><i style="width:60%"></i></div>
+<p class="q" style="color:var(--text)">What is the rate-determining step of an SN1 reaction?</p>
+<div class="score"><span class="numeral n">3</span><span class="numeral d">/5</span><div><b>Hard</b><small>Back in 7 days</small></div></div>
+<div class="segs"><i style="background:var(--grade-hard)"></i><i style="background:var(--grade-hard)"></i><i style="background:var(--grade-hard)"></i><i></i><i></i></div>
+<p class="expl" style="color:var(--text)">Close. The slow step is the leaving group departing to form the carbocation, not the nucleophile attacking.</p>
+<div class="wrote"><small>You wrote</small><p>When the nucleophile attacks the carbocation.</p></div>
+<p class="muted" style="font-size:13px;margin-top:16px">Forgot uses --grade-forgot. The whole block takes the grade colour; a 3px accent track above drains as the session progresses.</p>
+</section></div></body></html>
