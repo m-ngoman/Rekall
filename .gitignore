@@ -42,3 +42,4 @@ frontend/tsconfig.tsbuildinfo
 # Needs the frontend/ prefix: a pattern containing a slash is anchored to this file's directory.
 frontend/public/blog/
 design/design-system/.render/
+design/incoming/

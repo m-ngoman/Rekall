@@ -1,0 +1,21 @@
+/* Rekall refinement pass, Sept 2026. Only values that changed. Loaded after tokens.css.
+   Scoped to .v2 so the "current build" boards keep rendering with the shipped values. */
+
+/* Light-theme grade colours come down from L 0.62–0.72 to L 0.50 so a 17px "Easy" label and
+   the error notice clear 4.5:1 on the pale page (they measured 3.1 and 2.4). Dark is unchanged. */
+.v2.theme-light, .v2 .theme-light {
+  --grade-forgot: oklch(0.50 0.17 25);
+  --grade-hard: oklch(0.50 0.15 55);
+  --grade-good: oklch(0.50 0.14 145);
+}
+
+/* The study textarea autofocuses on every card, so the accent focus ring fired on every card.
+   Fields get a --rule border on focus instead; the accent ring stays for keyboard focus on
+   buttons and links. */
+.v2 textarea:focus-visible, .v2 input:focus-visible, .v2 select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--rule);
+}
+
+/* Canvas scaffolding for the boards, not app CSS. */
+html, body { background: oklch(0.12 0.008 50); }

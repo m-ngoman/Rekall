@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="tokens-v2.css">
+<style>
+a { color: inherit; } a:hover { color: inherit; }
+</style>
+</helmet>
+<section style="padding:40px;display:flex;flex-direction:column;gap:56px;font-family:var(--font-body);color:oklch(0.9 0.01 60)">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:900px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.6 0.01 60)">Rekall, Countdown, as shipped September 2026</div>
+    <div style="font-size:28px;font-weight:700;letter-spacing:-0.02em">Current build, recreated from frontend/src</div>
+    <div style="font-size:15px;color:oklch(0.7 0.01 60);text-wrap:pretty">Baseline for the refinement pass. Every value here is read from the React and Tailwind source. Refined screens: <a href="Refined 1 - Home Cards Calendar Notes.dc.html">Home, Cards, Calendar, Notes</a>, <a href="Refined 2 - Tutor Settings Study.dc.html">Tutor, Settings, Study</a>, and the <a href="Components delta.dc.html">components delta</a>.</div>
+  </div>
+
+  <!-- HOME -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:13px;font-weight:700;color:oklch(0.6 0.01 60)">Home</div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <span style="display:flex;align-items:center;gap:10px"><svg width="22" height="22" viewBox="0 0 120 120" fill="none" style="color:var(--text-muted)"><g stroke="currentColor" stroke-opacity="0.42" stroke-linecap="round"><line x1="26" y1="84" x2="56" y2="92" stroke-width="6"></line><line x1="56" y1="92" x2="38" y2="58" stroke-width="6"></line><line x1="38" y1="58" x2="26" y2="84" stroke-width="6"></line><line x1="38" y1="58" x2="88" y2="40" stroke-width="5.5"></line><line x1="56" y1="92" x2="88" y2="40" stroke-width="5.5"></line></g><g fill="currentColor"><circle cx="26" cy="84" r="8.5" fill-opacity="0.58"></circle><circle cx="56" cy="92" r="8.5" fill-opacity="0.58"></circle><circle cx="38" cy="58" r="8.5" fill-opacity="0.58"></circle><circle cx="88" cy="40" r="13.5"></circle></g></svg><span style="font-size:15px;font-weight:700;color:var(--text-muted)">Rekall</span></span>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:32px;padding-top:8px">
+            <div style="display:flex;flex-direction:column">
+              <button style="align-self:flex-start;text-align:left;font-size:20px;font-weight:700;line-height:1.375">Pharmacology</button>
+              <div style="margin-top:4px;display:flex;align-items:baseline;gap:12px"><span class="numeral" style="white-space:nowrap;font-size:136px;color:var(--accent)">16</span><span style="font-size:17px;font-weight:600;color:var(--text-muted)">days</span></div>
+              <div style="margin-top:20px;display:flex;align-items:baseline;gap:8px"><span class="numeral" style="white-space:nowrap;font-size:32px">41</span><span style="font-size:15px;font-weight:600;color:var(--text-muted)">cards due today</span></div>
+              <button class="on-accent" style="white-space:nowrap;margin-top:20px;width:100%;border-radius:var(--r-full);background:var(--accent);padding:16px;font-size:17px;font-weight:700">Start today's 41</button>
+            </div>
+            <div style="border-top:1px solid var(--rule)">
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left"><span style="font-size:15px;font-weight:600">Organic Chemistry II</span><span style="font-size:14px;color:var(--text-muted)">in 34 days</span></button>
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left"><span style="font-size:15px;font-weight:600">Statistics</span><span style="font-size:14px;color:var(--text-muted)">in 40 days</span></button>
+            </div>
+            <div>
+              <div style="margin-bottom:12px;font-size:15px;font-weight:700">Decks</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;align-items:center;gap:10px;border-radius:var(--r-md);background:var(--surface);padding:14px 16px"><div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:700">Pharmacology</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">23 left today</div></div><div style="font-size:13px;color:var(--text-muted)">240 cards</div></div>
+                <div style="display:flex;align-items:center;gap:10px;border-radius:var(--r-md);background:var(--surface);padding:14px 16px"><div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:700">Organic Chemistry II</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">18 left today</div></div><div style="font-size:13px;color:var(--text-muted)">612 cards</div></div>
+                <div style="display:flex;align-items:center;gap:10px;border-radius:var(--r-md);background:var(--surface);padding:14px 16px"><div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:700">Statistics</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">Done for today</div></div><div style="font-size:13px;color:var(--text-muted)">180 cards</div></div>
+                <div style="display:flex;align-items:center;gap:10px;border-radius:var(--r-md);background:var(--surface);padding:14px 16px;opacity:0.6"><div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:700">Anatomy</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">Exam passed. Study anytime.</div></div><div style="font-size:13px;color:var(--text-muted)">95 cards</div></div>
+              </div>
+            </div>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="home" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="box-sizing:border-box;width:1280px;height:800px;overflow:hidden;display:flex;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <dc-import name="Sidebar" active="home" hint-size="240px,800px"></dc-import>
+        <div style="flex:1;min-width:0"><main style="box-sizing:border-box;max-width:1024px;margin:0 auto;padding:20px 40px 40px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 400px;align-items:start;column-gap:64px;row-gap:32px;padding-top:8px">
+            <div style="display:flex;flex-direction:column;gap:32px">
+              <div style="display:flex;flex-direction:column">
+                <button style="align-self:flex-start;text-align:left;font-size:20px;font-weight:700;line-height:1.375">Pharmacology</button>
+                <div style="margin-top:4px;display:flex;align-items:baseline;gap:12px"><span class="numeral" style="white-space:nowrap;font-size:224px;color:var(--accent)">16</span><span style="font-size:17px;font-weight:600;color:var(--text-muted)">days</span></div>
+                <div style="margin-top:20px;display:flex;align-items:baseline;gap:8px"><span class="numeral" style="white-space:nowrap;font-size:32px">41</span><span style="font-size:15px;font-weight:600;color:var(--text-muted)">cards due today</span></div>
+                <button class="on-accent" style="white-space:nowrap;margin-top:20px;align-self:flex-start;border-radius:var(--r-full);background:var(--accent);padding:12px 40px;font-size:17px;font-weight:700">Start today's 41</button>
+              </div>
+              <div style="border-top:1px solid var(--rule)">
+                <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left"><span style="font-size:15px;font-weight:600">Organic Chemistry II</span><span style="font-size:14px;color:var(--text-muted)">in 34 days</span></button>
+                <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left"><span style="font-size:15px;font-weight:600">Statistics</span><span style="font-size:14px;color:var(--text-muted)">in 40 days</span></button>
+              </div>
+            </div>
+            <div>
+              <div style="margin-bottom:12px;font-size:15px;font-weight:700">Decks</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:10px;border-radius:var(--r-md);background:var(--surface);padding:14px 16px"><div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:700">Pharmacology</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">23 left today</div></div><div style="font-size:13px;color:var(--text-muted)">240 cards</div></div>
+                <div style="display:flex;align-items:center;gap:10px;border-radius:var(--r-md);background:var(--surface);padding:14px 16px"><div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:700">Organic Chemistry II</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">18 left today</div></div><div style="font-size:13px;color:var(--text-muted)">612 cards</div></div>
+                <div style="display:flex;align-items:center;gap:10px;border-radius:var(--r-md);background:var(--surface);padding:14px 16px"><div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:700">Statistics</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">Done for today</div></div><div style="font-size:13px;color:var(--text-muted)">180 cards</div></div>
+                <div style="display:flex;align-items:center;gap:10px;border-radius:var(--r-md);background:var(--surface);padding:14px 16px;opacity:0.6"><div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:700">Anatomy</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">Exam passed. Study anytime.</div></div><div style="font-size:13px;color:var(--text-muted)">95 cards</div></div>
+              </div>
+            </div>
+          </div>
+        </main></div>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+
+  <!-- CARDS -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:13px;font-weight:700;color:oklch(0.6 0.01 60)">Cards</div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:22px;font-weight:700;letter-spacing:-0.025em">Your Cards</div>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:28px">
+            <div style="border-radius:var(--r-md);background:var(--surface);overflow:hidden">
+              <button style="display:flex;width:100%;align-items:center;gap:14px;padding:14px 16px;text-align:left"><span style="display:flex;color:var(--text-muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></span><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700">Write your own</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">Type questions and answers yourself</span></span></button>
+              <button style="display:flex;width:100%;align-items:center;gap:14px;padding:14px 16px;text-align:left;border-top:1px solid var(--rule)"><span style="display:flex;color:var(--text-muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700">Import CSV</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">From a spreadsheet or export</span></span></button>
+              <button style="display:flex;width:100%;align-items:center;gap:14px;padding:14px 16px;text-align:left;border-top:1px solid var(--rule)"><span style="display:flex;color:var(--text-muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"></path></svg></span><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700">Generate with AI</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">From photos of your notes or a PDF</span></span></button>
+            </div>
+            <div>
+              <div style="margin-bottom:12px;display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:15px;font-weight:700">Your Library</span><span style="font-size:13px;color:var(--text-muted)">4 decks, 1,127 cards</span></div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ decks }}" as="d" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:10px;border-radius:var(--r-md);background:var(--surface);padding:14px 16px;opacity:{{ d.opacity }}"><div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.name }}</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">{{ d.status }}</div></div><div style="flex-shrink:0;font-size:13px;color:var(--text-muted)">{{ d.total }} cards</div><div style="margin-right:-12px;display:flex;flex-shrink:0"><button aria-label="Edit" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button><button aria-label="Delete" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"></path></svg></button></div></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="cards" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="box-sizing:border-box;width:1280px;height:800px;overflow:hidden;display:flex;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <dc-import name="Sidebar" active="cards" hint-size="240px,800px"></dc-import>
+        <div style="flex:1;min-width:0"><main style="box-sizing:border-box;max-width:1024px;margin:0 auto;padding:20px 40px 40px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"><div style="font-size:28px;font-weight:700;letter-spacing:-0.025em">Your Cards</div></div>
+          <div style="display:grid;grid-template-columns:320px minmax(0,1fr);align-items:start;gap:56px">
+            <div style="border-radius:var(--r-md);background:var(--surface);overflow:hidden">
+              <button style="display:flex;width:100%;align-items:center;gap:14px;padding:14px 16px;text-align:left"><span style="display:flex;color:var(--text-muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></span><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700">Write your own</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">Type questions and answers yourself</span></span></button>
+              <button style="display:flex;width:100%;align-items:center;gap:14px;padding:14px 16px;text-align:left;border-top:1px solid var(--rule)"><span style="display:flex;color:var(--text-muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700">Import CSV</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">From a spreadsheet or export</span></span></button>
+              <button style="display:flex;width:100%;align-items:center;gap:14px;padding:14px 16px;text-align:left;border-top:1px solid var(--rule)"><span style="display:flex;color:var(--text-muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"></path></svg></span><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700">Generate with AI</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">From photos of your notes or a PDF</span></span></button>
+            </div>
+            <div>
+              <div style="margin-bottom:12px;display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:15px;font-weight:700">Your Library</span><span style="font-size:13px;color:var(--text-muted)">4 decks, 1,127 cards</span></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <sc-for list="{{ decks }}" as="d" hint-placeholder-count="4">
+                <div style="display:flex;flex-direction:column;gap:8px;border-radius:var(--r-md);background:var(--surface);padding:14px 16px;opacity:{{ d.opacity }}"><div><div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.name }}</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">{{ d.status }}</div></div><div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;color:var(--text-muted)">{{ d.total }} cards</div><div style="margin-right:-12px;display:flex"><button aria-label="Edit" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button><button aria-label="Delete" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"></path></svg></button></div></div></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </main></div>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:13px;font-weight:700;color:oklch(0.6 0.01 60)">Calendar</div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:22px;font-weight:700;letter-spacing:-0.025em">Calendar</div>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:24px">
+            <button style="display:flex;width:100%;flex-direction:column;text-align:left">
+              <div style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:12px"><span style="font-size:18px;font-weight:700">Pharmacology</span><span style="font-size:14px;color:var(--text-muted)">Fri 2 Oct</span></div>
+              <div style="margin-top:4px;display:flex;width:100%;align-items:baseline;gap:10px"><span class="numeral" style="white-space:nowrap;font-size:56px;color:var(--accent)">16</span><span style="font-size:15px;font-weight:600;color:var(--text-muted)">days</span><span style="margin-left:auto;white-space:nowrap;font-size:14px;color:var(--text-muted)">318 cards before it</span></div>
+            </button>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:17px;font-weight:700">September 2026</div>
+                <div style="display:flex;align-items:center">
+                  <button aria-label="Previous month" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>
+                  <button aria-label="Next month" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+                  <button class="on-accent" style="white-space:nowrap;margin-left:4px;border-radius:var(--r-full);background:var(--accent);padding:10px 16px;font-size:14px;font-weight:700">Add exam</button>
+                </div>
+              </div>
+              <div>
+                <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:13px;color:var(--text-muted)">Bar beside each day is its card load</span><span style="display:flex;align-items:flex-end;gap:6px;font-size:12px;line-height:1;color:var(--text-muted)"><span style="display:block;height:6px;width:3px;background:var(--accent-dim)"></span><span>0</span><span style="display:block;height:14px;width:3px;background:var(--accent)"></span><span>53</span></span></div>
+                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))"><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Mo</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Tu</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">We</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Th</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Fr</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Sa</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Su</div></div>
+                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:2px;border-top:1px solid var(--rule);padding-top:4px">
+                  <sc-for list="{{ cells }}" as="c" hint-placeholder-count="42">
+                  <div style="position:relative;box-sizing:border-box;display:flex;height:44px;min-width:0;flex-direction:column;align-items:center;border-radius:var(--r-sm);padding-top:6px;opacity:{{ c.opacity }}">
+                    <span aria-hidden="true" style="position:absolute;left:0;top:4px;bottom:4px;width:1px;background:var(--accent);display:{{ c.todayDisplay }}"></span>
+                    <div style="display:flex;height:16px;align-items:flex-end;gap:3px"><span style="font-size:14px;line-height:1;font-variant-numeric:tabular-nums;font-weight:{{ c.numWeight }};color:{{ c.numColor }}">{{ c.day }}</span><div style="display:flex;height:16px;width:3px;align-items:flex-end"><span style="display:{{ c.barDisplay }};width:3px;height:{{ c.barH }};background:{{ c.barColor }}"></span></div></div>
+                    <span style="margin-top:4px;font-size:10px;font-weight:700;line-height:1;color:var(--accent);display:{{ c.todayCountDisplay }}">{{ c.count }}</span>
+                    <button style="position:absolute;left:0;right:0;bottom:0;display:{{ c.examDisplay }};width:100%;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:0 2px;text-align:center;font-size:10px;font-weight:700;line-height:1.25;color:var(--accent)">{{ c.exam }}</button>
+                  </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--rule)">
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left;opacity:0.55"><span style="font-size:15px;font-weight:600">Anatomy</span><span style="font-size:14px;color:var(--text-muted)">Wed 9 Sep, passed</span></button>
+            </div>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="calendar" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="box-sizing:border-box;width:1280px;height:800px;overflow:hidden;display:flex;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <dc-import name="Sidebar" active="calendar" hint-size="240px,800px"></dc-import>
+        <div style="flex:1;min-width:0"><main style="box-sizing:border-box;max-width:1024px;margin:0 auto;padding:20px 40px 40px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"><div style="font-size:28px;font-weight:700;letter-spacing:-0.025em">Calendar</div></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;gap:56px">
+            <div style="display:flex;flex-direction:column;gap:24px">
+              <div style="display:flex;align-items:center;justify-content:flex-end">
+                <div style="margin-right:8px;font-size:17px;font-weight:700">September 2026</div>
+                <div style="display:flex;align-items:center">
+                  <button aria-label="Previous month" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>
+                  <button aria-label="Next month" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+                  <button class="on-accent" style="white-space:nowrap;margin-left:8px;border-radius:var(--r-full);background:var(--accent);padding:10px 16px;font-size:14px;font-weight:700">Add exam</button>
+                </div>
+              </div>
+              <div>
+                <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:13px;color:var(--text-muted)">Gauge on each day is its card load</span><span style="display:flex;align-items:flex-end;gap:6px;font-size:12px;line-height:1;color:var(--text-muted)"><span style="display:block;height:6px;width:6px;border-radius:3px;background:var(--accent-dim)"></span><span>0</span><span style="display:block;height:16px;width:6px;border-radius:3px;background:var(--accent)"></span><span>53</span></span></div>
+                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))"><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Mo</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Tu</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">We</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Th</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Fr</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Sa</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Su</div></div>
+                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;border-top:1px solid var(--rule);padding-top:4px">
+                  <sc-for list="{{ cells }}" as="c" hint-placeholder-count="42">
+                  <div style="position:relative;box-sizing:border-box;display:flex;height:76px;min-width:0;flex-direction:column;align-items:flex-start;border-radius:var(--r-sm);background:var(--surface);padding:8px 22px 8px 10px;opacity:{{ c.opacity }}">
+                    <span aria-hidden="true" style="position:absolute;left:0;top:8px;bottom:8px;width:2px;border-radius:1px;background:var(--accent);display:{{ c.todayDisplay }}"></span>
+                    <div aria-hidden="true" style="position:absolute;right:8px;top:8px;bottom:8px;display:flex;width:6px;align-items:flex-end;border-radius:3px;background:var(--bg)"><span style="display:{{ c.barDisplay }};width:100%;border-radius:3px;height:{{ c.barH }};background:{{ c.barColor }}"></span></div>
+                    <span style="font-size:15px;line-height:1;font-variant-numeric:tabular-nums;font-weight:{{ c.numWeight }};color:{{ c.numColor }}">{{ c.day }}</span>
+                    <span style="margin-top:6px;white-space:nowrap;font-size:12px;line-height:1;font-variant-numeric:tabular-nums;color:var(--text-muted);display:{{ c.barDisplay }}">{{ c.countLabel }}</span>
+                    <button style="margin-top:auto;display:{{ c.examDisplay }};max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left;font-size:12px;font-weight:700;line-height:1.25;color:var(--accent)">{{ c.exam }}</button>
+                  </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="padding-top:6px">
+              <button style="display:flex;width:100%;flex-direction:column;text-align:left">
+                <div style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:12px"><span style="font-size:18px;font-weight:700">Pharmacology</span><span style="font-size:14px;color:var(--text-muted)">Fri 2 Oct</span></div>
+                <div style="margin-top:6px;display:flex;align-items:baseline;gap:12px"><span class="numeral" style="white-space:nowrap;font-size:96px;color:var(--accent)">16</span><span style="font-size:16px;font-weight:600;color:var(--text-muted)">days</span></div>
+                <div style="margin-top:14px;font-size:14px;color:var(--text-muted)">318 cards before it</div>
+              </button>
+              <div style="margin:36px 0 4px;font-size:15px;font-weight:700">Coming up</div>
+              <div style="border-top:1px solid var(--rule)">
+                <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left"><span style="font-size:15px;font-weight:600">Pharmacology</span><span style="font-size:14px;color:var(--text-muted);white-space:nowrap">Fri 2 Oct, in 16 days</span></button>
+                <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left"><span style="font-size:15px;font-weight:600">Organic Chemistry II</span><span style="font-size:14px;color:var(--text-muted);white-space:nowrap">Tue 20 Oct, in 34 days</span></button>
+                <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left"><span style="font-size:15px;font-weight:600">Statistics</span><span style="font-size:14px;color:var(--text-muted);white-space:nowrap">Mon 26 Oct, in 40 days</span></button>
+              </div>
+            </div>
+          </div>
+        </main></div>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+
+  <!-- NOTES -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:13px;font-weight:700;color:oklch(0.6 0.01 60)">Notes</div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:22px;font-weight:700;letter-spacing:-0.025em">Notes</div>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;gap:8px">
+              <label style="display:flex;height:44px;flex:1;align-items:center;gap:10px;border-radius:var(--r-sm);background:var(--surface);padding:0 14px;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="font-size:15px">Search your notes</span></label>
+              <button class="on-accent" style="white-space:nowrap;height:44px;flex-shrink:0;border-radius:var(--r-full);background:var(--accent);padding:0 16px;font-size:14px;font-weight:700">Add notes</button>
+            </div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:15px;font-weight:700">Categories</span><button style="font-size:13px;font-weight:700;color:var(--text-muted)">New category</button></div>
+            <sc-for list="{{ noteGroups }}" as="g" hint-placeholder-count="2">
+            <div style="margin:0 -8px;border-radius:var(--r-md);padding:0 8px 8px">
+              <div style="margin-bottom:12px;display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding-top:4px">
+                <div style="display:flex;min-width:0;align-items:baseline;gap:6px"><span style="font-size:15px;font-weight:700">{{ g.name }}</span><button aria-label="Rename" style="align-self:center;color:var(--text-muted);display:flex"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"></path></svg></button><button aria-label="Remove" style="align-self:center;color:var(--text-muted);display:flex"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+                <span style="font-size:13px;color:var(--text-muted)">{{ g.countLabel }}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <sc-for list="{{ g.notes }}" as="n" hint-placeholder-count="2">
+                <div style="display:flex;min-width:0;flex-direction:column;overflow:hidden;border-radius:var(--r-md);background:var(--surface);cursor:pointer">
+                  <div style="position:relative;aspect-ratio:4/3;width:100%;overflow:hidden;border-bottom:1px solid var(--rule);padding:10px 12px 0;box-sizing:border-box;background:{{ n.previewBg }}"><p style="margin:0;font-size:9px;line-height:1.5;color:var(--text-muted)">{{ n.preview }}</p><span aria-hidden="true" style="position:absolute;left:0;right:0;bottom:0;height:28px;background:{{ n.fade }}"></span></div>
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:10px 12px"><span style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px;font-weight:700">{{ n.title }}</span><span style="flex-shrink:0;white-space:nowrap;font-size:11px;color:var(--text-muted)">{{ n.date }}</span></div>
+                  <div style="display:flex;align-items:center;gap:4px;border-top:1px solid var(--rule);padding:6px 12px;color:var(--text-muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17.5z"></path></svg><span style="padding:2px 0;font-size:11px;font-weight:600">{{ g.name }}</span></div>
+                </div>
+                </sc-for>
+              </div>
+            </div>
+            </sc-for>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="notes" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="box-sizing:border-box;width:1280px;height:800px;overflow:hidden;display:flex;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <dc-import name="Sidebar" active="notes" hint-size="240px,800px"></dc-import>
+        <div style="flex:1;min-width:0"><main style="box-sizing:border-box;max-width:1024px;margin:0 auto;padding:20px 40px 40px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"><div style="font-size:28px;font-weight:700;letter-spacing:-0.025em">Notes</div></div>
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;gap:8px">
+              <label style="display:flex;height:44px;flex:1;align-items:center;gap:10px;border-radius:var(--r-sm);background:var(--surface);padding:0 14px;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="font-size:15px">Search your notes</span></label>
+              <button class="on-accent" style="white-space:nowrap;height:44px;flex-shrink:0;border-radius:var(--r-full);background:var(--accent);padding:0 16px;font-size:14px;font-weight:700">Add notes</button>
+            </div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:15px;font-weight:700">Categories</span><button style="font-size:13px;font-weight:700;color:var(--text-muted)">New category</button></div>
+            <sc-for list="{{ noteGroups }}" as="g" hint-placeholder-count="2">
+            <div style="margin:0 -8px;border-radius:var(--r-md);padding:0 8px 8px">
+              <div style="margin-bottom:12px;display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding-top:4px">
+                <div style="display:flex;min-width:0;align-items:baseline;gap:6px"><span style="font-size:15px;font-weight:700">{{ g.name }}</span><button aria-label="Rename" style="align-self:center;color:var(--text-muted);display:flex"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"></path></svg></button><button aria-label="Remove" style="align-self:center;color:var(--text-muted);display:flex"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+                <span style="font-size:13px;color:var(--text-muted)">{{ g.countLabel }}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+                <sc-for list="{{ g.notes }}" as="n" hint-placeholder-count="2">
+                <div style="display:flex;min-width:0;flex-direction:column;overflow:hidden;border-radius:var(--r-md);background:var(--surface);cursor:pointer">
+                  <div style="position:relative;aspect-ratio:4/3;width:100%;overflow:hidden;border-bottom:1px solid var(--rule);padding:10px 12px 0;box-sizing:border-box;background:{{ n.previewBg }}"><p style="margin:0;font-size:9px;line-height:1.5;color:var(--text-muted)">{{ n.preview }}</p><span aria-hidden="true" style="position:absolute;left:0;right:0;bottom:0;height:28px;background:{{ n.fade }}"></span></div>
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:10px 12px"><span style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px;font-weight:700">{{ n.title }}</span><span style="flex-shrink:0;white-space:nowrap;font-size:11px;color:var(--text-muted)">{{ n.date }}</span></div>
+                  <div style="display:flex;align-items:center;gap:4px;border-top:1px solid var(--rule);padding:6px 12px;color:var(--text-muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17.5z"></path></svg><span style="padding:2px 0;font-size:11px;font-weight:600">{{ g.name }}</span></div>
+                </div>
+                </sc-for>
+              </div>
+            </div>
+            </sc-for>
+          </div>
+        </main></div>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+
+  <!-- TUTOR -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:13px;font-weight:700;color:oklch(0.6 0.01 60)">Tutor, empty</div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:22px;font-weight:700;letter-spacing:-0.025em">Tutor</div>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div style="display:flex;flex-direction:column;padding-top:16px">
+            <div style="font-size:20px;font-weight:700;line-height:1.375">What are we working on?</div>
+            <p style="margin:6px 0 0;max-width:448px;font-size:15px;line-height:1.625;color:var(--text-muted)">Type, attach a photo of your notes, or tap the mic and talk. It keeps listening until you tap again.</p>
+            <div style="margin-top:24px;border-top:1px solid var(--rule)">
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left;font-size:15px;font-weight:600"><span>Quiz me on my weak cards</span></button>
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left;font-size:15px;font-weight:600"><span>Explain a concept I keep missing</span></button>
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left;font-size:15px;font-weight:600"><span style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Help me plan for Pharmacology</span><span style="flex-shrink:0;font-size:14px;font-weight:500;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;margin-right:4px;font-size:15px;color:var(--text)">16</span>days</span></button>
+            </div>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:96px;display:flex;justify-content:center">
+          <div style="display:flex;width:100%;flex-direction:column;gap:6px;border-radius:var(--r-md);background:var(--surface);padding:8px;box-sizing:border-box">
+            <div style="display:flex;align-items:flex-end;gap:6px">
+              <button aria-label="Attach a photo" style="display:flex;height:32px;align-items:center;gap:6px;border-radius:var(--r-sm);padding:0 10px;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2.5"></rect><path d="M3 16l5-5 4 4 3-3 6 6"></path><circle cx="8" cy="9.5" r="1.5"></circle></svg></button>
+              <div style="flex:1;min-width:0;padding:7px 12px;font-size:14px;line-height:1.3;color:var(--text-muted)">Message the tutor…</div>
+              <button class="on-accent" aria-label="Start voice mode" style="display:flex;width:32px;height:32px;flex-shrink:0;align-items:center;justify-content:center;border-radius:var(--r-full);background:var(--accent)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <button style="display:inline-flex;height:32px;align-items:center;gap:6px;padding:0 12px;border-radius:var(--r-sm);font-size:12px;font-weight:600;color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"></path><path d="M19 15l.8 2.1L22 18l-2.2.9L19 21l-.8-2.1L16 18l2.2-.9L19 15z"></path></svg>Direct</button>
+              <button style="display:inline-flex;height:32px;align-items:center;gap:6px;padding:0 12px;border-radius:var(--r-sm);font-size:12px;font-weight:600;color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"></path><path d="M16 8a5 5 0 0 1 0 8"></path><path d="M19 5a9 9 0 0 1 0 14"></path></svg>Skylar</button>
+              <button style="display:inline-flex;height:32px;align-items:center;gap:6px;padding:0 12px;border-radius:var(--r-sm);font-size:12px;font-weight:600;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h11a1 1 0 0 1 1 1V21l-6.5-3L4.5 21V4.5a1 1 0 0 1 1-1z"></path><path d="M8.5 8h6"></path></svg>2 notes</button>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="tutor" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="position:relative;box-sizing:border-box;width:1280px;height:800px;overflow:hidden;display:flex;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <dc-import name="Sidebar" active="tutor" hint-size="240px,800px"></dc-import>
+        <div style="flex:1;min-width:0"><main style="box-sizing:border-box;max-width:1024px;margin:0 auto;padding:20px 40px 40px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"><div style="font-size:28px;font-weight:700;letter-spacing:-0.025em">Tutor</div></div>
+          <div style="margin:0 auto;display:flex;width:100%;max-width:640px;flex-direction:column;padding-top:16px">
+            <div style="font-size:20px;font-weight:700;line-height:1.375">What are we working on?</div>
+            <p style="margin:6px 0 0;max-width:448px;font-size:15px;line-height:1.625;color:var(--text-muted)">Type, attach a photo of your notes, or tap the mic and talk. It keeps listening until you tap again.</p>
+            <div style="margin-top:24px;border-top:1px solid var(--rule)">
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left;font-size:15px;font-weight:600"><span>Quiz me on my weak cards</span></button>
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left;font-size:15px;font-weight:600"><span>Explain a concept I keep missing</span></button>
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:14px 0;text-align:left;font-size:15px;font-weight:600"><span>Help me plan for Pharmacology</span><span style="flex-shrink:0;font-size:14px;font-weight:500;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;margin-right:4px;font-size:15px;color:var(--text)">16</span>days</span></button>
+            </div>
+          </div>
+        </main></div>
+        <div style="position:absolute;left:240px;right:0;bottom:24px;display:flex;justify-content:center;padding:0 40px">
+          <div style="display:flex;width:100%;max-width:640px;flex-direction:column;gap:6px;border-radius:var(--r-md);background:var(--surface);padding:8px;box-sizing:border-box">
+            <div style="display:flex;align-items:flex-end;gap:6px">
+              <button aria-label="Attach a photo" style="display:flex;height:32px;align-items:center;gap:6px;border-radius:var(--r-sm);padding:0 10px;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2.5"></rect><path d="M3 16l5-5 4 4 3-3 6 6"></path><circle cx="8" cy="9.5" r="1.5"></circle></svg></button>
+              <div style="flex:1;min-width:0;padding:7px 12px;font-size:14px;line-height:1.3;color:var(--text-muted)">Message the tutor…</div>
+              <button class="on-accent" aria-label="Start voice mode" style="display:flex;width:32px;height:32px;flex-shrink:0;align-items:center;justify-content:center;border-radius:var(--r-full);background:var(--accent)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <button style="display:inline-flex;height:32px;align-items:center;gap:6px;padding:0 12px;border-radius:var(--r-sm);font-size:12px;font-weight:600;color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"></path><path d="M19 15l.8 2.1L22 18l-2.2.9L19 21l-.8-2.1L16 18l2.2-.9L19 15z"></path></svg>Direct</button>
+              <button style="display:inline-flex;height:32px;align-items:center;gap:6px;padding:0 12px;border-radius:var(--r-sm);font-size:12px;font-weight:600;color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"></path><path d="M16 8a5 5 0 0 1 0 8"></path><path d="M19 5a9 9 0 0 1 0 14"></path></svg>Skylar</button>
+              <button style="display:inline-flex;height:32px;align-items:center;gap:6px;padding:0 12px;border-radius:var(--r-sm);font-size:12px;font-weight:600;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h11a1 1 0 0 1 1 1V21l-6.5-3L4.5 21V4.5a1 1 0 0 1 1-1z"></path><path d="M8.5 8h6"></path></svg>2 notes</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:13px;font-weight:700;color:oklch(0.6 0.01 60)">Settings</div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"><div style="font-size:22px;font-weight:700;letter-spacing:-0.025em">Settings</div></div>
+          <div style="display:flex;flex-direction:column;gap:24px">
+            <div style="border-radius:var(--r-sm);padding:10px 16px;font-size:14px;font-weight:600;background:var(--grade-forgot-bg);color:var(--grade-forgot)">Couldn't save your settings. Check your connection and try again.</div>
+            <section>
+              <div style="margin-bottom:8px;font-size:15px;font-weight:700">Appearance</div>
+              <div style="display:flex;flex-direction:column;border-radius:var(--r-md);background:var(--surface);padding:0 16px">
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Theme</div><div style="display:flex;gap:2px;border-radius:var(--r-sm);padding:2px;background:var(--bg)"><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">System</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:{{ t.lightW }};color:{{ t.lightC }};background:{{ t.lightBg }}">Light</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:{{ t.darkW }};color:{{ t.darkC }};background:{{ t.darkBg }}">Dark</span></div></div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--rule)"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Accent</div><div style="display:flex;gap:10px;padding:4px 0;align-items:center"><span style="display:block;width:28px;height:28px;border-radius:var(--r-full);background:oklch(0.7 0.145 40);outline:2px solid var(--text);outline-offset:2px"></span><span style="display:block;width:28px;height:28px;border-radius:var(--r-full);background:oklch(0.7 0.145 145)"></span><span style="display:block;width:28px;height:28px;border-radius:var(--r-full);background:oklch(0.7 0.145 250)"></span><span style="display:block;width:28px;height:28px;border-radius:var(--r-full);background:oklch(0.7 0.145 340)"></span><span style="display:flex;width:28px;height:28px;box-sizing:border-box;align-items:center;justify-content:center;border-radius:var(--r-full);border:1.5px dashed var(--text-muted);color:var(--text-muted);font-size:14px;font-weight:700">+</span></div></div></div>
+              </div>
+            </section>
+            <section>
+              <div style="margin-bottom:8px;font-size:15px;font-weight:700">Study behavior</div>
+              <div style="display:flex;flex-direction:column;border-radius:var(--r-md);background:var(--surface);padding:0 16px">
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">New cards per day</div><div style="display:flex;align-items:center;gap:2px"><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted)">−</button><span class="numeral" style="white-space:nowrap;min-width:44px;text-align:center;font-size:20px">20</span><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted)">+</button></div></div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--rule)"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Session size</div><div style="display:flex;align-items:center;gap:2px"><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted);opacity:0.4">−</button><span style="min-width:44px;text-align:center;font-size:14px;font-weight:600;color:var(--text-muted)">No limit</span><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted)">+</button></div></div><div style="font-size:13px;line-height:1.375;color:var(--text-muted)">Caps the whole queue. Due cards are kept before new ones.</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--rule)"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Grading</div><div style="display:flex;gap:2px;border-radius:var(--r-sm);padding:2px;background:var(--bg)"><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">Lenient</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">Balanced</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">Strict</span></div></div><div style="font-size:13px;line-height:1.375;color:var(--text-muted)">Wrong answers always count as forgotten. A half-remembered answer counts as hard, and comes back sooner.</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--rule)"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Daily goal</div><div style="display:flex;align-items:center;gap:2px"><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted);opacity:0.4">−</button><span style="min-width:44px;text-align:center;font-size:14px;font-weight:600;color:var(--text-muted)">Everything due</span><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted)">+</button></div></div><div style="font-size:13px;line-height:1.375;color:var(--text-muted)">Caps how many cards Home counts as due today. 0 uses everything due.</div></div>
+                <button style="display:flex;width:100%;align-items:center;justify-content:space-between;padding:14px 0;font-size:15px;font-weight:600;border-top:1px solid var(--rule)">Scheduling details<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+              </div>
+            </section>
+            <section>
+              <div style="margin-bottom:8px;font-size:15px;font-weight:700">Voice &amp; audio</div>
+              <div style="display:flex;flex-direction:column;border-radius:var(--r-md);background:var(--surface);padding:0 16px">
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Playback speed</div><div style="display:flex;gap:2px;border-radius:var(--r-sm);padding:2px;background:var(--bg)"><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">0.75x</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">1x</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">1.25x</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">1.5x</span></div></div><div style="font-size:13px;line-height:1.375;color:var(--text-muted)">How fast the tutor speaks. Pitch is preserved.</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--rule)"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Push to talk</div><span style="position:relative;display:block;width:52px;height:32px;border-radius:var(--r-full);background:var(--rule)"><i style="position:absolute;left:0;top:4px;width:24px;height:24px;border-radius:var(--r-full);background:var(--text-muted);transform:translateX(4px)"></i></span></div><div style="font-size:13px;line-height:1.375;color:var(--text-muted)">Your turn ends automatically when you stop speaking.</div></div>
+              </div>
+            </section>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="settings" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="box-sizing:border-box;width:1280px;height:800px;overflow:hidden;display:flex;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <dc-import name="Sidebar" active="settings" hint-size="240px,800px"></dc-import>
+        <div style="flex:1;min-width:0"><main style="box-sizing:border-box;max-width:1024px;margin:0 auto;padding:20px 40px 40px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"><div style="font-size:28px;font-weight:700;letter-spacing:-0.025em">Settings</div></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;align-items:start;column-gap:40px;row-gap:24px">
+            <section>
+              <div style="margin-bottom:8px;font-size:15px;font-weight:700">Appearance</div>
+              <div style="display:flex;flex-direction:column;border-radius:var(--r-md);background:var(--surface);padding:0 16px">
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Theme</div><div style="display:flex;gap:2px;border-radius:var(--r-sm);padding:2px;background:var(--bg)"><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">System</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:{{ t.lightW }};color:{{ t.lightC }};background:{{ t.lightBg }}">Light</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:{{ t.darkW }};color:{{ t.darkC }};background:{{ t.darkBg }}">Dark</span></div></div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--rule)"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Accent</div><div style="display:flex;gap:10px;padding:4px 0;align-items:center"><span style="display:block;width:28px;height:28px;border-radius:var(--r-full);background:oklch(0.7 0.145 40);outline:2px solid var(--text);outline-offset:2px"></span><span style="display:block;width:28px;height:28px;border-radius:var(--r-full);background:oklch(0.7 0.145 145)"></span><span style="display:block;width:28px;height:28px;border-radius:var(--r-full);background:oklch(0.7 0.145 250)"></span><span style="display:block;width:28px;height:28px;border-radius:var(--r-full);background:oklch(0.7 0.145 340)"></span><span style="display:flex;width:28px;height:28px;box-sizing:border-box;align-items:center;justify-content:center;border-radius:var(--r-full);border:1.5px dashed var(--text-muted);color:var(--text-muted);font-size:14px;font-weight:700">+</span></div></div></div>
+              </div>
+            </section>
+            <section>
+              <div style="margin-bottom:8px;font-size:15px;font-weight:700">Study behavior</div>
+              <div style="display:flex;flex-direction:column;border-radius:var(--r-md);background:var(--surface);padding:0 16px">
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">New cards per day</div><div style="display:flex;align-items:center;gap:2px"><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted)">−</button><span class="numeral" style="white-space:nowrap;min-width:44px;text-align:center;font-size:20px">20</span><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted)">+</button></div></div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--rule)"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Session size</div><div style="display:flex;align-items:center;gap:2px"><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted);opacity:0.4">−</button><span style="min-width:44px;text-align:center;font-size:14px;font-weight:600;color:var(--text-muted)">No limit</span><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted)">+</button></div></div><div style="font-size:13px;line-height:1.375;color:var(--text-muted)">Caps the whole queue. Due cards are kept before new ones.</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--rule)"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Grading</div><div style="display:flex;gap:2px;border-radius:var(--r-sm);padding:2px;background:var(--bg)"><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">Lenient</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">Balanced</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">Strict</span></div></div><div style="font-size:13px;line-height:1.375;color:var(--text-muted)">Wrong answers always count as forgotten. A half-remembered answer counts as hard, and comes back sooner.</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--rule)"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Daily goal</div><div style="display:flex;align-items:center;gap:2px"><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted);opacity:0.4">−</button><span style="min-width:44px;text-align:center;font-size:14px;font-weight:600;color:var(--text-muted)">Everything due</span><button style="display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--r-sm);font-size:18px;color:var(--text-muted)">+</button></div></div><div style="font-size:13px;line-height:1.375;color:var(--text-muted)">Caps how many cards Home counts as due today. 0 uses everything due.</div></div>
+                <button style="display:flex;width:100%;align-items:center;justify-content:space-between;padding:14px 0;font-size:15px;font-weight:600;border-top:1px solid var(--rule)">Scheduling details<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+              </div>
+            </section>
+            <section>
+              <div style="margin-bottom:8px;font-size:15px;font-weight:700">Voice &amp; audio</div>
+              <div style="display:flex;flex-direction:column;border-radius:var(--r-md);background:var(--surface);padding:0 16px">
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Playback speed</div><div style="display:flex;gap:2px;border-radius:var(--r-sm);padding:2px;background:var(--bg)"><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">0.75x</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:700;color:var(--text);background:var(--surface)">1x</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">1.25x</span><span style="padding:6px 12px;border-radius:4px;font-size:13px;font-weight:600;color:var(--text-muted)">1.5x</span></div></div><div style="font-size:13px;line-height:1.375;color:var(--text-muted)">How fast the tutor speaks. Pitch is preserved.</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px;padding:14px 0;border-top:1px solid var(--rule)"><div style="display:flex;min-height:36px;align-items:center;justify-content:space-between;gap:16px"><div style="font-size:15px;font-weight:600">Push to talk</div><span style="position:relative;display:block;width:52px;height:32px;border-radius:var(--r-full);background:var(--rule)"><i style="position:absolute;left:0;top:4px;width:24px;height:24px;border-radius:var(--r-full);background:var(--text-muted);transform:translateX(4px)"></i></span></div><div style="font-size:13px;line-height:1.375;color:var(--text-muted)">Your turn ends automatically when you stop speaking.</div></div>
+              </div>
+            </section>
+            <section>
+              <div style="margin-bottom:8px;font-size:15px;font-weight:700">Account</div>
+              <div style="display:flex;flex-direction:column;border-radius:var(--r-md);background:var(--surface);padding:0 16px">
+                <div style="display:flex;align-items:center;gap:14px;padding:14px 0"><div style="display:flex;width:40px;height:40px;flex-shrink:0;align-items:center;justify-content:center;border-radius:var(--r-full);font-size:16px;font-weight:700;background:var(--rule);color:var(--text)">M</div><div style="min-width:0;flex:1"><div style="font-size:14px;font-weight:700">Maya Ngoman</div><div style="font-size:12px;color:var(--text-muted)">maya@example.com</div></div><button style="flex-shrink:0;padding:8px 0;font-size:14px;font-weight:700;color:var(--text-muted)">Sign out</button></div>
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--rule)"><span style="font-size:15px;font-weight:600">Rekall AI</span><span style="font-size:14px;color:var(--text-muted)">Active</span></div>
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--rule)"><span style="font-size:15px;font-weight:600">Voice</span><span style="font-size:14px;color:var(--text-muted)">4 h left</span></div>
+                <button style="display:flex;width:100%;align-items:center;justify-content:space-between;padding:14px 0;font-size:15px;font-weight:600;border-top:1px solid var(--rule)">Plans<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+              </div>
+            </section>
+          </div>
+        </main></div>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+
+  <!-- STUDY -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:13px;font-weight:700;color:oklch(0.6 0.01 60)">Study, answering and graded</div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:24px 16px 0;display:flex;flex-direction:column;gap:40px">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <button style="margin-left:-8px;display:flex;height:44px;align-items:center;gap:6px;border-radius:var(--r-sm);padding:0 8px;font-size:15px;font-weight:600;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>Pharmacology</button>
+              <div style="display:flex;flex-shrink:0;align-items:baseline;gap:6px"><span class="numeral" style="white-space:nowrap;font-size:28px">23</span><span style="font-size:13px;font-weight:600;color:var(--text-muted)">left</span></div>
+            </div>
+            <div style="margin-top:8px;height:3px;overflow:hidden;border-radius:2px;background:var(--rule)"><div style="height:100%;width:0%;background:var(--accent)"></div></div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted)">Pharmacokinetics</div>
+            <div style="margin-top:8px;font-size:24px;font-weight:700;line-height:1.375;text-wrap:pretty">Why does a drug with a high volume of distribution have a longer half-life?</div>
+          </div>
+          <div style="box-sizing:border-box;min-height:132px;width:100%;border-radius:var(--r-md);background:var(--surface);padding:14px 16px;font-size:15px;line-height:1.625;color:var(--text-muted);outline:2px solid var(--accent);outline-offset:2px">Type your answer</div>
+          <button class="on-accent" style="white-space:nowrap;width:100%;border-radius:var(--r-full);background:var(--accent);padding:16px;font-size:17px;font-weight:700">Check my answer</button>
+        </main>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:24px 16px 0;display:flex;flex-direction:column;gap:40px">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <button style="margin-left:-8px;display:flex;height:44px;align-items:center;gap:6px;border-radius:var(--r-sm);padding:0 8px;font-size:15px;font-weight:600;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>Pharmacology</button>
+              <div style="display:flex;flex-shrink:0;align-items:baseline;gap:6px"><span class="numeral" style="white-space:nowrap;font-size:28px">18</span><span style="font-size:13px;font-weight:600;color:var(--text-muted)">left</span></div>
+            </div>
+            <div style="margin-top:8px;height:3px;overflow:hidden;border-radius:2px;background:var(--rule)"><div style="height:100%;width:22%;background:var(--accent)"></div></div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted)">Pharmacokinetics</div>
+            <div style="margin-top:8px;font-size:18px;font-weight:700;line-height:1.375;text-wrap:pretty">Why does a drug with a high volume of distribution have a longer half-life?</div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:flex-end;gap:16px;color:var(--grade-hard)">
+              <div style="display:flex;align-items:baseline;gap:4px"><span class="numeral" style="white-space:nowrap;font-size:72px">3</span><span class="numeral" style="white-space:nowrap;font-size:28px;opacity:0.7">/5</span></div>
+              <div style="padding-bottom:4px"><div style="font-size:17px;font-weight:700">Hard</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">Back in 7 days</div></div>
+            </div>
+            <div aria-hidden="true" style="margin-top:16px;display:flex;gap:3px"><span style="height:3px;flex:1;border-radius:2px;background:var(--grade-hard)"></span><span style="height:3px;flex:1;border-radius:2px;background:var(--grade-hard)"></span><span style="height:3px;flex:1;border-radius:2px;background:var(--grade-hard)"></span><span style="height:3px;flex:1;border-radius:2px;background:var(--rule)"></span><span style="height:3px;flex:1;border-radius:2px;background:var(--rule)"></span></div>
+            <p style="margin:16px 0 0;font-size:15px;line-height:1.625">Close. A large volume of distribution means most of the drug sits in tissue rather than plasma, so the kidneys and liver only ever see a small fraction of it at a time. Clearance works on plasma, so elimination takes longer.</p>
+            <div style="margin-top:20px;border-top:1px solid var(--rule);padding-top:12px"><div style="font-size:13px;font-weight:600;color:var(--text-muted)">You wrote</div><p style="margin:6px 0 0;font-size:14px;line-height:1.625;color:var(--text-muted)">Because more of the drug is in the tissues so it takes longer to clear.</p></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <button class="on-accent" style="white-space:nowrap;width:100%;border-radius:var(--r-full);background:var(--accent);padding:16px;font-size:17px;font-weight:700">Next card, 17 left</button>
+            <button style="align-self:flex-start;font-size:13px;font-weight:600;color:var(--text-muted);text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:4px">Go over this with the tutor</button>
+            <button style="align-self:flex-start;font-size:13px;font-weight:600;color:var(--text-muted);text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:4px">This card doesn't look right</button>
+          </div>
+        </main>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="{{ t.cls }}" style="box-sizing:border-box;width:1280px;height:800px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="box-sizing:border-box;max-width:1280px;margin:0 auto;padding:24px 40px 24px">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 360px;align-items:start;column-gap:72px;row-gap:40px">
+            <div style="grid-column:span 2">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><button style="margin-left:-8px;display:flex;height:44px;align-items:center;gap:6px;border-radius:var(--r-sm);padding:0 8px;font-size:15px;font-weight:600;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>Pharmacology</button></div>
+              <div style="margin-top:8px;height:3px;overflow:hidden;border-radius:2px;background:var(--rule)"><div style="height:100%;width:22%;background:var(--accent)"></div></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:40px">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--text-muted)">Pharmacokinetics</div>
+                <div style="margin-top:8px;font-size:18px;font-weight:700;line-height:1.375;text-wrap:pretty">Why does a drug with a high volume of distribution have a longer half-life?</div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:flex-end;gap:16px;color:var(--grade-hard)">
+                  <div style="display:flex;align-items:baseline;gap:4px"><span class="numeral" style="white-space:nowrap;font-size:72px">3</span><span class="numeral" style="white-space:nowrap;font-size:28px;opacity:0.7">/5</span></div>
+                  <div style="padding-bottom:4px"><div style="font-size:17px;font-weight:700">Hard</div><div style="margin-top:2px;font-size:13px;color:var(--text-muted)">Back in 7 days</div></div>
+                </div>
+                <div aria-hidden="true" style="margin-top:16px;display:flex;gap:3px"><span style="height:3px;flex:1;border-radius:2px;background:var(--grade-hard)"></span><span style="height:3px;flex:1;border-radius:2px;background:var(--grade-hard)"></span><span style="height:3px;flex:1;border-radius:2px;background:var(--grade-hard)"></span><span style="height:3px;flex:1;border-radius:2px;background:var(--rule)"></span><span style="height:3px;flex:1;border-radius:2px;background:var(--rule)"></span></div>
+                <p style="margin:16px 0 0;font-size:15px;line-height:1.625">Close. A large volume of distribution means most of the drug sits in tissue rather than plasma, so the kidneys and liver only ever see a small fraction of it at a time. Clearance works on plasma, so elimination takes longer.</p>
+              </div>
+              <div style="display:flex;align-items:center;gap:20px">
+                <button class="on-accent" style="white-space:nowrap;border-radius:var(--r-full);background:var(--accent);padding:12px 32px;font-size:17px;font-weight:700">Next card, 17 left</button>
+                <button style="font-size:13px;font-weight:600;color:var(--text-muted);text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:4px">Go over this with the tutor</button>
+                <button style="font-size:13px;font-weight:600;color:var(--text-muted);text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:4px">This card doesn't look right</button>
+              </div>
+            </div>
+            <aside style="display:flex;flex-direction:column;gap:24px">
+              <div style="display:flex;align-items:baseline;gap:8px"><span class="numeral" style="white-space:nowrap;font-size:96px">18</span><span style="font-size:13px;font-weight:600;color:var(--text-muted)">left</span></div>
+              <div style="display:flex;flex-direction:column;gap:20px">
+                <div style="border-top:1px solid var(--rule);padding-top:12px"><div style="font-size:13px;font-weight:600;color:var(--text-muted)">You wrote</div><p style="margin:6px 0 0;font-size:14px;line-height:1.625;color:var(--text-muted)">Because more of the drug is in the tissues so it takes longer to clear.</p></div>
+                <div style="border-top:1px solid var(--rule);padding-top:12px"><div style="font-size:13px;font-weight:600;color:var(--text-muted)">Model answer</div><p style="margin:6px 0 0;font-size:14px;line-height:1.625;color:var(--text-muted)">A high Vd means the drug is mostly in tissue, not plasma. Elimination acts on plasma, so at any moment only a small fraction is available to clear, and half-life (0.693 × Vd / CL) rises with Vd.</p></div>
+              </div>
+            </aside>
+          </div>
+        </main>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;themes&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;both&quot;,&quot;options&quot;:[&quot;both&quot;,&quot;dark&quot;,&quot;light&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Boards&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const which = this.props.themes ?? 'both';
+    const all = [
+      { cls: 'theme-dark', name: 'Dark', darkW: 700, darkC: 'var(--text)', darkBg: 'var(--surface)', lightW: 600, lightC: 'var(--text-muted)', lightBg: 'transparent' },
+      { cls: 'theme-light', name: 'Light', darkW: 600, darkC: 'var(--text-muted)', darkBg: 'transparent', lightW: 700, lightC: 'var(--text)', lightBg: 'var(--surface)' },
+    ];
+    const themes = which === 'both' ? all : all.filter((t) => t.name.toLowerCase() === which);
+
+    const decks = [
+      { name: 'Pharmacology', status: '23 left today', total: 240, opacity: 1 },
+      { name: 'Organic Chemistry II', status: '18 left today', total: 612, opacity: 1 },
+      { name: 'Statistics', status: 'Done for today', total: 180, opacity: 1 },
+      { name: 'Anatomy', status: 'Exam passed. Study anytime.', total: 95, opacity: 0.6 },
+    ];
+
+    // September 2026, Monday-first: Aug 31 .. Oct 11. Today is Wed 16 Sep.
+    const counts = [12, 9, 14, 22, 18, 6, 0, 31, 0, 27, 24, 19, 8, 4, 33, 41, 38, 46, 53, 29, 11, 6, 44, 47, 39, 42, 36, 13, 9, 40, 48, 35, 50, 22, 10, 7, 30, 26, 28, 24, 12, 5];
+    const max = 53;
+    const exams = { 9: 'Anatomy', 32: 'Pharmacology' };
+    const cells = counts.map((count, i) => {
+      const dayNum = i === 0 ? 31 : i <= 30 ? i : i - 30;
+      const inMonth = i >= 1 && i <= 30;
+      const isToday = i === 16;
+      const isPast = i < 16;
+      const mix = Math.round((count / max) * 100);
+      return {
+        day: dayNum, count,
+        opacity: !inMonth ? 0.3 : isPast ? 0.4 : 1,
+        todayDisplay: isToday ? 'block' : 'none',
+        numWeight: isToday ? 700 : 600,
+        numColor: isToday ? 'var(--accent)' : 'var(--text)',
+        barDisplay: count > 0 ? 'block' : 'none',
+        barH: `${Math.max(25, mix)}%`,
+        barColor: `color-mix(in oklab, var(--accent) ${mix}%, var(--accent-dim))`,
+        todayCountDisplay: isToday && count > 0 ? 'block' : 'none',
+        countLabel: `${count} ${count === 1 ? 'card' : 'cards'}`,
+        exam: exams[i] ?? '',
+        examDisplay: exams[i] ? 'block' : 'none',
+      };
+    });
+
+    const previewBg = 'color-mix(in oklab, var(--surface) 55%, var(--bg))';
+    const fade = `linear-gradient(to bottom, transparent, ${previewBg})`;
+    const noteGroups = [
+      { name: 'Organic Chemistry II', countLabel: '3 notes', notes: [
+        { title: 'SN1 vs SN2 mechanisms', date: '3 Sep', preview: 'SN1 goes through a planar carbocation, so the nucleophile attacks either face and you lose stereochemistry. SN2 is one concerted step with backside attack, so configuration inverts. Tertiary substrates favour SN1; primary favour SN2. Polar protic solvents stabilise the carbocation.', previewBg, fade },
+        { title: 'Week 4 lecture', date: 'PDF, 31 Aug', preview: 'Elimination reactions. E1 shares the carbocation intermediate with SN1 and competes with it at higher temperature. E2 is concerted and anti-periplanar; Zaitsev product dominates unless a bulky base is used, in which case Hofmann.', previewBg, fade },
+      ] },
+      { name: 'Pharmacology', countLabel: '2 notes', notes: [
+        { title: 'Half-life and Vd', date: '12 Sep', preview: 'Half-life = 0.693 × Vd / CL. A drug with a large volume of distribution is mostly in tissue, so clearance, which acts on plasma, sees only a fraction at a time. Loading dose = Vd × target concentration.', previewBg, fade },
+        { title: 'Beta blockers', date: '8 Sep', preview: 'Non-selective (propranolol) block β1 and β2; cardioselective (atenolol, metoprolol) mainly β1. Contraindicated in asthma. Masks hypoglycaemia. Withdraw slowly to avoid rebound tachycardia.', previewBg, fade },
+      ] },
+    ];
+
+    return { themes, decks, cells, noteGroups };
+  }
+}
+</script>
+</body>
+</html>

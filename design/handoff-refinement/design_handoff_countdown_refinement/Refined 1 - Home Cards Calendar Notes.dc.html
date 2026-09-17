@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="tokens-v2.css">
+<style>
+a { color: inherit; } a:hover { color: inherit; }
+</style>
+</helmet>
+<section style="padding:40px;display:flex;flex-direction:column;gap:56px;font-family:var(--font-body);color:oklch(0.9 0.01 60)">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:900px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:oklch(0.6 0.01 60)">Rekall, Countdown, refinement pass, 1 of 2</div>
+    <div style="font-size:28px;font-weight:700;letter-spacing:-0.02em">Home, Cards, Calendar, Notes</div>
+    <div style="font-size:15px;color:oklch(0.7 0.01 60);text-wrap:pretty">390 × 844 and 1280 × 800, dark and light. Continues in <a href="Refined 2 - Tutor Settings Study.dc.html">Tutor, Settings, Study</a>. Every changed value is listed in the <a href="Components delta.dc.html">components delta</a>; the shipped build is in <a href="Current build.dc.html">Current build</a>.</div>
+  </div>
+
+  <!-- HOME -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:4px;max-width:900px"><div style="font-size:15px;font-weight:700">Home</div><div style="font-size:13px;color:oklch(0.65 0.01 60);text-wrap:pretty">The button names the deck it will open. Exam rows carry the count in the condensed face; deck cards carry their card total the same way, so the two rows stop looking alike. Paused decks go muted instead of translucent. Desktop spreads the decks across the width. Home B is the cross-deck alternative.</div></div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="v2 {{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <span style="display:flex;align-items:center;gap:9px"><svg width="22" height="22" viewBox="0 0 120 120" fill="none" style="color:var(--text-muted)"><g stroke="currentColor" stroke-opacity="0.42" stroke-linecap="round"><line x1="26" y1="84" x2="56" y2="92" stroke-width="6"></line><line x1="56" y1="92" x2="38" y2="58" stroke-width="6"></line><line x1="38" y1="58" x2="26" y2="84" stroke-width="6"></line><line x1="38" y1="58" x2="88" y2="40" stroke-width="5.5"></line><line x1="56" y1="92" x2="88" y2="40" stroke-width="5.5"></line></g><g fill="currentColor"><circle cx="26" cy="84" r="8.5" fill-opacity="0.58"></circle><circle cx="56" cy="92" r="8.5" fill-opacity="0.58"></circle><circle cx="38" cy="58" r="8.5" fill-opacity="0.58"></circle><circle cx="88" cy="40" r="13.5" fill="var(--text)"></circle></g></svg><span style="font-size:16px;font-weight:700;letter-spacing:-0.03em;color:var(--text)">Rekall</span></span>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:32px;padding-top:8px">
+            <div style="display:flex;flex-direction:column">
+              <button style="align-self:flex-start;text-align:left;font-size:20px;font-weight:700;line-height:1.375;letter-spacing:-0.01em">Pharmacology</button>
+              <div style="margin-top:4px;display:flex;align-items:baseline;gap:12px"><span class="numeral" style="white-space:nowrap;font-size:136px;color:var(--accent)">16</span><span style="font-size:17px;font-weight:600;color:var(--text-muted)">days</span></div>
+              <div style="margin-top:20px;display:flex;align-items:baseline;gap:8px"><span class="numeral" style="white-space:nowrap;font-size:32px">41</span><span style="font-size:15px;font-weight:600;color:var(--text-muted)">cards due today, across 2 decks</span></div>
+              <button class="on-accent" style="white-space:nowrap;margin-top:20px;width:100%;border-radius:var(--r-full);background:var(--accent);padding:15px 16px;font-size:19px;font-weight:700;line-height:1.2">Start Pharmacology, 23 due</button>
+            </div>
+            <div style="border-top:1px solid var(--rule)">
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:13px 0;text-align:left"><span style="font-size:15px;font-weight:600">Organic Chemistry II</span><span style="display:flex;align-items:baseline;gap:5px;color:var(--text-muted);font-size:13px"><span class="numeral" style="white-space:nowrap;font-size:18px;color:var(--text)">34</span>days</span></button>
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:13px 0;text-align:left"><span style="font-size:15px;font-weight:600">Statistics</span><span style="display:flex;align-items:baseline;gap:5px;color:var(--text-muted);font-size:13px"><span class="numeral" style="white-space:nowrap;font-size:18px;color:var(--text)">40</span>days</span></button>
+            </div>
+            <div>
+              <div style="margin-bottom:12px;font-size:17px;font-weight:700;letter-spacing:-0.01em">Decks</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ decks }}" as="d" hint-placeholder-count="4">
+                <button style="display:flex;width:100%;align-items:center;gap:12px;border-radius:var(--r-md);background:var(--surface);padding:12px 16px;text-align:left"><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ d.nameColor }}">{{ d.name }}</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">{{ d.status }}</span></span><span style="display:flex;flex-shrink:0;align-items:baseline;gap:5px;font-size:11px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:20px;color:{{ d.nameColor }}">{{ d.total }}</span>cards</span></button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="home" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="v2 {{ t.cls }}" style="box-sizing:border-box;width:1280px;height:800px;overflow:hidden;display:flex;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <dc-import name="Sidebar" active="home" v2="{{ true }}" hint-size="240px,800px"></dc-import>
+        <div style="flex:1;min-width:0"><main style="box-sizing:border-box;max-width:1024px;margin:0 auto;padding:20px 40px 40px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:end;column-gap:56px;padding-top:8px">
+            <div style="display:flex;flex-direction:column">
+              <button style="align-self:flex-start;text-align:left;font-size:20px;font-weight:700;line-height:1.375;letter-spacing:-0.01em">Pharmacology</button>
+              <div style="margin-top:4px;display:flex;align-items:baseline;gap:12px"><span class="numeral" style="white-space:nowrap;font-size:224px;color:var(--accent)">16</span><span style="font-size:17px;font-weight:600;color:var(--text-muted)">days</span></div>
+              <div style="margin-top:20px;display:flex;align-items:baseline;gap:8px"><span class="numeral" style="white-space:nowrap;font-size:32px">41</span><span style="font-size:15px;font-weight:600;color:var(--text-muted)">cards due today, across 2 decks</span></div>
+              <button class="on-accent" style="white-space:nowrap;margin-top:20px;align-self:flex-start;border-radius:var(--r-full);background:var(--accent);padding:11px 36px;font-size:19px;font-weight:700;line-height:1.2">Start Pharmacology, 23 due</button>
+            </div>
+            <div style="border-top:1px solid var(--rule)">
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:13px 0;text-align:left"><span style="font-size:15px;font-weight:600">Organic Chemistry II</span><span style="display:flex;align-items:baseline;gap:5px;color:var(--text-muted);font-size:13px"><span class="numeral" style="white-space:nowrap;font-size:18px;color:var(--text)">34</span>days</span></button>
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:13px 0;text-align:left"><span style="font-size:15px;font-weight:600">Statistics</span><span style="display:flex;align-items:baseline;gap:5px;color:var(--text-muted);font-size:13px"><span class="numeral" style="white-space:nowrap;font-size:18px;color:var(--text)">40</span>days</span></button>
+            </div>
+          </div>
+          <div style="margin-top:48px">
+            <div style="margin-bottom:12px;font-size:17px;font-weight:700;letter-spacing:-0.01em">Decks</div>
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+              <sc-for list="{{ decks }}" as="d" hint-placeholder-count="4">
+              <button style="display:flex;flex-direction:column;align-items:stretch;gap:22px;border-radius:var(--r-md);background:var(--surface);padding:16px 18px 14px;text-align:left"><span style="min-width:0"><span style="display:block;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ d.nameColor }}">{{ d.name }}</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">{{ d.status }}</span></span><span style="display:flex;align-items:baseline;gap:6px;font-size:13px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:28px;color:{{ d.nameColor }}">{{ d.total }}</span>cards</span></button>
+              </sc-for>
+            </div>
+          </div>
+        </main></div>
+      </div>
+    </sc-for>
+    </div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+      <div style="width:390px;font-size:13px;color:oklch(0.65 0.01 60);text-wrap:pretty">Home B, cross-deck session: one button for everything due; the line under it says the order, and Study's header names the deck each card comes from.</div>
+      <div style="width:390px;font-size:13px;color:oklch(0.65 0.01 60);text-wrap:pretty">Home, loading: the countdown's block height is reserved, and nothing is shown for the first 300 ms, so the page never reflows.</div>
+    </div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="v2 {{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <span style="display:flex;align-items:center;gap:9px"><svg width="22" height="22" viewBox="0 0 120 120" fill="none" style="color:var(--text-muted)"><g stroke="currentColor" stroke-opacity="0.42" stroke-linecap="round"><line x1="26" y1="84" x2="56" y2="92" stroke-width="6"></line><line x1="56" y1="92" x2="38" y2="58" stroke-width="6"></line><line x1="38" y1="58" x2="26" y2="84" stroke-width="6"></line><line x1="38" y1="58" x2="88" y2="40" stroke-width="5.5"></line><line x1="56" y1="92" x2="88" y2="40" stroke-width="5.5"></line></g><g fill="currentColor"><circle cx="26" cy="84" r="8.5" fill-opacity="0.58"></circle><circle cx="56" cy="92" r="8.5" fill-opacity="0.58"></circle><circle cx="38" cy="58" r="8.5" fill-opacity="0.58"></circle><circle cx="88" cy="40" r="13.5" fill="var(--text)"></circle></g></svg><span style="font-size:16px;font-weight:700;letter-spacing:-0.03em;color:var(--text)">Rekall</span></span>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:32px;padding-top:8px">
+            <div style="display:flex;flex-direction:column">
+              <button style="align-self:flex-start;text-align:left;font-size:20px;font-weight:700;line-height:1.375;letter-spacing:-0.01em">Pharmacology</button>
+              <div style="margin-top:4px;display:flex;align-items:baseline;gap:12px"><span class="numeral" style="white-space:nowrap;font-size:136px;color:var(--accent)">16</span><span style="font-size:17px;font-weight:600;color:var(--text-muted)">days</span></div>
+              <div style="margin-top:20px;display:flex;align-items:baseline;gap:8px"><span class="numeral" style="white-space:nowrap;font-size:32px">41</span><span style="font-size:15px;font-weight:600;color:var(--text-muted)">cards due today</span></div>
+              <button class="on-accent" style="white-space:nowrap;margin-top:20px;width:100%;border-radius:var(--r-full);background:var(--accent);padding:15px 16px;font-size:19px;font-weight:700;line-height:1.2">Start today's 41</button>
+              <div style="margin-top:10px;text-align:center;font-size:13px;color:var(--text-muted)">Pharmacology first, then Organic Chemistry II</div>
+            </div>
+            <div style="border-top:1px solid var(--rule)">
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:13px 0;text-align:left"><span style="font-size:15px;font-weight:600">Organic Chemistry II</span><span style="display:flex;align-items:baseline;gap:5px;color:var(--text-muted);font-size:13px"><span class="numeral" style="white-space:nowrap;font-size:18px;color:var(--text)">34</span>days</span></button>
+              <button style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:13px 0;text-align:left"><span style="font-size:15px;font-weight:600">Statistics</span><span style="display:flex;align-items:baseline;gap:5px;color:var(--text-muted);font-size:13px"><span class="numeral" style="white-space:nowrap;font-size:18px;color:var(--text)">40</span>days</span></button>
+            </div>
+            <div>
+              <div style="margin-bottom:12px;font-size:17px;font-weight:700;letter-spacing:-0.01em">Decks</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ decks }}" as="d" hint-placeholder-count="4">
+                <button style="display:flex;width:100%;align-items:center;gap:12px;border-radius:var(--r-md);background:var(--surface);padding:12px 16px;text-align:left"><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ d.nameColor }}">{{ d.name }}</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">{{ d.status }}</span></span><span style="display:flex;flex-shrink:0;align-items:baseline;gap:5px;font-size:11px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:20px;color:{{ d.nameColor }}">{{ d.total }}</span>cards</span></button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="home" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="v2 {{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <span style="display:flex;align-items:center;gap:9px"><svg width="22" height="22" viewBox="0 0 120 120" fill="none" style="color:var(--text-muted)"><g stroke="currentColor" stroke-opacity="0.42" stroke-linecap="round"><line x1="26" y1="84" x2="56" y2="92" stroke-width="6"></line><line x1="56" y1="92" x2="38" y2="58" stroke-width="6"></line><line x1="38" y1="58" x2="26" y2="84" stroke-width="6"></line><line x1="38" y1="58" x2="88" y2="40" stroke-width="5.5"></line><line x1="56" y1="92" x2="88" y2="40" stroke-width="5.5"></line></g><g fill="currentColor"><circle cx="26" cy="84" r="8.5" fill-opacity="0.58"></circle><circle cx="56" cy="92" r="8.5" fill-opacity="0.58"></circle><circle cx="38" cy="58" r="8.5" fill-opacity="0.58"></circle><circle cx="88" cy="40" r="13.5" fill="var(--text)"></circle></g></svg><span style="font-size:16px;font-weight:700;letter-spacing:-0.03em;color:var(--text)">Rekall</span></span>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div aria-busy="true" aria-label="Loading" style="padding-top:8px;min-height:268px"></div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="home" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+
+  <!-- CARDS -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:4px;max-width:900px"><div style="font-size:15px;font-weight:700">Cards</div><div style="font-size:13px;color:oklch(0.65 0.01 60);text-wrap:pretty">The library is divided rows on the page, full width on desktop, with the three ways in folded into the header row. Edit stays on the row; delete moves into the edit screen. Card totals in the condensed face.</div></div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="v2 {{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em">Your Cards</div>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:28px">
+            <div style="border-radius:var(--r-md);background:var(--surface);overflow:hidden">
+              <button style="display:flex;width:100%;align-items:center;gap:14px;padding:14px 16px;text-align:left"><span style="display:flex;color:var(--text-muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></span><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700">Write your own</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">Type questions and answers yourself</span></span></button>
+              <button style="display:flex;width:100%;align-items:center;gap:14px;padding:14px 16px;text-align:left;border-top:1px solid var(--rule)"><span style="display:flex;color:var(--text-muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700">Import CSV</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">From a spreadsheet or export</span></span></button>
+              <button style="display:flex;width:100%;align-items:center;gap:14px;padding:14px 16px;text-align:left;border-top:1px solid var(--rule)"><span style="display:flex;color:var(--text-muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"></path></svg></span><span style="min-width:0;flex:1"><span style="display:block;font-size:15px;font-weight:700">Generate with AI</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">From photos of your notes or a PDF</span></span></button>
+            </div>
+            <div>
+              <div style="margin-bottom:6px;display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:17px;font-weight:700;letter-spacing:-0.01em">Library</span><span style="font-size:13px;color:var(--text-muted)">4 decks, 1,127 cards</span></div>
+              <div style="border-top:1px solid var(--rule)">
+                <sc-for list="{{ decks }}" as="d" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--rule);padding:8px 0"><button style="min-width:0;flex:1;text-align:left;padding:4px 0"><span style="display:block;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ d.nameColor }}">{{ d.name }}</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">{{ d.status }}</span></button><span style="display:flex;flex-shrink:0;align-items:baseline;gap:5px;font-size:11px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:20px;color:{{ d.nameColor }}">{{ d.total }}</span>cards</span><button aria-label="Edit {{ d.name }}" style="margin-right:-12px;display:flex;width:44px;height:44px;flex-shrink:0;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="cards" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="v2 {{ t.cls }}" style="box-sizing:border-box;width:1280px;height:800px;overflow:hidden;display:flex;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <dc-import name="Sidebar" active="cards" v2="{{ true }}" hint-size="240px,800px"></dc-import>
+        <div style="flex:1;min-width:0"><main style="box-sizing:border-box;max-width:1024px;margin:0 auto;padding:20px 40px 40px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"><div style="font-size:28px;font-weight:700;letter-spacing:-0.02em">Your Cards</div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:12px 0 8px">
+            <span style="font-size:14px;color:var(--text-muted)">4 decks, 1,127 cards</span>
+            <div style="display:flex;align-items:center;gap:4px">
+              <button style="display:flex;height:40px;align-items:center;gap:8px;border-radius:var(--r-sm);padding:0 12px;font-size:14px;font-weight:700"><span style="display:flex;color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></span>Write your own</button>
+              <button style="display:flex;height:40px;align-items:center;gap:8px;border-radius:var(--r-sm);padding:0 12px;font-size:14px;font-weight:700"><span style="display:flex;color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></span>Import CSV</button>
+              <button style="display:flex;height:40px;align-items:center;gap:8px;border-radius:var(--r-sm);padding:0 12px;font-size:14px;font-weight:700"><span style="display:flex;color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z"></path></svg></span>Generate with AI</button>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--rule)">
+            <sc-for list="{{ decks }}" as="d" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 220px 140px 44px;align-items:center;column-gap:24px;border-bottom:1px solid var(--rule);padding:10px 0"><button style="min-width:0;text-align:left;padding:4px 0;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ d.nameColor }}">{{ d.name }}</button><span style="font-size:13px;color:var(--text-muted)">{{ d.status }}</span><span style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px;font-size:13px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:22px;color:{{ d.nameColor }}">{{ d.total }}</span>cards</span><button aria-label="Edit {{ d.name }}" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg></button></div>
+            </sc-for>
+          </div>
+        </main></div>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:4px;max-width:900px"><div style="font-size:15px;font-weight:700">Calendar</div><div style="font-size:13px;color:oklch(0.65 0.01 60);text-wrap:pretty">Phone cells lose the in-cell exam name (the rows beneath list it) and keep a 2px accent exam tick. The key reads "Cards per day, 0 to 53". Add exam is an outline pill, moved into the Coming up column on desktop so nothing filled sits beside the countdown.</div></div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="v2 {{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em">Calendar</div>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:24px">
+            <button style="display:flex;width:100%;flex-direction:column;text-align:left">
+              <div style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:12px"><span style="font-size:18px;font-weight:700;letter-spacing:-0.01em">Pharmacology</span><span style="font-size:13px;color:var(--text-muted)">Fri 2 Oct</span></div>
+              <div style="margin-top:4px;display:flex;width:100%;align-items:baseline;gap:10px"><span class="numeral" style="white-space:nowrap;font-size:56px;color:var(--accent)">16</span><span style="font-size:15px;font-weight:600;color:var(--text-muted)">days</span><span style="margin-left:auto;white-space:nowrap;font-size:13px;color:var(--text-muted)">318 cards before it</span></div>
+            </button>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:17px;font-weight:700;letter-spacing:-0.01em">September 2026</div>
+                <div style="display:flex;align-items:center">
+                  <button aria-label="Previous month" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>
+                  <button aria-label="Next month" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+                  <button style="margin-left:4px;box-sizing:border-box;height:40px;border-radius:var(--r-full);border:1px solid var(--rule);padding:0 16px;font-size:14px;font-weight:700">Add exam</button>
+                </div>
+              </div>
+              <div>
+                <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted)"><span>Cards per day,</span><span style="display:flex;align-items:flex-end;gap:5px;line-height:1"><span style="display:block;height:6px;width:3px;background:var(--accent-dim)"></span><span>0</span><span style="margin-left:2px">to</span><span style="display:block;height:14px;width:3px;background:var(--accent)"></span><span>53</span></span></div>
+                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))"><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Mo</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Tu</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">We</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Th</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Fr</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Sa</div><div style="padding-bottom:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Su</div></div>
+                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:2px;border-top:1px solid var(--rule);padding-top:4px">
+                  <sc-for list="{{ cells }}" as="c" hint-placeholder-count="42">
+                  <div aria-label="{{ c.aria }}" style="position:relative;box-sizing:border-box;display:flex;height:44px;min-width:0;flex-direction:column;align-items:center;border-radius:var(--r-sm);padding-top:6px;opacity:{{ c.opacity }}">
+                    <span aria-hidden="true" style="position:absolute;left:0;top:4px;bottom:4px;width:1px;background:var(--accent);display:{{ c.todayDisplay }}"></span>
+                    <div style="display:flex;height:16px;align-items:flex-end;gap:3px"><span style="font-size:14px;line-height:1;font-variant-numeric:tabular-nums;font-weight:{{ c.numWeight }};color:{{ c.numColor }}">{{ c.day }}</span><div style="display:flex;height:16px;width:3px;align-items:flex-end"><span style="display:{{ c.barDisplay }};width:3px;height:{{ c.barH }};background:{{ c.barColor }}"></span></div></div>
+                    <span style="margin-top:4px;font-size:10px;font-weight:700;line-height:1;color:var(--accent);display:{{ c.todayCountDisplay }}">{{ c.count }}</span>
+                    <span aria-hidden="true" style="position:absolute;bottom:3px;left:50%;margin-left:-6px;width:12px;height:2px;border-radius:1px;background:var(--accent);display:{{ c.examDisplay }}"></span>
+                  </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--rule)">
+              <button style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:12px 0;text-align:left;opacity:0.55"><span style="min-width:0"><span style="display:block;font-size:15px;font-weight:600">Anatomy</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">Wed 9 Sep</span></span><span style="font-size:13px;color:var(--text-muted)">passed</span></button>
+              <button style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:12px 0;text-align:left"><span style="min-width:0"><span style="display:block;font-size:15px;font-weight:600">Pharmacology</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">Fri 2 Oct</span></span><span style="display:flex;align-items:baseline;gap:5px;font-size:13px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:18px;color:var(--text)">16</span>days</span></button>
+            </div>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="calendar" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="v2 {{ t.cls }}" style="box-sizing:border-box;width:1280px;height:800px;overflow:hidden;display:flex;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <dc-import name="Sidebar" active="calendar" v2="{{ true }}" hint-size="240px,800px"></dc-import>
+        <div style="flex:1;min-width:0"><main style="box-sizing:border-box;max-width:1024px;margin:0 auto;padding:20px 40px 40px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"><div style="font-size:28px;font-weight:700;letter-spacing:-0.02em">Calendar</div></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;gap:56px">
+            <div style="display:flex;flex-direction:column;gap:20px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="font-size:17px;font-weight:700;letter-spacing:-0.01em">September 2026</div>
+                <div style="display:flex;align-items:center">
+                  <button aria-label="Previous month" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>
+                  <button aria-label="Next month" style="display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+                </div>
+              </div>
+              <div>
+                <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted)"><span>Cards per day,</span><span style="display:flex;align-items:flex-end;gap:5px;line-height:1"><span style="display:block;height:6px;width:6px;border-radius:3px;background:var(--accent-dim)"></span><span>0</span><span style="margin-left:2px">to</span><span style="display:block;height:16px;width:6px;border-radius:3px;background:var(--accent)"></span><span>53</span></span></div>
+                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))"><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Mo</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Tu</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">We</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Th</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Fr</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Sa</div><div style="padding:0 0 8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.025em;color:var(--text-muted)">Su</div></div>
+                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;border-top:1px solid var(--rule);padding-top:4px">
+                  <sc-for list="{{ cells }}" as="c" hint-placeholder-count="42">
+                  <div aria-label="{{ c.aria }}" style="position:relative;box-sizing:border-box;display:flex;height:76px;min-width:0;flex-direction:column;align-items:flex-start;border-radius:var(--r-sm);background:var(--surface);padding:8px 22px 8px 10px;opacity:{{ c.opacity }}">
+                    <span aria-hidden="true" style="position:absolute;left:0;top:8px;bottom:8px;width:2px;border-radius:1px;background:var(--accent);display:{{ c.todayDisplay }}"></span>
+                    <div aria-hidden="true" style="position:absolute;right:8px;top:8px;bottom:8px;display:flex;width:6px;align-items:flex-end;border-radius:3px;background:var(--bg)"><span style="display:{{ c.barDisplay }};width:100%;border-radius:3px;height:{{ c.barH }};background:{{ c.barColor }}"></span></div>
+                    <span style="font-size:15px;line-height:1;font-variant-numeric:tabular-nums;font-weight:{{ c.numWeight }};color:{{ c.numColor }}">{{ c.day }}</span>
+                    <span style="margin-top:6px;white-space:nowrap;font-size:12px;line-height:1;font-variant-numeric:tabular-nums;color:var(--text-muted);display:{{ c.barDisplay }}">{{ c.countLabel }}</span>
+                    <button style="margin-top:auto;display:{{ c.examDisplay }};max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left;font-size:12px;font-weight:700;line-height:1.25;color:var(--accent)">{{ c.exam }}</button>
+                  </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="padding-top:6px">
+              <button style="display:flex;width:100%;flex-direction:column;text-align:left">
+                <div style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:12px"><span style="font-size:18px;font-weight:700;letter-spacing:-0.01em">Pharmacology</span><span style="font-size:13px;color:var(--text-muted)">Fri 2 Oct</span></div>
+                <div style="margin-top:6px;display:flex;align-items:baseline;gap:12px"><span class="numeral" style="white-space:nowrap;font-size:96px;color:var(--accent)">16</span><span style="font-size:16px;font-weight:600;color:var(--text-muted)">days</span></div>
+                <div style="margin-top:14px;font-size:13px;color:var(--text-muted)">318 cards before it</div>
+              </button>
+              <div style="margin:32px 0 6px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:17px;font-weight:700;letter-spacing:-0.01em">Coming up</div><button style="box-sizing:border-box;height:36px;border-radius:var(--r-full);border:1px solid var(--rule);padding:0 14px;font-size:13px;font-weight:700">Add exam</button></div>
+              <div style="border-top:1px solid var(--rule)">
+                <button style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:12px 0;text-align:left"><span style="min-width:0"><span style="display:block;font-size:15px;font-weight:600">Pharmacology</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">Fri 2 Oct</span></span><span style="display:flex;align-items:baseline;gap:5px;font-size:13px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:18px;color:var(--text)">16</span>days</span></button>
+                <button style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:12px 0;text-align:left"><span style="min-width:0"><span style="display:block;font-size:15px;font-weight:600">Organic Chemistry II</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">Tue 20 Oct</span></span><span style="display:flex;align-items:baseline;gap:5px;font-size:13px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:18px;color:var(--text)">34</span>days</span></button>
+                <button style="display:flex;width:100%;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--rule);padding:12px 0;text-align:left"><span style="min-width:0"><span style="display:block;font-size:15px;font-weight:600">Statistics</span><span style="display:block;margin-top:2px;font-size:13px;color:var(--text-muted)">Mon 26 Oct</span></span><span style="display:flex;align-items:baseline;gap:5px;font-size:13px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:18px;color:var(--text)">40</span>days</span></button>
+              </div>
+            </div>
+          </div>
+        </main></div>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+
+  <!-- NOTES -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:4px;max-width:900px"><div style="font-size:15px;font-weight:700">Notes</div><div style="font-size:13px;color:oklch(0.65 0.01 60);text-wrap:pretty">Note tiles are previews, not cards: the preview is a bordered 6px block and the title sits on the page under it, so only decks are cards. Tiles are buttons. Category headers get a 17px name and a condensed count, a 44px rename target, and Remove lives inside the rename state (second group). New category is 44px tall; the category select is 36px tall. Add notes is an outline pill. A success notice confirms the upload.</div></div>
+    <div style="display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="v2 {{ t.cls }}" style="position:relative;box-sizing:border-box;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <main style="padding:20px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em">Notes</div>
+            <button aria-label="Settings" style="margin-right:-12px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"></line><circle cx="15" cy="6" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="12" x2="21" y2="12"></line><circle cx="9" cy="12" r="2.4" fill="var(--bg)"></circle><line x1="3" y1="18" x2="21" y2="18"></line><circle cx="17" cy="18" r="2.4" fill="var(--bg)"></circle></svg></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;gap:8px">
+              <label style="display:flex;height:44px;flex:1;align-items:center;gap:10px;border-radius:var(--r-sm);background:var(--surface);padding:0 14px;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="font-size:15px">Search your notes</span></label>
+              <button style="box-sizing:border-box;height:44px;flex-shrink:0;border-radius:var(--r-full);border:1px solid var(--rule);padding:0 16px;font-size:15px;font-weight:700">Add notes</button>
+            </div>
+            <div role="status" style="display:flex;align-items:center;gap:12px;border-radius:var(--r-sm);padding:12px 16px;font-size:14px;font-weight:600;line-height:1.4;background:var(--grade-good-bg);color:var(--grade-good)">Added 2 notes to Pharmacology.</div>
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:17px;font-weight:700;letter-spacing:-0.01em">Categories</span><button style="margin-right:-8px;display:flex;height:44px;align-items:center;padding:0 8px;border-radius:var(--r-sm);font-size:14px;font-weight:700;color:var(--text-muted)">New category</button></div>
+            <sc-for list="{{ noteGroups }}" as="g" hint-placeholder-count="2">
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;display:{{ g.headerDisplay }}">
+                <div style="display:flex;min-width:0;align-items:baseline;gap:8px"><span style="font-size:17px;font-weight:700;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.name }}</span><span style="display:flex;align-items:baseline;gap:4px;font-size:13px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:17px;color:var(--text)">{{ g.count }}</span>notes</span></div>
+                <button aria-label="Rename {{ g.name }}" style="margin-right:-12px;display:flex;width:44px;height:44px;flex-shrink:0;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"></path></svg></button>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;display:{{ g.renameDisplay }}">
+                <div style="box-sizing:border-box;display:flex;height:44px;flex:1;align-items:center;border-radius:var(--r-sm);background:var(--surface);box-shadow:0 0 0 2px var(--rule);padding:0 14px;font-size:15px;font-weight:700">{{ g.name }}<span aria-hidden="true" style="margin-left:1px;display:inline-block;width:2px;height:18px;background:var(--text)"></span></div>
+                <button style="display:flex;height:44px;flex-shrink:0;align-items:center;padding:0 10px;border-radius:var(--r-sm);font-size:14px;font-weight:600;color:var(--text-muted)">Remove from Notes</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 12px">
+                <sc-for list="{{ g.notes }}" as="n" hint-placeholder-count="2">
+                <div style="display:flex;min-width:0;flex-direction:column">
+                  <button style="display:flex;min-width:0;flex-direction:column;text-align:left;width:100%">
+                    <span style="position:relative;display:block;box-sizing:border-box;aspect-ratio:4/3;width:100%;overflow:hidden;border-radius:var(--r-sm);border:1px solid var(--rule);padding:10px 12px 0;background:{{ n.previewBg }}"><span style="display:block;font-size:9px;line-height:1.5;color:var(--text-muted)">{{ n.preview }}</span><span aria-hidden="true" style="position:absolute;left:0;right:0;bottom:0;height:28px;background:{{ n.fade }}"></span></span>
+                    <span style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:8px;padding:8px 2px 0"><span style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px;font-weight:700">{{ n.title }}</span><span style="flex-shrink:0;white-space:nowrap;font-size:11px;color:var(--text-muted)">{{ n.date }}</span></span>
+                  </button>
+                  <button aria-label="Move to category" style="margin-left:-6px;display:flex;height:36px;align-items:center;gap:5px;align-self:flex-start;padding:0 6px;border-radius:var(--r-sm);font-size:12px;font-weight:600;color:var(--text-muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17.5z"></path></svg>{{ g.name }}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+                </div>
+                </sc-for>
+              </div>
+            </div>
+            </sc-for>
+          </div>
+        </main>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px"><dc-import name="TabBar" active="notes" hint-size="350px,66px"></dc-import></div>
+      </div>
+    </sc-for>
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="2">
+      <div class="v2 {{ t.cls }}" style="box-sizing:border-box;width:1280px;height:800px;overflow:hidden;display:flex;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:500;flex-shrink:0">
+        <dc-import name="Sidebar" active="notes" v2="{{ true }}" hint-size="240px,800px"></dc-import>
+        <div style="flex:1;min-width:0"><main style="box-sizing:border-box;max-width:1024px;margin:0 auto;padding:20px 40px 40px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;min-height:44px"><div style="font-size:28px;font-weight:700;letter-spacing:-0.02em">Notes</div><div style="display:flex;gap:8px;width:520px"><label style="display:flex;height:44px;flex:1;align-items:center;gap:10px;border-radius:var(--r-sm);background:var(--surface);padding:0 14px;color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="font-size:15px">Search your notes</span></label><button style="box-sizing:border-box;height:44px;flex-shrink:0;border-radius:var(--r-full);border:1px solid var(--rule);padding:0 16px;font-size:15px;font-weight:700">Add notes</button></div></div>
+          <div style="display:flex;flex-direction:column;gap:20px;padding-top:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:17px;font-weight:700;letter-spacing:-0.01em">Categories</span><button style="margin-right:-8px;display:flex;height:44px;align-items:center;padding:0 8px;border-radius:var(--r-sm);font-size:14px;font-weight:700;color:var(--text-muted)">New category</button></div>
+            <sc-for list="{{ noteGroups }}" as="g" hint-placeholder-count="2">
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;display:{{ g.headerDisplay }}">
+                <div style="display:flex;min-width:0;align-items:baseline;gap:8px"><span style="font-size:17px;font-weight:700;letter-spacing:-0.01em">{{ g.name }}</span><span style="display:flex;align-items:baseline;gap:4px;font-size:13px;color:var(--text-muted)"><span class="numeral" style="white-space:nowrap;font-size:17px;color:var(--text)">{{ g.count }}</span>notes</span></div>
+                <button aria-label="Rename {{ g.name }}" style="margin-right:-12px;display:flex;width:44px;height:44px;flex-shrink:0;align-items:center;justify-content:center;border-radius:var(--r-sm);color:var(--text-muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"></path></svg></button>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;display:{{ g.renameDisplay }}">
+                <div style="box-sizing:border-box;display:flex;height:44px;width:360px;align-items:center;border-radius:var(--r-sm);background:var(--surface);box-shadow:0 0 0 2px var(--rule);padding:0 14px;font-size:15px;font-weight:700">{{ g.name }}<span aria-hidden="true" style="margin-left:1px;display:inline-block;width:2px;height:18px;background:var(--text)"></span></div>
+                <button style="display:flex;height:44px;flex-shrink:0;align-items:center;padding:0 10px;border-radius:var(--r-sm);font-size:14px;font-weight:600;color:var(--text-muted)">Remove from Notes</button>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 16px">
+                <sc-for list="{{ g.notes }}" as="n" hint-placeholder-count="2">
+                <div style="display:flex;min-width:0;flex-direction:column">
+                  <button style="display:flex;min-width:0;flex-direction:column;text-align:left;width:100%">
+                    <span style="position:relative;display:block;box-sizing:border-box;aspect-ratio:4/3;width:100%;overflow:hidden;border-radius:var(--r-sm);border:1px solid var(--rule);padding:10px 12px 0;background:{{ n.previewBg }}"><span style="display:block;font-size:9px;line-height:1.5;color:var(--text-muted)">{{ n.preview }}</span><span aria-hidden="true" style="position:absolute;left:0;right:0;bottom:0;height:28px;background:{{ n.fade }}"></span></span>
+                    <span style="display:flex;width:100%;align-items:baseline;justify-content:space-between;gap:8px;padding:8px 2px 0"><span style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px;font-weight:700">{{ n.title }}</span><span style="flex-shrink:0;white-space:nowrap;font-size:11px;color:var(--text-muted)">{{ n.date }}</span></span>
+                  </button>
+                  <button aria-label="Move to category" style="margin-left:-6px;display:flex;height:36px;align-items:center;gap:5px;align-self:flex-start;padding:0 6px;border-radius:var(--r-sm);font-size:12px;font-weight:600;color:var(--text-muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17.5z"></path></svg>{{ g.name }}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+                </div>
+                </sc-for>
+              </div>
+            </div>
+            </sc-for>
+          </div>
+        </main></div>
+      </div>
+    </sc-for>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;themes&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;both&quot;,&quot;options&quot;:[&quot;both&quot;,&quot;dark&quot;,&quot;light&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Boards&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const which = this.props.themes ?? 'both';
+    const all = [{ cls: 'theme-dark', name: 'Dark' }, { cls: 'theme-light', name: 'Light' }];
+    const themes = which === 'both' ? all : all.filter((t) => t.name.toLowerCase() === which);
+
+    const decks = [
+      { name: 'Pharmacology', status: '23 left today', total: 240, nameColor: 'var(--text)' },
+      { name: 'Organic Chemistry II', status: '18 left today', total: 612, nameColor: 'var(--text)' },
+      { name: 'Statistics', status: 'Done for today', total: 180, nameColor: 'var(--text)' },
+      { name: 'Anatomy', status: 'Exam passed. Study anytime.', total: 95, nameColor: 'var(--text-muted)' },
+    ];
+
+    const counts = [12, 9, 14, 22, 18, 6, 0, 31, 0, 27, 24, 19, 8, 4, 33, 41, 38, 46, 53, 29, 11, 6, 44, 47, 39, 42, 36, 13, 9, 40, 48, 35, 50, 22, 10, 7, 30, 26, 28, 24, 12, 5];
+    const max = 53;
+    const exams = { 9: 'Anatomy', 32: 'Pharmacology' };
+    const cells = counts.map((count, i) => {
+      const dayNum = i === 0 ? 31 : i <= 30 ? i : i - 30;
+      const inMonth = i >= 1 && i <= 30;
+      const isToday = i === 16;
+      const isPast = i < 16;
+      const mix = Math.round((count / max) * 100);
+      const month = i === 0 ? 'August' : inMonth ? 'September' : 'October';
+      return {
+        day: dayNum, count,
+        aria: `${dayNum} ${month}${count ? `, ${count} cards` : ''}${exams[i] ? `, ${exams[i]}` : ''}`,
+        opacity: !inMonth ? 0.3 : isPast ? 0.4 : 1,
+        todayDisplay: isToday ? 'block' : 'none',
+        numWeight: isToday ? 700 : 600,
+        numColor: isToday ? 'var(--accent)' : 'var(--text)',
+        barDisplay: count > 0 ? 'block' : 'none',
+        barH: `${Math.max(25, mix)}%`,
+        barColor: `color-mix(in oklab, var(--accent) ${mix}%, var(--accent-dim))`,
+        todayCountDisplay: isToday && count > 0 ? 'block' : 'none',
+        countLabel: `${count} ${count === 1 ? 'card' : 'cards'}`,
+        exam: exams[i] ?? '',
+        examDisplay: exams[i] ? 'block' : 'none',
+      };
+    });
+
+    const previewBg = 'color-mix(in oklab, var(--surface) 55%, var(--bg))';
+    const fade = `linear-gradient(to bottom, transparent, ${previewBg})`;
+    const noteGroups = [
+      { name: 'Organic Chemistry II', count: 3, headerDisplay: 'flex', renameDisplay: 'none', notes: [
+        { title: 'SN1 vs SN2 mechanisms', date: '3 Sep', preview: 'SN1 goes through a planar carbocation, so the nucleophile attacks either face and you lose stereochemistry. SN2 is one concerted step with backside attack, so configuration inverts. Tertiary substrates favour SN1; primary favour SN2. Polar protic solvents stabilise the carbocation.', previewBg, fade },
+        { title: 'Week 4 lecture', date: 'PDF, 31 Aug', preview: 'Elimination reactions. E1 shares the carbocation intermediate with SN1 and competes with it at higher temperature. E2 is concerted and anti-periplanar; Zaitsev product dominates unless a bulky base is used, in which case Hofmann.', previewBg, fade },
+      ] },
+      { name: 'Pharmacology', count: 2, headerDisplay: 'none', renameDisplay: 'flex', notes: [
+        { title: 'Half-life and Vd', date: '12 Sep', preview: 'Half-life = 0.693 × Vd / CL. A drug with a large volume of distribution is mostly in tissue, so clearance, which acts on plasma, sees only a fraction at a time. Loading dose = Vd × target concentration.', previewBg, fade },
+        { title: 'Beta blockers', date: '8 Sep', preview: 'Non-selective (propranolol) block β1 and β2; cardioselective (atenolol, metoprolol) mainly β1. Contraindicated in asthma. Masks hypoglycaemia. Withdraw slowly to avoid rebound tachycardia.', previewBg, fade },
+      ] },
+    ];
+
+    return { themes, decks, cells, noteGroups };
+  }
+}
+</script>
+</body>
+</html>
