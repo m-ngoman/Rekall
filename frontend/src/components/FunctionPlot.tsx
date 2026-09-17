@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useElementWidth } from '../hooks/useElementWidth'
 import { buildGeometry, describePlot, formatTick, formatValue, type PlotSpec } from '../lib/plot'
 
 /** Radius of a marked point, and the padding the frame needs so its surface ring isn't clipped.
@@ -24,11 +25,20 @@ const PAD_BOTTOM = 20 // room for x tick labels
  * the axes are `--rule`; `--accent` is spent only on the points the tutor is actually talking
  * about, so the highlight means "this bit" rather than "this is a chart".
  */
-export default function FunctionPlot({ spec, width = 300, height = 190 }: { spec: PlotSpec; width?: number; height?: number }) {
+export default function FunctionPlot({ spec }: { spec: PlotSpec }) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [hover, setHover] = useState<number | null>(null)
+  // Measured rather than a fixed viewBox with preserveAspectRatio — see the hook, which exists
+  // for this: scaling a viewBox scales the 2px stroke with it.
+  const [boxRef, measured] = useElementWidth<HTMLDivElement>()
+
+  // Capped so a graph doesn't become the whole desktop column; floored so it stays readable on a
+  // phone. Height follows width until it would get too tall to sit inside a reply.
+  const width = Math.min(Math.max(measured, 240), 460)
+  const height = Math.round(Math.min(Math.max(width * 0.62, 170), 260))
 
   const geometry = useMemo(() => {
+    if (width <= 0) return null
     try {
       return buildGeometry(spec, width - PAD_LEFT - PAD_RIGHT)
     } catch {
@@ -38,8 +48,16 @@ export default function FunctionPlot({ spec, width = 300, height = 190 }: { spec
     }
   }, [spec, width])
 
+  // The hook reports 0 until the first measurement lands, so the wrapper always renders and the
+  // plot waits one frame rather than dividing by zero.
+  if (measured === 0) return <div ref={boxRef} className="mt-2.5 h-px w-full" />
+
   if (!geometry || geometry.segments.length === 0) {
-    return <p className="mt-2 text-[0.8125rem] text-[var(--text-muted)]">{spec.label ?? `y = ${spec.fn}`}</p>
+    return (
+      <div ref={boxRef}>
+        <p className="mt-2 text-[0.8125rem] text-[var(--text-muted)]">{spec.label ?? `y = ${spec.fn}`}</p>
+      </div>
+    )
   }
 
   const { segments, xMin, xMax, yMin, yMax, xTicks, yTicks } = geometry
@@ -91,7 +109,7 @@ export default function FunctionPlot({ spec, width = 300, height = 190 }: { spec
     : [spec.label ?? `y = ${spec.fn}`, spec.note && `${spec.note} marked`].filter(Boolean).join(', ')
 
   return (
-    <div className="mt-2.5">
+    <div ref={boxRef} className="mt-2.5">
       <div className="mb-1 h-4 text-[0.8125rem] leading-4 text-[var(--text-muted)] tabular-nums">{readout}</div>
       <svg
         ref={svgRef}

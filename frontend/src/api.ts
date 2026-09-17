@@ -1,3 +1,4 @@
+import type { PlotSpec } from './lib/plot'
 import type {
   AdminStats,
   Card,
@@ -245,6 +246,9 @@ export async function sendTextTurn(
   /** The tutor proposing a calendar entry. Never written automatically — the UI turns this into a
    * button the student confirms. */
   onSuggestExam?: (exam: { name: string; date: string }) => void,
+  /** A graph the tutor drew. Validated server-side, so this is safe to render as-is. Typed turns
+   * only — the backend never emits one on a voice turn. */
+  onPlot?: (plot: PlotSpec) => void,
 ): Promise<TutorTurnResult> {
   const form = new FormData()
   form.append('text', text)
@@ -254,6 +258,7 @@ export async function sendTextTurn(
   await streamSSE(`/api/tutor/sessions/${sessionId}/text-turn`, { method: 'POST', body: form }, (eventType, data) => {
     if (eventType === 'token') onToken(data.text)
     else if (eventType === 'suggest_exam') onSuggestExam?.(data)
+    else if (eventType === 'plot') onPlot?.(data)
     else if (eventType === 'done') result = data
   })
   if (!result) throw new Error('Stream ended without a result')

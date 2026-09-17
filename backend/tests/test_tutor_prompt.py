@@ -74,3 +74,26 @@ def test_both_deliveries_keep_the_base_layer_and_the_personality(monkeypatch) ->
         prompt = build(Session(TutorPersonality.custom, "Speak only in limericks."), monkeypatch, spoken=spoken)
         assert "don't produce work they'll hand in" in prompt
         assert "Speak only in limericks." in prompt
+
+
+def test_a_spoken_turn_is_never_told_it_can_draw(monkeypatch) -> None:
+    """A graph in a spoken reply is either invisible or produces "as you can see here" with
+    nothing to see. The backend drops a plot on a voice turn too, but not being told is the
+    first line of defence."""
+    prompt = build(Session(TutorPersonality.direct), monkeypatch, spoken=True)
+    assert "<<plot" not in prompt
+
+
+def test_a_typed_turn_is_told_how_to_draw(monkeypatch) -> None:
+    prompt = build(Session(TutorPersonality.direct), monkeypatch, spoken=False)
+    assert '<<plot fn="EXPRESSION"' in prompt
+    assert "natural log" in prompt
+
+
+def test_the_plot_instruction_gives_no_worked_example(monkeypatch) -> None:
+    """The same lesson as _exam_offer's date table and grading's [SLOT] examples: a concrete
+    value in an instruction gets copied verbatim into replies. Only placeholders."""
+    prompt = build(Session(TutorPersonality.direct), monkeypatch, spoken=False)
+    instruction = prompt[prompt.index("You can draw a graph") :]
+    for concrete in ['fn="x', 'domain="-4', 'domain="0', "x^2 -", "sin(x)"]:
+        assert concrete not in instruction, concrete

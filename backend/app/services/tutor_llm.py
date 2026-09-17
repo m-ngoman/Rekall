@@ -139,8 +139,28 @@ def _stream_openrouter(messages: list[dict]) -> Iterator[str]:
                 yield delta
 
 
+# A canned reply, emitted a few characters at a time. Exists for the same reason `grader = "stub"`
+# does: the screenshot harness and anyone working offline need the tutor to answer without a key
+# and without spending money, and a marker split across arbitrary chunk boundaries is exactly the
+# case worth exercising end to end.
+_STUB_REPLY = (
+    "It is a parabola, so it turns once. The lowest point is at x = 0, and it crosses the "
+    "x-axis where $x^2 = 4$, which is at $x = -2$ and $x = 2$.\n\n"
+    '<<plot fn="x^2 - 4" domain="-4,4" label="y = x squared minus 4" mark="-2,0; 2,0" note="roots">>'
+)
+
+
+def _stream_stub() -> Iterator[str]:
+    # Seven characters at a time: small enough that the marker lands across several chunks, which
+    # is the hold-back path, and uneven enough not to align with anything.
+    for i in range(0, len(_STUB_REPLY), 7):
+        yield _STUB_REPLY[i : i + 7]
+
+
 def stream_chat(messages: list[dict]) -> Iterator[str]:
-    if settings.tutor_provider == "ollama":
+    if settings.tutor_provider == "stub":
+        yield from _stream_stub()
+    elif settings.tutor_provider == "ollama":
         yield from _stream_ollama(messages)
     else:
         yield from _stream_openrouter(messages)

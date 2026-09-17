@@ -80,9 +80,40 @@ never a long paragraph or a list.
 - Open with a short first sentence. The reply streams in as it's written, so the first line is what \
 the student reads while the rest arrives.
 
-The add-exam line described further down is the one thing besides maths that isn't plain prose. It \
-is not shown to the student — the app removes it — so emit it exactly as specified when the moment \
-calls for it."""
+The marker lines described further down are the only things besides maths that aren't plain prose. \
+They are not shown to the student — the app removes them and acts on them — so emit them exactly as \
+specified when the moment calls for it."""
+
+
+# Graphs. Typed turns only: this block is never added to a spoken reply, because a graph in
+# speech is either invisible or produces "as you can see here" with nothing to see.
+#
+# Placeholders rather than a worked example, for the reason _exam_offer records: a concrete
+# function in the instruction gets copied into replies.
+_PLOT_INSTRUCTION = """
+
+You can draw a graph. Use it when the *shape* of something is the point — where a curve turns, \
+why it never crosses an axis, how two rates compare — and not to decorate an answer that was \
+already clear. At most one per reply, and only on the last line.
+
+Still explain in words. The graph supplements the sentence; a student who cannot see it must get \
+the same answer from what you wrote.
+
+Write the line exactly like this, on its own, as the very last line of the reply:
+<<plot fn="EXPRESSION" domain="LOW,HIGH" label="WHAT IT IS" mark="X,Y; X,Y" note="WHAT THEY ARE">>
+
+- `fn` is plain ASCII maths in terms of x, never LaTeX and never with backslashes or braces. \
+Operators + - * / ^ and brackets; the functions sin, cos, tan, asin, acos, atan, sinh, cosh, \
+tanh, sqrt, cbrt, abs, ln, log, exp, floor, ceil, round, sign; the constants pi and e. `ln` is \
+natural log and `log` is base 10.
+- `domain` is the range of x worth looking at, low first. Pick it so the interesting part fills \
+the picture.
+- `label` is how you would read the function aloud.
+- `mark` and `note` are optional, and they are the point of the graph: mark only the points you \
+are actually talking about — a root, a turning point, an intercept — and name them in `note`. \
+Marking everything marks nothing.
+- Never mention the line, read it out, or explain that you are drawing something. The graph \
+appears; talk about the maths."""
 
 _PERSONALITY_PROMPTS = {
     TutorPersonality.strict_socratic: "Never give the answer directly. Always respond with a guiding "
@@ -247,7 +278,7 @@ def _exam_offer(today: date) -> str:
 
 def build_system_prompt(db: Session, session, spoken: bool = True) -> str:
     """`spoken` picks the delivery rules: True for a voice turn (plain words for the synthesizer),
-    False for a typed one (LaTeX the screen renders).
+    False for a typed one (LaTeX the screen renders, and the option to draw a graph).
 
     The system prompt is the first prompt-cache breakpoint (see tutor_llm._with_cache_breakpoints)
     and every cached prefix starts with it, so a session that switches between typing and talking
@@ -266,5 +297,5 @@ def build_system_prompt(db: Session, session, spoken: bool = True) -> str:
     exams = _exam_context(db, session.user_id)
     memory = _memory_context(db, session.user_id)
     offer = _exam_offer(today_utc())
-    delivery = _SPOKEN_PROMPT if spoken else _TYPED_PROMPT
+    delivery = _SPOKEN_PROMPT if spoken else _TYPED_PROMPT + _PLOT_INSTRUCTION
     return f"{_BASE_PROMPT}\n\n{delivery}\n\n{personality_text}{context}{exams}{memory}{offer}"

@@ -4,6 +4,7 @@ import type { BugReport } from '../api'
 import MemoryPicker from '../components/MemoryPicker'
 import PersonalityPicker, { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
 import PlainMath from '../components/PlainMath'
+import type { PlotSpec } from '../lib/plot'
 import Notice from '../components/Notice'
 import VoiceOrb, { type OrbState } from '../components/VoiceOrb'
 import VoicePicker from '../components/VoicePicker'
@@ -30,6 +31,10 @@ import type {
  * Spoken replies are plain words by instruction, so they pass through unchanged. */
 const MathText = lazy(() => import('../components/MathText'))
 
+/** The plot renderer and its parser, as a third lazy chunk. A conversation about history never
+ * downloads a maths evaluator. */
+const FunctionPlot = lazy(() => import('../components/FunctionPlot'))
+
 /** An assistant message, with its maths set. The fallback is the same text minus the delimiters,
  * so nothing flashes as markup while the chunk loads. */
 function TutorText({ text }: { text: string }) {
@@ -46,6 +51,14 @@ interface Message {
   role: 'user' | 'assistant' | 'system'
   text: string
   imageUrl?: string
+  /** Graphs the tutor drew with this reply.
+   *
+   * On the message rather than in sibling state like `examOffer`, because a graph belongs to the
+   * reply that drew it. It also has to be here: `typeInto` writes into the *last* assistant
+   * message every 20ms and bails if the last message isn't the assistant's, so a plot appended
+   * as its own message would stop the reveal dead. The typewriter spreads `{ ...last }`, so a
+   * field added here survives every tick. */
+  plots?: PlotSpec[]
 }
 
 const STATUS_LABEL: Record<OrbState, string> = {
@@ -728,6 +741,17 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
     return true
   }
 
+  /** Hangs a graph on the reply currently streaming.
+   *
+   * A functional updater so it composes with the typewriter's own concurrent `setMessages`
+   * rather than racing it. */
+  const attachPlot = (plot: PlotSpec) =>
+    setMessages((prev) => {
+      const last = prev[prev.length - 1]
+      if (last?.role !== 'assistant') return prev
+      return [...prev.slice(0, -1), { ...last, plots: [...(last.plots ?? []), plot] }]
+    })
+
   const handleSendText = async () => {
     const text = draft.trim()
     const image = pendingImage
@@ -754,6 +778,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
         },
         image ?? undefined,
         offerExam,
+        attachPlot,
       )
     } catch (e) {
       // A placeholder that never got its reply. Left in, it sits under the error as an empty
@@ -1095,6 +1120,13 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                 ) : (
                   <TutorText text={m.text} />
                 )}
+                {/* Below the words, attached to the reply that drew it. No fallback: a graph has
+                    no readable degraded form, and the sentence above already carries the answer. */}
+                {m.plots?.map((plot, pi) => (
+                  <Suspense key={pi} fallback={null}>
+                    <FunctionPlot spec={plot} />
+                  </Suspense>
+                ))}
               </div>
             ),
           )

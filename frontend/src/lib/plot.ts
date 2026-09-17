@@ -178,7 +178,8 @@ export function describePlot(spec: PlotSpec, geometry: PlotGeometry): string {
   if (geometry.segments.length > 1) parts.push(`drawn in ${geometry.segments.length} parts, breaking where it is undefined`)
   const marks = spec.marks ?? []
   if (marks.length) {
-    const where = marks.map(([x, y]) => `${x}, ${y}`).join(' and ')
+    // Bracketed, so "marked at -2, 0 and 2, 0" isn't heard as four numbers.
+    const where = marks.map(([x, y]) => `(${x}, ${y})`).join(' and ')
     parts.push(spec.note ? `with the ${spec.note} marked at ${where}` : `with points marked at ${where}`)
   }
   return parts.join(', ') + '.'

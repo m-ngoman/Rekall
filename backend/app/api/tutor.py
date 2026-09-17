@@ -1,4 +1,5 @@
 import base64
+import logging
 import re
 import uuid
 from collections.abc import Callable, Generator
@@ -28,8 +29,11 @@ from app.services.live_stt import relay as relay_live_stt
 from app.services.memory_extraction import schedule_if_due
 from app.services.stt import transcribe
 from app.services.tts import list_voices, synthesize_timed
+from app.services.tutor_figures import describe as describe_figure, parse_figure
 from app.services.tutor_llm import stream_chat
 from app.services.tutor_prompt import build_system_prompt
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tutor", tags=["tutor"])
 
@@ -57,6 +61,8 @@ class _Marker:
     pattern: re.Pattern[str]
     event: str
     parse: Callable[[re.Match[str]], dict | None]
+    #: Turns a payload into the line left behind in the stored transcript, or None to leave none.
+    trace: Callable[[dict], str] | None = None
 
 
 # A calendar entry. The UI turns this into a confirm button; the write happens when the student
@@ -68,7 +74,22 @@ _EXAM = _Marker(
     parse=lambda m: {"name": m.group(1).strip(), "date": m.group(2)},
 )
 
-_MARKERS: tuple[_Marker, ...] = (_EXAM,)
+# A graph. Unlike the exam, this one leaves a trace in the transcript — see `_stream_reply`.
+# The pattern is loose on purpose: attribute order and spacing are the model's business, and
+# `parse_figure` is what decides whether the contents are usable.
+_PLOT = _Marker(
+    prefix="<<plot",
+    pattern=re.compile(r"<<plot\s+[^<>]{0,400}?>>"),
+    event="plot",
+    parse=parse_figure,
+    trace=describe_figure,
+)
+
+_MARKERS: tuple[_Marker, ...] = (_EXAM, _PLOT)
+
+# A hold longer than the longest legal marker is a marker the model truncated, not one still
+# arriving. Releasing it would print raw markup at the student; it is dropped instead.
+_MAX_HOLD = 600
 
 # What the student sees when the model or the synthesizer fails partway through a reply. The turn
 # is genuinely lost at that point — the user message is already stored but no assistant message
@@ -98,13 +119,19 @@ def _split_safe(buffer: str) -> tuple[str, str]:
     """
     cut = buffer.find("<")
     while cut != -1:
-        if _could_be_marker(buffer[cut:]):
-            return buffer[:cut], buffer[cut:]
+        tail = buffer[cut:]
+        if _could_be_marker(tail):
+            if len(tail) > _MAX_HOLD:
+                # Truncated mid-marker, or a runaway. Either way it will never complete, and the
+                # student must not be shown the fragment.
+                logger.info("dropping a marker fragment of %d chars", len(tail))
+                return buffer[:cut], ""
+            return buffer[:cut], tail
         cut = buffer.find("<", cut + 1)
     return buffer, ""
 
 
-def _pop_markers(text: str) -> tuple[str, list[tuple[str, dict]]]:
+def _pop_markers(text: str) -> tuple[str, list[tuple[str, dict]], list[str]]:
     """Strips every marker out of `text`, returning the cleaned text and (event, payload) pairs.
 
     Two different failures, deliberately handled differently. Text that doesn't match a marker
@@ -117,23 +144,31 @@ def _pop_markers(text: str) -> tuple[str, list[tuple[str, dict]]]:
     position. Nothing downstream depends on the relative order of two different kinds.
     """
     found: list[tuple[str, dict]] = []
+    traces: list[str] = []
+    removed = 0
 
     for marker in _MARKERS:
 
         def take(match: re.Match[str], marker: _Marker = marker) -> str:
+            nonlocal removed
+            removed += 1
             payload = marker.parse(match)
             if payload is None:
                 return ""
             found.append((marker.event, payload))
+            if marker.trace:
+                traces.append(marker.trace(payload))
             return ""
 
         text = marker.pattern.sub(take, text)
 
-    if found:
+    # Keyed off anything *removed*, not anything emitted: a marker that was stripped but failed
+    # validation leaves the same orphaned newlines behind.
+    if removed:
         # A marker sits on its own line, so dropping it leaves the blank lines that surrounded
         # it — an unexplained gap in the middle of the answer.
         text = re.sub(r"\n{3,}", "\n\n", text)
-    return text, found
+    return text, found, traces
 
 
 def _extract_sentences(buffer: str, final: bool) -> tuple[list[str], str]:
@@ -316,13 +351,23 @@ def _stream_reply(
     # what's left in front of that is spoken or streamed.
     pending = ""
     full_reply = ""  # what gets stored: markers already removed
+    # Lines appended to the stored transcript for markers that left one. The transcript is the
+    # model's only memory — it is re-sent in full every turn and there is no history UI reading
+    # it — so a graph stripped without trace means the tutor sees itself saying "notice where the
+    # curve turns" above nothing, and cannot answer "redraw that wider".
+    traces: list[str] = []
     # A marker sits on its own line, so the newlines that surrounded it belong to it. They don't
     # always arrive in the same chunk as the marker, though, which left a visible gap mid-reply
     # that the same-chunk collapse in _pop_markers couldn't see.
     trim_leading = False
     for piece in stream_chat(messages):
-        pending, markers = _pop_markers(pending + piece)
+        pending, markers, new_traces = _pop_markers(pending + piece)
+        traces += new_traces
         for event, payload in markers:
+            # Always strip, conditionally render. A plot on a voice turn is ignored rather than
+            # spoken — the marker is gone either way, so the synthesizer can never read it out.
+            if event == "plot" and synth:
+                continue
             yield sse_event(event, payload)
         trim_leading = trim_leading or bool(markers)
 
@@ -343,8 +388,11 @@ def _stream_reply(
             pending = hold
 
     # Anything still held at the end was never going to become a marker.
-    pending, markers = _pop_markers(pending)
+    pending, markers, new_traces = _pop_markers(pending)
+    traces += new_traces
     for event, payload in markers:
+        if event == "plot" and synth:
+            continue
         yield sse_event(event, payload)
 
     if synth:
@@ -356,7 +404,12 @@ def _stream_reply(
         full_reply += pending
         yield sse_event("token", {"text": pending})
 
-    db.add(TutorMessage(session_id=session.id, role=TutorMessageRole.assistant, content=full_reply.strip()))
+    # The trace goes into the stored message, never into what was streamed: `full_reply` is what
+    # the student actually saw, and `done.reply` still reports exactly that.
+    stored = full_reply.strip()
+    if traces:
+        stored = f"{stored}\n\n" + "\n".join(f"[{t}]" for t in traces)
+    db.add(TutorMessage(session_id=session.id, role=TutorMessageRole.assistant, content=stored))
     # Counted once the reply exists, so an abandoned stream isn't billed as a turn. `synth` is the
     # only thing separating a spoken turn from a typed one by the time it reaches here, and the
     # difference is worth keeping: voice is the turn that costs money in TTS and STT.

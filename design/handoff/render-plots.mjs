@@ -38,7 +38,9 @@ const harness = (theme) => `<!doctype html><html data-theme="${theme}"><head><me
   import FunctionPlot from '/src/components/FunctionPlot.tsx'
   const specs = ${JSON.stringify(SPECS)}
   const App = () => React.createElement('div',
-    { style: { display: 'grid', gridTemplateColumns: 'repeat(3, max-content)', gap: '28px', padding: '28px', background: 'var(--bg)' } },
+    // Fixed columns, not max-content: the plot measures its container, and a max-content column
+    // sized by its content is circular — the plot would measure 0 forever.
+    { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 340px)', gap: '28px', padding: '28px', background: 'var(--bg)' } },
     specs.map((s) => React.createElement('div', { key: s.name, 'data-plot': s.name,
       style: { background: 'var(--surface)', borderRadius: 'var(--r-md)', padding: '14px 16px' } },
       React.createElement(FunctionPlot, { spec: s }))))

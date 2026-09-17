@@ -62,7 +62,9 @@ class Settings(BaseSettings):
     # (qwen2.5:7b) is plenty for short single-turn grading, but planning notes specifically wanted
     # better pedagogical/tone judgment for the tutor's multi-turn conversation. See
     # app/services/tutor_llm.py.
-    tutor_provider: str = "openrouter"  # "openrouter" | "ollama"
+    # "stub" answers with a canned reply and no network — for the screenshot harness and for
+    # working offline, the same role `grader = "stub"` plays.
+    tutor_provider: str = "openrouter"  # "openrouter" | "ollama" | "stub"
     openrouter_api_key: str = ""
     # Sonnet 5 rather than Haiku 4.5, and it is cheaper here despite costing twice as much per
     # token. Cache minimums are not monotonic across the family: Haiku 4.5 needs a 4096-token
