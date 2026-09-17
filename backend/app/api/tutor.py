@@ -1,7 +1,8 @@
 import base64
 import re
 import uuid
-from collections.abc import Generator
+from collections.abc import Callable, Generator
+from dataclasses import dataclass
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
@@ -36,19 +37,54 @@ router = APIRouter(prefix="/api/tutor", tags=["tutor"])
 # "." at the very end of the buffer might just be an incomplete decimal/abbreviation still streaming.
 _SENTENCE_RE = re.compile(r'[^.!?]*[.!?]+["\')\]]*\s+')
 
-# The tutor proposes a calendar entry by emitting this marker (see tutor_prompt._exam_offer). It is
-# stripped from everything the student ever sees or hears — the spoken sentences, the streamed
-# text, and the stored transcript — and re-emitted as a structured event the UI turns into a
-# confirm button. The model can only ever suggest; the write happens when the student taps.
-_EXAM_MARKER = re.compile(r'<<add-exam\s+name="([^"]{1,80})"\s+date="(\d{4}-\d{2}-\d{2})">>')
+# Inline markers: the model asks for something structured by writing a line in its reply, and the
+# line never reaches the student. Each is stripped from everything they see or hear — the spoken
+# sentences, the streamed text, and the stored transcript memory extraction later reads — and
+# re-emitted as an SSE event the UI acts on. The model can only ever *ask*; the app decides.
 
 
-_MARKER_START = "<<add-exam"
+@dataclass(frozen=True)
+class _Marker:
+    """One kind of inline instruction.
+
+    `prefix` is what `_split_safe` watches for character by character, so it must be the literal
+    opening of `pattern` with nothing optional in it. `parse` returns the event payload, or None
+    for a marker that matched the shape but can't be honoured — see `_pop_markers` for why those
+    two failures are treated differently.
+    """
+
+    prefix: str
+    pattern: re.Pattern[str]
+    event: str
+    parse: Callable[[re.Match[str]], dict | None]
+
+
+# A calendar entry. The UI turns this into a confirm button; the write happens when the student
+# taps, so a misheard date costs a tap rather than a wrong entry.
+_EXAM = _Marker(
+    prefix="<<add-exam",
+    pattern=re.compile(r'<<add-exam\s+name="([^"]{1,80})"\s+date="(\d{4}-\d{2}-\d{2})">>'),
+    event="suggest_exam",
+    parse=lambda m: {"name": m.group(1).strip(), "date": m.group(2)},
+)
+
+_MARKERS: tuple[_Marker, ...] = (_EXAM,)
 
 # What the student sees when the model or the synthesizer fails partway through a reply. The turn
 # is genuinely lost at that point — the user message is already stored but no assistant message
 # was written — so "say it again" is the honest instruction rather than "retrying".
 _REPLY_FAILED = "The tutor couldn't finish that reply. Say it again in a moment."
+
+
+def _could_be_marker(tail: str) -> bool:
+    """Whether `tail` is, or could still grow into, the opening of any marker.
+
+    Two ways to be true, and both matter: a complete prefix has landed ("<<add-exam name=..."),
+    or the buffer ends part-way through one ("<<add-e") and the rest is still in flight.
+    """
+    return any(
+        tail.startswith(m.prefix) or m.prefix.startswith(tail[: len(m.prefix)]) for m in _MARKERS
+    )
 
 
 def _split_safe(buffer: str) -> tuple[str, str]:
@@ -58,27 +94,46 @@ def _split_safe(buffer: str) -> tuple[str, str]:
     speak once we know it isn't the beginning of one. Held from the *first* "<" that could still
     grow into a marker — holding from the last one instead would emit "<" and split the marker so
     it never matched. A "<" that can't be a marker prefix (arithmetic, say) is left alone rather
-    than blocking the rest of the reply behind it.
+    than blocking the rest of the reply behind it, which matters in an app that teaches maths.
     """
     cut = buffer.find("<")
     while cut != -1:
-        tail = buffer[cut:]
-        if tail.startswith(_MARKER_START) or _MARKER_START.startswith(tail[: len(_MARKER_START)]):
-            return buffer[:cut], tail
+        if _could_be_marker(buffer[cut:]):
+            return buffer[:cut], buffer[cut:]
         cut = buffer.find("<", cut + 1)
     return buffer, ""
 
 
-def _pop_markers(text: str) -> tuple[str, list[dict]]:
-    found: list[dict] = []
-    cleaned = _EXAM_MARKER.sub(
-        lambda m: found.append({"name": m.group(1).strip(), "date": m.group(2)}) or "", text
-    )
+def _pop_markers(text: str) -> tuple[str, list[tuple[str, dict]]]:
+    """Strips every marker out of `text`, returning the cleaned text and (event, payload) pairs.
+
+    Two different failures, deliberately handled differently. Text that doesn't match a marker
+    pattern at all is left exactly where it is — it is the model's prose, and swallowing prose
+    because it began with "<<" would lose the student's answer. A marker that *matches* but whose
+    `parse` returns None is removed silently: it is unmistakably an instruction to the app, so
+    showing it raw would be showing markup, and we simply couldn't honour it.
+
+    Markers are scanned type by type, so the pairs are grouped by kind rather than ordered by
+    position. Nothing downstream depends on the relative order of two different kinds.
+    """
+    found: list[tuple[str, dict]] = []
+
+    for marker in _MARKERS:
+
+        def take(match: re.Match[str], marker: _Marker = marker) -> str:
+            payload = marker.parse(match)
+            if payload is None:
+                return ""
+            found.append((marker.event, payload))
+            return ""
+
+        text = marker.pattern.sub(take, text)
+
     if found:
-        # A marker dropped from mid-reply leaves the blank lines that surrounded it, which the
-        # student sees as an unexplained gap in the middle of the answer.
-        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    return cleaned, found
+        # A marker sits on its own line, so dropping it leaves the blank lines that surrounded
+        # it — an unexplained gap in the middle of the answer.
+        text = re.sub(r"\n{3,}", "\n\n", text)
+    return text, found
 
 
 def _extract_sentences(buffer: str, final: bool) -> tuple[list[str], str]:
@@ -266,10 +321,10 @@ def _stream_reply(
     # that the same-chunk collapse in _pop_markers couldn't see.
     trim_leading = False
     for piece in stream_chat(messages):
-        pending, suggestions = _pop_markers(pending + piece)
-        for suggestion in suggestions:
-            yield sse_event("suggest_exam", suggestion)
-        trim_leading = trim_leading or bool(suggestions)
+        pending, markers = _pop_markers(pending + piece)
+        for event, payload in markers:
+            yield sse_event(event, payload)
+        trim_leading = trim_leading or bool(markers)
 
         safe, hold = _split_safe(pending)
         if trim_leading and safe:
@@ -288,9 +343,9 @@ def _stream_reply(
             pending = hold
 
     # Anything still held at the end was never going to become a marker.
-    pending, suggestions = _pop_markers(pending)
-    for suggestion in suggestions:
-        yield sse_event("suggest_exam", suggestion)
+    pending, markers = _pop_markers(pending)
+    for event, payload in markers:
+        yield sse_event(event, payload)
 
     if synth:
         sentences, _ = _extract_sentences(pending, final=True)

@@ -43,3 +43,4 @@ frontend/tsconfig.tsbuildinfo
 frontend/public/blog/
 design/design-system/.render/
 design/incoming/
+frontend/_plotcheck.html
