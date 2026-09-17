@@ -143,10 +143,15 @@ def _stream_openrouter(messages: list[dict]) -> Iterator[str]:
 # does: the screenshot harness and anyone working offline need the tutor to answer without a key
 # and without spending money, and a marker split across arbitrary chunk boundaries is exactly the
 # case worth exercising end to end.
+# The kinematics case rather than the parabola it used to be: it is the longest marker the model
+# can legally write, it uses `min` for the kink, and it names axes and shades an area — so the
+# screenshot harness exercises every part of the spec instead of the oldest third of it.
 _STUB_REPLY = (
-    "It is a parabola, so it turns once. The lowest point is at x = 0, and it crosses the "
-    "x-axis where $x^2 = 4$, which is at $x = -2$ and $x = 2$.\n\n"
-    '<<plot fn="x^2 - 4" domain="-4,4" label="y = x squared minus 4" mark="-2,0; 2,0" note="roots">>'
+    "It speeds up steadily for four seconds and then holds that speed. The slope of the first "
+    "part is the acceleration, so a straight line means it is constant, and the shaded area is "
+    "the distance covered while it was still speeding up.\n\n"
+    '<<plot fn="min(2*x, 8)" domain="0,10" label="velocity against time" mark="4,8" '
+    'note="end of acceleration" xlabel="time (s)" ylabel="velocity (m/s)" shade="0,4">>'
 )
 
 

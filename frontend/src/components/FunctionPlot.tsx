@@ -9,6 +9,9 @@ const PAD_TOP = DOT_R + 4
 const PAD_RIGHT = DOT_R + 4
 const PAD_LEFT = 38 // room for y tick labels
 const PAD_BOTTOM = 20 // room for x tick labels
+/** A line for an axis title, when there is one. Added to the frame rather than taken out of the
+ * drawing area, so naming the axes never shrinks the graph. */
+const AXIS_TITLE = 14
 
 /** A graph the tutor asked for.
  *
@@ -23,7 +26,8 @@ const PAD_BOTTOM = 20 // room for x tick labels
  *
  * Colour follows the app's accent rule rather than chart convention. The curve is `--text` and
  * the axes are `--rule`; `--accent` is spent only on the points the tutor is actually talking
- * about, so the highlight means "this bit" rather than "this is a chart".
+ * about, so the highlight means "this bit" rather than "this is a chart". A shaded region is the
+ * same accent at a tenth strength — it is still "this bit", just a wide one.
  */
 export default function FunctionPlot({ spec }: { spec: PlotSpec }) {
   const svgRef = useRef<SVGSVGElement>(null)
@@ -35,18 +39,27 @@ export default function FunctionPlot({ spec }: { spec: PlotSpec }) {
   // Capped so a graph doesn't become the whole desktop column; floored so it stays readable on a
   // phone. Height follows width until it would get too tall to sit inside a reply.
   const width = Math.min(Math.max(measured, 240), 460)
-  const height = Math.round(Math.min(Math.max(width * 0.62, 170), 260))
+
+  // Titles claim their own strip of the frame. Computed here rather than inline because the
+  // geometry needs the plot width before anything renders.
+  const padLeft = PAD_LEFT + (spec.ylabel ? AXIS_TITLE : 0)
+  const padBottom = PAD_BOTTOM + (spec.xlabel ? AXIS_TITLE : 0)
+  const height = Math.round(Math.min(Math.max(width * 0.62, 170), 260)) + (spec.xlabel ? AXIS_TITLE : 0)
 
   const geometry = useMemo(() => {
     if (width <= 0) return null
     try {
-      return buildGeometry(spec, width - PAD_LEFT - PAD_RIGHT)
+      return buildGeometry(spec, width - padLeft - PAD_RIGHT)
     } catch {
       // The backend validates before sending, so this is the belt to that braces. A plot that
       // cannot be built degrades to its label rather than taking the reply down.
       return null
     }
-  }, [spec, width])
+  }, [spec, width, padLeft])
+
+  // What this graph is, in one phrase. Named axes stand in for a label when the model gave none:
+  // "velocity (m/s) against time (s)" says more than "y = min(2*x, 8)" ever would.
+  const title = spec.label ?? (spec.ylabel && spec.xlabel ? `${spec.ylabel} against ${spec.xlabel}` : `y = ${spec.fn}`)
 
   // The hook reports 0 until the first measurement lands, so the wrapper always renders and the
   // plot waits one frame rather than dividing by zero.
@@ -55,15 +68,15 @@ export default function FunctionPlot({ spec }: { spec: PlotSpec }) {
   if (!geometry || geometry.segments.length === 0) {
     return (
       <div ref={boxRef}>
-        <p className="mt-2 text-[0.8125rem] text-[var(--text-muted)]">{spec.label ?? `y = ${spec.fn}`}</p>
+        <p className="mt-2 text-[0.8125rem] text-[var(--text-muted)]">{title}</p>
       </div>
     )
   }
 
-  const { segments, xMin, xMax, yMin, yMax, xTicks, yTicks } = geometry
-  const plotW = width - PAD_LEFT - PAD_RIGHT
-  const plotH = height - PAD_TOP - PAD_BOTTOM
-  const sx = (x: number) => PAD_LEFT + ((x - xMin) / (xMax - xMin)) * plotW
+  const { segments, shadeSegments, shadeBase, xMin, xMax, yMin, yMax, xTicks, yTicks } = geometry
+  const plotW = width - padLeft - PAD_RIGHT
+  const plotH = height - PAD_TOP - padBottom
+  const sx = (x: number) => padLeft + ((x - xMin) / (xMax - xMin)) * plotW
   const sy = (y: number) => PAD_TOP + plotH - ((y - yMin) / (yMax - yMin)) * plotH
 
   const xStep = xTicks.length > 1 ? xTicks[1] - xTicks[0] : 1
@@ -106,7 +119,7 @@ export default function FunctionPlot({ spec }: { spec: PlotSpec }) {
   // read as a sentence rather than scanned as a label.
   const readout = hovered
     ? `x = ${formatValue(hovered.x, xStep)},  y = ${formatValue(hovered.y, yStep)}`
-    : [spec.label ?? `y = ${spec.fn}`, spec.note && `${spec.note} marked`].filter(Boolean).join(', ')
+    : [title, spec.note && `${spec.note} marked`].filter(Boolean).join(', ')
 
   return (
     <div ref={boxRef} className="mt-2.5">
@@ -130,13 +143,30 @@ export default function FunctionPlot({ spec }: { spec: PlotSpec }) {
           <line key={`gx${t}`} x1={sx(t)} y1={PAD_TOP} x2={sx(t)} y2={PAD_TOP + plotH} stroke="var(--rule)" strokeWidth={1} opacity={0.5} />
         ))}
         {yTicks.map((t) => (
-          <line key={`gy${t}`} x1={PAD_LEFT} y1={sy(t)} x2={PAD_LEFT + plotW} y2={sy(t)} stroke="var(--rule)" strokeWidth={1} opacity={0.5} />
+          <line key={`gy${t}`} x1={padLeft} y1={sy(t)} x2={padLeft + plotW} y2={sy(t)} stroke="var(--rule)" strokeWidth={1} opacity={0.5} />
+        ))}
+
+        {/* The area under the curve, where the tutor said the area is the point — reading a
+            displacement off a velocity-time graph is exactly that. Drawn over the grid and under
+            the axes, so the zero line it closes onto stays visible through it. */}
+        {shadeSegments.map((seg, i) => (
+          <path
+            key={`sh${i}`}
+            d={
+              `M${sx(seg[0].x).toFixed(2)},${sy(shadeBase).toFixed(2)} ` +
+              seg.map((p) => `L${sx(p.x).toFixed(2)},${sy(p.y).toFixed(2)}`).join(' ') +
+              ` L${sx(seg[seg.length - 1].x).toFixed(2)},${sy(shadeBase).toFixed(2)} Z`
+            }
+            fill="var(--accent)"
+            fillOpacity={0.1}
+            stroke="none"
+          />
         ))}
 
         {/* The axes proper, where zero is in frame. For school maths these are the reference the
             whole reading depends on, so they are the same hue at full strength. */}
         {yMin < 0 && yMax > 0 && (
-          <line x1={PAD_LEFT} y1={sy(0)} x2={PAD_LEFT + plotW} y2={sy(0)} stroke="var(--rule)" strokeWidth={1} />
+          <line x1={padLeft} y1={sy(0)} x2={padLeft + plotW} y2={sy(0)} stroke="var(--rule)" strokeWidth={1} />
         )}
         {xMin < 0 && xMax > 0 && (
           <line x1={sx(0)} y1={PAD_TOP} x2={sx(0)} y2={PAD_TOP + plotH} stroke="var(--rule)" strokeWidth={1} />
@@ -146,15 +176,28 @@ export default function FunctionPlot({ spec }: { spec: PlotSpec }) {
             of numbers has to line up; deliberately NOT `.numeral`, which index.css reserves for
             the four places allowed to be loud. */}
         {xTicks.map((t) => (
-          <text key={`tx${t}`} x={sx(t)} y={height - 6} textAnchor="middle" className="tabular-nums" fontSize={10} fill="var(--text-muted)">
+          <text key={`tx${t}`} x={sx(t)} y={PAD_TOP + plotH + 14} textAnchor="middle" className="tabular-nums" fontSize={10} fill="var(--text-muted)">
             {formatTick(t, xStep)}
           </text>
         ))}
         {yTicks.map((t) => (
-          <text key={`ty${t}`} x={PAD_LEFT - 6} y={sy(t) + 3} textAnchor="end" className="tabular-nums" fontSize={10} fill="var(--text-muted)">
+          <text key={`ty${t}`} x={padLeft - 6} y={sy(t) + 3} textAnchor="end" className="tabular-nums" fontSize={10} fill="var(--text-muted)">
             {formatTick(t, yStep)}
           </text>
         ))}
+
+        {/* Axis titles. Muted like the ticks, because the quantity is context and the curve is
+            the content. The y title is rotated to read bottom-to-top, as every textbook does. */}
+        {spec.xlabel && (
+          <text x={padLeft + plotW / 2} y={height - 3} textAnchor="middle" fontSize={10} fill="var(--text-muted)">
+            {spec.xlabel}
+          </text>
+        )}
+        {spec.ylabel && (
+          <text transform={`translate(11 ${PAD_TOP + plotH / 2}) rotate(-90)`} textAnchor="middle" fontSize={10} fill="var(--text-muted)">
+            {spec.ylabel}
+          </text>
+        )}
 
         {/* The curve. One path per unbroken run, so an asymptote is a gap rather than a line
             drawn straight through it. 2px, round join and cap. */}

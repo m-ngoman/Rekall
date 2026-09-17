@@ -10,6 +10,14 @@ export interface PlotSpec {
   marks?: [number, number][]
   /** Names what the marks are, e.g. "roots". Shown beside the label. */
   note?: string
+  /** Axis names, with units. Physics graphs need them — "time (s)" against "velocity (m/s)" —
+   * and pure maths does not, where the axes are already called x and y. */
+  xlabel?: string
+  ylabel?: string
+  /** Shades between the curve and the x-axis across this range of x. The area under a
+   * velocity-time graph *is* the displacement, so on the questions this feature exists for the
+   * shading is the answer rather than decoration. */
+  shade?: [number, number]
 }
 
 /** One unbroken run of the curve. A function with an asymptote or a gap in its domain produces
@@ -19,6 +27,11 @@ export type Segment = { x: number; y: number }[]
 
 export interface PlotGeometry {
   segments: Segment[]
+  /** The parts of `segments` inside `spec.shade`, ready to be closed down to the baseline.
+   * Empty when nothing is shaded. */
+  shadeSegments: Segment[]
+  /** Where the shading closes: y = 0, pulled into frame when zero is off-screen. */
+  shadeBase: number
   xMin: number
   xMax: number
   yMin: number
@@ -132,8 +145,23 @@ export function buildGeometry(spec: PlotSpec, widthPx: number): PlotGeometry {
   }
   if (current.length) segments.push(current)
 
+  // Shading is cut from the finished curve rather than sampled again, so a region spanning an
+  // asymptote is shaded in the same pieces the curve is drawn in — no wash across the gap.
+  // The edges land on the nearest sample rather than exactly on the bounds; at two samples per
+  // pixel that is half a pixel, and paying for exactness here would mean re-evaluating f.
+  const shade = spec.shade
+  const shadeSegments = shade
+    ? segments
+        .map((seg) => seg.filter((p) => p.x >= Math.min(...shade) && p.x <= Math.max(...shade)))
+        .filter((seg) => seg.length > 1)
+    : []
+
   return {
     segments,
+    shadeSegments,
+    // Clamped, so a curve that never comes near zero still shades to the bottom of the frame
+    // instead of to a baseline nobody can see.
+    shadeBase: Math.max(yMin, Math.min(yMax, 0)),
     xMin,
     xMax,
     yMin,
@@ -173,14 +201,23 @@ export function formatValue(value: number, step: number): string {
  * gets what the graph shows, not a list of coordinates they would have to hold in their head.
  */
 export function describePlot(spec: PlotSpec, geometry: PlotGeometry): string {
-  const parts = [spec.label ? `Graph of ${spec.label}` : `Graph of y = ${spec.fn}`]
-  parts.push(`for x from ${spec.domain[0]} to ${spec.domain[1]}`)
+  // Named axes before the label, matching the backend's transcript sentence and for the same
+  // reason: the axes carry the units a listener can't read off the picture. The visible readout
+  // line prefers the label, because there the axis titles are right there on the plot.
+  const named = spec.xlabel && spec.ylabel ? `${spec.ylabel} against ${spec.xlabel}` : null
+  const parts = [`Graph of ${named ?? spec.label ?? `y = ${spec.fn}`}`]
+  // The axis name, where there is one: "for time (s) from 0 to 8" beats "for x from 0 to 8" when
+  // the whole point of the graph is that x is seconds.
+  parts.push(`for ${spec.xlabel ?? 'x'} from ${spec.domain[0]} to ${spec.domain[1]}`)
   if (geometry.segments.length > 1) parts.push(`drawn in ${geometry.segments.length} parts, breaking where it is undefined`)
   const marks = spec.marks ?? []
   if (marks.length) {
     // Bracketed, so "marked at -2, 0 and 2, 0" isn't heard as four numbers.
     const where = marks.map(([x, y]) => `(${x}, ${y})`).join(' and ')
     parts.push(spec.note ? `with the ${spec.note} marked at ${where}` : `with points marked at ${where}`)
+  }
+  if (geometry.shadeSegments.length) {
+    parts.push(`with the area beneath it shaded from ${spec.shade![0]} to ${spec.shade![1]}`)
   }
   return parts.join(', ') + '.'
 }

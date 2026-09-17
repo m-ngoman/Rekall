@@ -27,6 +27,9 @@ _EXPRESSION_OK = re.compile(r"^[0-9a-zA-Z+\-*/^().,\s]{1,120}$")
 # Caps. A model that runs away should produce a readable graph or none, never a wall.
 _MAX_LABEL = 60
 _MAX_MARKS = 4
+# Axis titles are a quantity and a unit — "velocity (m/s)" — and a long one would be rotated
+# sideways down the edge of a graph on a phone. Shorter than the label on purpose.
+_MAX_AXIS = 28
 
 
 def _number(raw: str) -> float | None:
@@ -38,13 +41,35 @@ def _number(raw: str) -> float | None:
     return value if -1e9 < value < 1e9 else None
 
 
-def _clean_label(raw: str | None) -> str | None:
+def _clean_label(raw: str | None, limit: int = _MAX_LABEL) -> str | None:
     if not raw:
         return None
     # Control characters would ride into the DOM as text; strip rather than reject, because a
     # stray character is not a reason to lose the graph.
     text = "".join(c for c in raw if c.isprintable()).strip()
-    return text[:_MAX_LABEL] or None
+    return text[:limit] or None
+
+
+def _shade(raw: str | None, lo: float, hi: float) -> list[float] | None:
+    """The x-range to shade beneath the curve, clamped into the domain, or None.
+
+    A bad range loses the shading and keeps the graph: the curve is still the answer to most of
+    the question, and a plot that vanishes because one optional attribute was malformed would be
+    the worst trade available.
+    """
+    if not raw:
+        return None
+    parts = raw.split(",")
+    if len(parts) != 2:
+        return None
+    a, b = _number(parts[0].strip()), _number(parts[1].strip())
+    if a is None or b is None:
+        return None
+    # Ordered here rather than rejected: "shade from 4 back to 0" is the same region, and the
+    # model writes it both ways.
+    a, b = min(a, b), max(a, b)
+    a, b = max(a, lo), min(b, hi)
+    return [a, b] if a < b else None
 
 
 def parse_figure(match: re.Match[str]) -> dict | None:
@@ -85,6 +110,9 @@ def parse_figure(match: re.Match[str]) -> dict | None:
         "label": _clean_label(attrs.get("label")),
         "marks": marks,
         "note": _clean_label(attrs.get("note")),
+        "xlabel": _clean_label(attrs.get("xlabel"), _MAX_AXIS),
+        "ylabel": _clean_label(attrs.get("ylabel"), _MAX_AXIS),
+        "shade": _shade(attrs.get("shade"), lo, hi),
     }
 
 
@@ -95,13 +123,27 @@ def describe(spec: dict) -> str:
     appended to the stored transcript so the tutor's own history records that it drew something.
     Two consumers, one implementation, so they cannot drift apart.
     """
-    what = spec.get("label") or f"y = {spec['fn']}"
+    axes = (
+        f"{spec['ylabel']} against {spec['xlabel']}"
+        if spec.get("xlabel") and spec.get("ylabel")
+        else None
+    )
+    # Axes before the label, unlike the on-screen line, which prefers the label. This sentence is
+    # read by the model and nobody else: "velocity (m/s) against time (s)" carries the units, and
+    # "velocity against time" does not. A tutor asked to redraw the same graph in km/h needs the
+    # first one; a student looking at a plot whose axes are already labelled needs the second.
+    what = axes or spec.get("label") or f"y = {spec['fn']}"
     lo, hi = spec["domain"]
-    parts = [f"Graph shown: {what} for x from {_tidy(lo)} to {_tidy(hi)}"]
+    # The x axis by its own name where it has one: a transcript that says "for time (s) from 0 to
+    # 8" lets the tutor answer "redraw that to 12 seconds" without re-deriving what x was.
+    across = spec.get("xlabel") or "x"
+    parts = [f"Graph shown: {what} for {across} from {_tidy(lo)} to {_tidy(hi)}"]
     marks = spec.get("marks") or []
     if marks:
         where = " and ".join(f"({_tidy(x)}, {_tidy(y)})" for x, y in marks)
         parts.append(f"with the {spec['note']} marked at {where}" if spec.get("note") else f"with {where} marked")
+    if shade := spec.get("shade"):
+        parts.append(f"with the area beneath it shaded from {_tidy(shade[0])} to {_tidy(shade[1])}")
     return ", ".join(parts) + "."
 
 

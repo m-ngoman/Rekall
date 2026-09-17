@@ -17,7 +17,7 @@ assumed.
 
 import pytest
 
-from app.api.tutor import _pop_markers, _split_safe
+from app.api.tutor import _MAX_HOLD, _pop_markers, _split_safe
 
 EXAM = '<<add-exam name="Pharmacology mock" date="2026-09-26">>'
 
@@ -193,7 +193,7 @@ def test_a_plot_that_cannot_be_honoured_is_dropped_silently(bad: str) -> None:
 def test_a_truncated_marker_is_dropped_rather_than_printed() -> None:
     """A stream that dies mid-marker used to release the fragment as text at the final flush,
     which put raw markup on screen. Beyond the longest legal marker it can only be truncated."""
-    seen, found, _ = replay(["Nearly there.\n\n<<plot fn=\"x^2\" domain=\"" + "9" * 700])
+    seen, found, _ = replay(["Nearly there.\n\n<<plot fn=\"x^2\" domain=\"" + "9" * (_MAX_HOLD + 100)])
     assert "<<plot" not in seen
     assert seen.startswith("Nearly there.")
     assert found == []
@@ -205,3 +205,76 @@ def test_the_expression_charset_rejects_backslashes_and_braces() -> None:
     for fn in [r"\sqrt{x}", r"\frac{1}{x}", "x^2; drop table", "x^2 & 1"]:
         _, found, _ = replay([f'<<plot fn="{fn}" domain="-4,4">>'])
         assert found == [], fn
+
+
+# A kinematics graph: piecewise, named axes, and the area that answers the question. This is the
+# shape the feature was extended for, so it gets the longest marker in the suite — it is also
+# what the 520-character pattern bound has to accommodate.
+PHYSICS = (
+    '<<plot fn="min(2*x, 8)" domain="0,10" label="velocity against time" mark="4,8" '
+    'note="end of acceleration" xlabel="time (s)" ylabel="velocity (m/s)" shade="0,4">>'
+)
+
+
+def test_a_physics_plot_carries_its_axes_and_shading() -> None:
+    seen, found, traces = replay(char_by_char(f"Read the area off it.\n\n{PHYSICS}"))
+    assert "<<" not in seen
+    payload = found[0][1]
+    assert payload["fn"] == "min(2*x, 8)"
+    assert payload["xlabel"] == "time (s)"
+    assert payload["ylabel"] == "velocity (m/s)"
+    assert payload["shade"] == [0.0, 4.0]
+    # The trace is the tutor's only memory of the graph, so it has to say which axis was which —
+    # otherwise "redraw that out to 20 seconds" has nothing to work from.
+    assert "time (s)" in traces[0] and "velocity (m/s)" in traces[0]
+    assert "shaded from 0 to 4" in traces[0]
+
+
+def test_a_plot_without_axes_or_shading_says_so() -> None:
+    """The pure-maths case still produces None rather than empty strings, so the renderer's
+    optional-field checks mean what they say."""
+    _, found, _ = replay([PLOT])
+    payload = found[0][1]
+    assert payload["xlabel"] is None and payload["ylabel"] is None and payload["shade"] is None
+
+
+@pytest.mark.parametrize(
+    "shade,expected",
+    [
+        ("0,4", [0.0, 4.0]),
+        ("4,0", [0.0, 4.0]),  # written backwards; the same region
+        ("-9,4", [-4.0, 4.0]),  # clamped into the domain rather than dropped
+        ("9,20", None),  # entirely outside it
+        ("2", None),  # one number
+        ("a,b", None),  # not numbers
+        ("2,2", None),  # no width
+    ],
+)
+def test_a_shade_range_is_clamped_or_dropped_never_believed(shade: str, expected) -> None:
+    _, found, _ = replay([f'<<plot fn="x^2" domain="-4,4" shade="{shade}">>'])
+    # A bad shade costs the shading, never the graph: the curve still answers most of the question.
+    assert len(found) == 1
+    assert found[0][1]["shade"] == expected
+
+
+def test_axis_titles_are_truncated_rather_than_rejected() -> None:
+    """They are drawn along the edge of the plot, and a rotated 200-character title would run off
+    a phone. Losing the tail is better than losing the graph."""
+    long = "velocity measured relative to the laboratory frame in metres per second"
+    _, found, _ = replay([f'<<plot fn="x" domain="0,4" ylabel="{long}">>'])
+    assert found[0][1]["ylabel"] == long[:28]
+
+
+def test_the_longest_legal_marker_still_matches() -> None:
+    """Every attribute at its cap. The pattern bound was sized for this; if a future attribute
+    pushes past it the marker stops matching and the plot vanishes silently, which is the kind of
+    failure that only shows up in production."""
+    marker = (
+        f'<<plot fn="{"x+1" * 40}" domain="-1000,1000" label="{"L" * 60}" '
+        f'mark="1,1; 2,2; 3,3; 4,4" note="{"N" * 60}" xlabel="{"X" * 28}" '
+        f'ylabel="{"Y" * 28}" shade="-1000,1000">>'
+    )
+    assert len(marker) < _MAX_HOLD, "a legal marker must never be long enough to be dropped"
+    seen, found, _ = replay(char_by_char(marker))
+    assert "<<" not in seen
+    assert len(found) == 1

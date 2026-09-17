@@ -90,6 +90,27 @@ ok('1/0 is Infinity', at('1/x', 0), Infinity)
 ok('0/0 is NaN', at('x/x', 0), NaN)
 ok('tan near pi/2 is finite but huge', Number.isFinite(at('tan(x)', Math.PI / 2)), true)
 
+console.log('\n--- min and max: the piecewise shapes ---')
+// The reason these exist. Accelerate at 2 m/s^2 to 8 m/s, then cruise.
+ok('min(2x, 8) still rising at x=2', at('min(2*x, 8)', 2), 4)
+ok('min(2x, 8) levelled off at x=6', at('min(2*x, 8)', 6), 8)
+ok('min at the kink itself', at('min(2*x, 8)', 4), 8)
+ok('max(0, x) clamps below', at('max(0, x)', -3), 0)
+ok('max(0, x) passes above', at('max(0, x)', 3), 3)
+// Three phases: rise, cruise, fall. One expression, and the shape a kinematics question needs.
+ok('max(0, min(2x, 8, 24 - 2x)) rising', at('max(0, min(2*x, 8, 24 - 2*x))', 3), 6)
+ok('max(0, min(2x, 8, 24 - 2x)) cruising', at('max(0, min(2*x, 8, 24 - 2*x))', 7), 8)
+ok('max(0, min(2x, 8, 24 - 2x)) braking', at('max(0, min(2*x, 8, 24 - 2*x))', 10), 4)
+ok('spaces and nesting survive', at('min( x , max( 1 , 2 ) )', 5), 2)
+ok('the abs identity agrees with min', at('(2*x + 8 - abs(2*x - 8))/2', 6), at('min(2*x, 8)', 6))
+ok('implicit multiply before a call', at('2min(x, 3)', 5), 6)
+// One argument is not an error — Math.min of one thing is that thing.
+ok('min of one argument', at('min(x)', 7), 7)
+throws('rejects a comma in a unary function', 'sin(x, 2)')
+throws('rejects an empty argument list', 'min()')
+throws('rejects a trailing comma', 'min(x,)')
+throws('rejects a bare comma outside a call', 'x, 2')
+
 console.log('\n--- garbage is a parse error, not a crash ---')
 for (const bad of ['', '2 +', '(2', '2)', 'x +* 2', 'foo(x)', 'x $ 2', '2 @ 3', 'sin', 'sin x']) {
   throws(`rejects ${JSON.stringify(bad)}`, bad)

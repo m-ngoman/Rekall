@@ -79,7 +79,10 @@ _EXAM = _Marker(
 # `parse_figure` is what decides whether the contents are usable.
 _PLOT = _Marker(
     prefix="<<plot",
-    pattern=re.compile(r"<<plot\s+[^<>]{0,400}?>>"),
+    # 520 is the sum of every attribute at its cap plus the names and quotes around them — a
+    # graph with axis titles and a shaded region is a long line. Past that the model has run away
+    # and the marker never matches, which `_MAX_HOLD` turns into a dropped plot, not leaked text.
+    pattern=re.compile(r"<<plot\s+[^<>]{0,520}?>>"),
     event="plot",
     parse=parse_figure,
     trace=describe_figure,
@@ -89,7 +92,7 @@ _MARKERS: tuple[_Marker, ...] = (_EXAM, _PLOT)
 
 # A hold longer than the longest legal marker is a marker the model truncated, not one still
 # arriving. Releasing it would print raw markup at the student; it is dropped instead.
-_MAX_HOLD = 600
+_MAX_HOLD = 700
 
 # What the student sees when the model or the synthesizer fails partway through a reply. The turn
 # is genuinely lost at that point — the user message is already stored but no assistant message

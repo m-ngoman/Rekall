@@ -23,6 +23,16 @@ const SPECS = [
   { name: 'cubic', fn: 'x^3 - 3x', domain: [-2.5, 2.5], label: 'y = x³ − 3x', marks: [[-1, 2], [1, -2]], note: 'turning points' },
   { name: 'log', fn: 'ln(x)', domain: [-1, 8], label: 'y = ln x' },
   { name: 'flat', fn: '3', domain: [-5, 5], label: 'y = 3' },
+  // The physics cases: piecewise shapes, axes that carry units, and an area that is the answer.
+  { name: 'kinematics', fn: 'min(2*x, 8)', domain: [0, 10], label: 'velocity against time',
+    marks: [[4, 8]], note: 'end of acceleration', xlabel: 'time (s)', ylabel: 'velocity (m/s)', shade: [0, 4] },
+  { name: 'three-phase', fn: 'max(0, min(2*x, 8, 24 - 2*x))', domain: [0, 12],
+    xlabel: 'time (s)', ylabel: 'velocity (m/s)', shade: [0, 12] },
+  // Shading a curve that goes negative: the wash has to close onto y = 0, not onto the frame.
+  { name: 'signed-area', fn: 'sin(x)', domain: [0, 12.6], label: 'y = sin x', shade: [0, 9.4] },
+  // Axis titles with no shading, and a domain where zero is off-screen, so the baseline clamps.
+  { name: 'decay-labelled', fn: '80*exp(-x/3)', domain: [0, 12], xlabel: 'time (s)',
+    ylabel: 'activity (Bq)', marks: [[2.08, 40]], note: 'half-life', shade: [0, 2.08] },
 ]
 
 // A page that mounts the real component from source, so this screenshots what ships.
@@ -58,7 +68,7 @@ for (const theme of ['dark', 'light']) {
   // document.documentElement exists, so it threw and both passes silently rendered light — two
   // byte-identical screenshots, one of them labelled "dark".
   writeFileSync(harnessPath, harness(theme))
-  const page = await browser.newPage({ viewport: { width: 1100, height: 900 }, deviceScaleFactor: 2 })
+  const page = await browser.newPage({ viewport: { width: 1100, height: 1200 }, deviceScaleFactor: 2 })
   const errs = []
   page.on('pageerror', (e) => errs.push(e.message))
   await page.goto('http://127.0.0.1:5199/_plotcheck.html', { waitUntil: 'networkidle' })

@@ -14,7 +14,7 @@
  *   term    := unary (('*' | '/' | '%') unary)*
  *   unary   := ('-' | '+')* factor
  *   factor  := primary ('^' unary)?
- *   primary := NUMBER | 'x' | CONST | FUNC '(' expr ')' | '(' expr ')'
+ *   primary := NUMBER | 'x' | CONST | FUNC '(' expr (',' expr)* ')' | '(' expr ')'
  *
  * Trap one: `^` binds tighter than unary minus, so `-x^2` is −(x²) and not (−x)². That falls out
  * of `unary` sitting *above* `factor` rather than below it.
@@ -30,6 +30,7 @@ export type Node =
   | { kind: 'neg'; operand: Node }
   | { kind: 'bin'; op: '+' | '-' | '*' | '/' | '%' | '^'; left: Node; right: Node }
   | { kind: 'call'; fn: keyof typeof FUNCTIONS; arg: Node }
+  | { kind: 'callN'; fn: keyof typeof VARIADIC; args: Node[] }
 
 /** Thrown only by `parse`. Evaluation never throws — see `evaluate`. */
 export class ExprError extends Error {
@@ -66,6 +67,16 @@ const FUNCTIONS = {
   round: Math.round,
   sign: Math.sign,
 } as const
+
+/** Functions of more than one argument, which is to say: the two that make a graph bend.
+ *
+ * Every shape in kinematics is piecewise — accelerate, then cruise, then brake — and `min`/`max`
+ * are the only way to write that as one expression. There is an identity that does it with the
+ * unary set, `(a + b - abs(a - b))/2`, and it plots the same curve; no model and no student would
+ * ever reach for it. Asked to draw exactly that graph the tutor wrote `min(2*x, 8)` unprompted,
+ * which parsed as an unknown name and lost the plot, so the names are real now.
+ */
+const VARIADIC = { min: Math.min, max: Math.max } as const
 
 const CONSTANTS: Record<string, number> = { pi: Math.PI, e: Math.E, tau: Math.PI * 2 }
 
@@ -209,11 +220,16 @@ export function parse(src: string): Node {
       // member where a number or a function belongs. Caught by the hostile-input cases in
       // design/handoff/expr-cases.mjs, which is exactly what they are there for.
       if (own(CONSTANTS, t.value)) return { kind: 'num', value: CONSTANTS[t.value] }
-      if (own(FUNCTIONS, t.value)) {
+      if (own(FUNCTIONS, t.value) || own(VARIADIC, t.value)) {
         if (!eat('(')) throw new ExprError(`${t.value} needs a bracket, like ${t.value}(x)`, at())
-        const arg = expr()
+        // Read the list first and check arity after, so `sin(x, 2)` reports what is actually
+        // wrong with it rather than "missing closing bracket" at the comma.
+        const args = [expr()]
+        while (eat(',')) args.push(expr())
         if (!eat(')')) throw new ExprError('Missing closing bracket', at())
-        return { kind: 'call', fn: t.value as keyof typeof FUNCTIONS, arg }
+        if (own(VARIADIC, t.value)) return { kind: 'callN', fn: t.value as keyof typeof VARIADIC, args }
+        if (args.length !== 1) throw new ExprError(`${t.value} takes one argument`, t.at)
+        return { kind: 'call', fn: t.value as keyof typeof FUNCTIONS, arg: args[0] }
       }
       throw new ExprError(`Unknown name ${JSON.stringify(t.value)}`, t.at)
     }
@@ -250,6 +266,8 @@ export function evaluate(node: Node, x: number): number {
       return -evaluate(node.operand, x)
     case 'call':
       return FUNCTIONS[node.fn](evaluate(node.arg, x))
+    case 'callN':
+      return VARIADIC[node.fn](...node.args.map((a) => evaluate(a, x)))
     case 'bin': {
       const a = evaluate(node.left, x)
       const b = evaluate(node.right, x)
