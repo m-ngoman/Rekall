@@ -4,6 +4,7 @@ import type { BugReport } from '../api'
 import MemoryPicker from '../components/MemoryPicker'
 import PersonalityPicker, { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
 import PlainMath from '../components/PlainMath'
+import Notice from '../components/Notice'
 import VoiceOrb, { type OrbState } from '../components/VoiceOrb'
 import VoicePicker from '../components/VoicePicker'
 import { createExam, listExams } from '../api'
@@ -1027,11 +1028,15 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
           /* Was a single centered line of grey text on an otherwise blank screen. The starter
              prompts do real work beyond filling space: a blank tutor box gives no clue what it's
              actually good at, so these double as capability hints. */
-          <div className="flex flex-col pt-4">
-            <div className="text-[1.25rem] font-bold leading-snug">What are we working on?</div>
-            <p className="mt-1.5 max-w-md text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+          // Centred in the space it has, with the starters pinned to the bottom above the
+          // composer. Stacked from the top, this screen was mostly an empty black field.
+          <div className="flex min-h-[58vh] flex-col justify-end pt-4 lg:min-h-[62vh]">
+            <div className="flex flex-1 flex-col justify-center">
+            <div className="text-[1.5rem] font-bold leading-snug tracking-[-0.02em] lg:text-[1.75rem]">What are we working on?</div>
+            <p className="mt-2 max-w-[320px] text-[0.9375rem] leading-[1.55] text-[var(--text-muted)] lg:max-w-[440px]">
               Type, attach a photo of your notes, or tap the mic and talk. It keeps listening until you tap again.
             </p>
+            </div>
             {/* Starters as rows, not chips: they are the three things this tutor is actually good at. */}
             <div className="mt-6 border-t border-[var(--rule)]">
               {starterRows(nextExam).map(({ prompt, meta }) => (
@@ -1042,9 +1047,9 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                 >
                   <span className="min-w-0 truncate">{prompt}</span>
                   {meta && (
-                    <span className="flex-shrink-0 text-[0.875rem] font-medium text-[var(--text-muted)]">
-                      <span className="numeral mr-1 text-[0.9375rem] text-[var(--text)]">{meta.split(' ')[0]}</span>
-                      {meta.split(' ').slice(1).join(' ')}
+                    <span className="flex flex-shrink-0 items-baseline gap-1">
+                      <span className="numeral text-[1.125rem] text-[var(--text)]">{meta.split(' ')[0]}</span>
+                      <span className="text-[0.8125rem] text-[var(--text-muted)]">{meta.split(' ').slice(1).join(' ')}</span>
                     </span>
                   )}
                 </button>
@@ -1094,34 +1099,32 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
             ),
           )
         )}
+        {/* A divided row on the page, not a surface card: the accent-stroked glyph and the
+            green "Added" tick were both outside the four jobs the accent and the grade colours
+            have. The confirmation is plain muted text now, which is all it ever needed to be. */}
         {examOffer && (
-          <div
-            className="flex max-w-[94%] items-center gap-3 self-start rounded-[var(--r-md)] bg-[var(--surface)] px-4 py-3"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+          <div className="flex items-center gap-3 self-stretch border-y border-[var(--rule)] py-3">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
               <rect x="3" y="5" width="18" height="16" rx="2" />
               <path d="M3 10h18M8 3v4M16 3v4" />
             </svg>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-bold">{examOffer.name}</div>
-              <div className="text-xs text-[var(--text-muted)]">{formatDayLong(examOffer.date)}</div>
+              <div className="truncate text-[0.875rem] font-bold">{examOffer.name}</div>
+              <div className="text-[0.8125rem] text-[var(--text-muted)]">{formatDayLong(examOffer.date)}</div>
             </div>
             {examOffer.added ? (
-              <span className="flex-shrink-0 text-xs font-bold" style={{ color: 'var(--grade-good)' }}>
-                Added ✓
-              </span>
+              <span className="flex-shrink-0 text-[0.8125rem] text-[var(--text-muted)]">Added to your calendar</span>
             ) : (
-              <div className="flex flex-shrink-0 items-center gap-1.5">
+              <div className="flex flex-shrink-0 items-center gap-1">
                 <button
                   onClick={() => setExamOffer(null)}
-                  className="rounded-[var(--r-sm)] px-3 py-2 text-xs font-bold text-[var(--text-muted)]"
+                  className="flex h-10 items-center rounded-[var(--r-sm)] px-3 text-[0.875rem] font-semibold text-[var(--text-muted)]"
                 >
-                  No thanks
+                  Not now
                 </button>
                 <button
                   onClick={() => commitExam({ name: examOffer.name, date: examOffer.date })}
-                  className="on-accent rounded-[var(--r-full)] px-3.5 py-2 text-xs font-bold"
-                  style={{ background: 'var(--accent)' }}
+                  className="flex h-10 items-center rounded-[var(--r-sm)] px-3 text-[0.875rem] font-bold"
                 >
                   Add to calendar
                 </button>
@@ -1129,26 +1132,11 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
             )}
           </div>
         )}
-        {notice && (
-          <div
-            className="self-center rounded-[var(--r-sm)] px-4 py-2.5 text-center text-sm font-semibold"
-            style={{ background: 'var(--surface)', color: 'var(--text-muted)' }}
-          >
-            {notice}
-          </div>
-        )}
+        {notice && <Notice tone="neutral">{notice}</Notice>}
         {error && (
-          <div
-            className="self-center rounded-[var(--r-md)] px-4 py-2.5 text-center text-sm font-semibold"
-            style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}
-          >
+          <Notice tone="error" action={paywall ? { label: 'See plans', onClick: onOpenPricing } : undefined}>
             {error}
-            {paywall && (
-              <button onClick={onOpenPricing} className="ml-2 underline underline-offset-4">
-                See plans
-              </button>
-            )}
-          </div>
+          </Notice>
         )}
         <div ref={bottomRef} />
       </div>
@@ -1165,7 +1153,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                 <button
                   onClick={() => setPendingImage(null)}
                   aria-label="Remove photo"
-                  className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-[var(--r-full)] bg-black/60 text-white"
+                  className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-[var(--r-full)] border border-[var(--rule)] bg-[var(--surface)] text-[var(--text)]"
                 >
                   {CLOSE_ICON}
                 </button>
@@ -1201,7 +1189,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                 <button
                   onClick={() => setOpenPopover((p) => (p === 'photo' ? null : 'photo'))}
                   aria-label={pendingImage ? 'Photo attached' : 'Attach a photo'}
-                  className="flex h-8 items-center justify-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-semibold text-[var(--text-muted)]"
+                  className="flex h-9 items-center justify-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
                   style={{ background: pendingImage || openPopover === 'photo' ? 'var(--bg)' : undefined }}
                 >
                   {PHOTO_ICON}
@@ -1246,8 +1234,8 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                     handleSendText()
                   }
                 }}
-                placeholder="Message the tutor…"
-                className="min-w-0 flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-snug outline-none"
+                placeholder="Message the tutor"
+                className="min-w-0 flex-1 resize-none bg-transparent px-3 py-2 text-[0.9375rem] leading-snug outline-none"
               />
             ) : (
               <div className="flex flex-1 items-center justify-center py-2.5">
@@ -1258,7 +1246,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
             {!voiceModeActive && draft.trim() ? (
               <button
                 onClick={handleSendText}
-                className="on-accent flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-full)]"
+                className="on-accent flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--r-full)]"
                 style={{ background: 'var(--accent)' }}
               >
                 {SEND_ICON}
@@ -1275,7 +1263,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                 // broken. The tab is a place you might go; this is a thing you'd press by mistake.
                 hidden={settings?.ai_voice === false}
                 disabled={voiceModeActive}
-                className="on-accent flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-full)] transition-opacity duration-150"
+                className="on-accent flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--r-full)] transition-opacity duration-150"
                 style={{
                   background: 'var(--accent)',
                   opacity: voiceModeActive ? 0 : 1,
@@ -1295,7 +1283,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
               <button
                 onClick={() => setOpenPopover((p) => (p === 'personality' ? null : 'personality'))}
                 aria-label={`Tutor style${session ? ': ' + PERSONALITY_LABELS[session.personality] : ''}`}
-                className="flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-semibold text-[var(--text-muted)]"
+                className="flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
                 style={{ background: openPopover === 'personality' ? 'var(--bg)' : undefined }}
               >
                 {PERSONALITY_ICON}
@@ -1330,7 +1318,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
               <button
                 onClick={() => setOpenPopover((p) => (p === 'voice' ? null : 'voice'))}
                 aria-label={`Voice${voiceName ? ': ' + voiceName : ''}`}
-                className="flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-semibold text-[var(--text-muted)]"
+                className="flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
                 style={{ background: openPopover === 'voice' ? 'var(--bg)' : undefined }}
               >
                 {VOICE_ICON}
@@ -1349,7 +1337,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
               <button
                 onClick={() => setOpenPopover((p) => (p === 'memory' ? null : 'memory'))}
                 aria-label={`Notes the tutor remembers: ${memoryNotes?.length ?? 0}`}
-                className="flex h-8 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-xs font-semibold text-[var(--text-muted)]"
+                className="flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
                 style={{ background: openPopover === 'memory' ? 'var(--bg)' : undefined }}
               >
                 {MEMORY_ICON}
@@ -1499,17 +1487,18 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                 <div className="text-xs text-white/50">{formatDayLong(examOffer.date)}</div>
               </div>
               {examOffer.added ? (
-                <span className="flex-shrink-0 text-xs font-bold" style={{ color: 'var(--grade-good)' }}>
-                  Added ✓
-                </span>
+                <span className="flex-shrink-0 text-[0.8125rem] text-white/50">Added to your calendar</span>
               ) : (
                 <div className="flex flex-shrink-0 items-center gap-1">
-                  <button onClick={() => setExamOffer(null)} className="rounded-xl px-2.5 py-2 text-xs font-bold text-white/45">
-                    No
+                  <button onClick={() => setExamOffer(null)} className="flex h-9 items-center rounded-[var(--r-sm)] px-3 text-[0.8125rem] font-bold text-white/45">
+                    Not now
                   </button>
+                  {/* The one primary button on this stage, so it keeps the accent fill — but with
+                      .on-accent rather than a literal near-white, which is the rule everywhere
+                      else in the app. */}
                   <button
                     onClick={() => commitExam({ name: examOffer.name, date: examOffer.date })}
-                    className="rounded-xl px-3.5 py-2 text-xs font-bold text-[oklch(0.99_0.005_90)]"
+                    className="on-accent flex h-9 items-center rounded-[var(--r-full)] px-4 text-[0.8125rem] font-bold"
                     style={{ background: 'var(--accent)' }}
                   >
                     Add

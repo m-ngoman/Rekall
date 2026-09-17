@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { createCard, createDeck, deleteCard, listCards, listDecks, updateCard } from '../api'
+import { createCard, createDeck, deleteCard, deleteDeck, listCards, listDecks, updateCard } from '../api'
 import type { Card, Deck } from '../types'
 
 interface Props {
@@ -143,6 +143,17 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
     }
   }
 
+  const handleDeleteDeck = async () => {
+    const name = decks?.find((d) => d.id === deckId)?.name ?? 'this deck'
+    if (!confirm(`Delete ${name} and all its cards and study history? This cannot be undone.`)) return
+    try {
+      await deleteDeck(deckId)
+      onDone(true)
+    } catch {
+      setError('Could not delete that deck.')
+    }
+  }
+
   return (
     <div>
       <button onClick={() => onDone(countsChanged)} className="-ml-2 mb-3 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]">
@@ -159,6 +170,17 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             Every card in this deck. Tap the pencil to fix one, or add more below.
           </p>
+          {/* Deleting the deck lives here rather than on its row in the library. It used to sit at
+              full weight beside the edit pencil on every tile, one tap from a confirm dialog —
+              a destructive action you could hit reaching for the one beside it. Here it is behind
+              a deliberate navigation, and the count in the label says what goes with it. */}
+          <button
+            onClick={handleDeleteDeck}
+            className="-ml-2 mt-3 flex h-11 items-center rounded-[var(--r-sm)] px-2 text-[0.875rem] font-semibold"
+            style={{ color: 'var(--grade-forgot)' }}
+          >
+            Delete this deck{cards && cards.length > 0 ? ` and its ${cards.length} card${cards.length === 1 ? '' : 's'}` : ''}
+          </button>
         </div>
       ) : (
         <p className="mb-5 text-sm text-[var(--text-muted)]">

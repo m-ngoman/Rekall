@@ -31,11 +31,20 @@
   --font-display: 'Barlow Condensed', 'Nunito', system-ui, sans-serif;
 
   /* Grading feedback colours (Study screen) — out of scope for this pass, kept as they were. */
-  --grade-forgot: oklch(0.62 0.16 25);
+  /* L 0.50 across all three. At the old lightnesses these measured 3.6 / 2.4 / 3.1 against the
+     page — the 17px grade label and the error notice both failed AA, and "hard" failed even at
+     72px. At L 0.50 they measure 6.0 / 5.7 / 5.2 on the page and clear 4.5 on their own tints.
+     One lightness for all three keeps them reading as one family.
+
+     --grade-hard's chroma is 0.124, not the 0.15 the handoff proposed: at L 0.50 / hue 55, 0.15
+     falls outside sRGB (blue channel -0.017), so the browser would clamp it and render a colour
+     nobody specified. 0.124 is the most chroma that hue holds here, and it measures 5.74 against
+     the page — a rounding error away from the clamped version, but it is the colour we asked for. */
+  --grade-forgot: oklch(0.5 0.17 25);
   --grade-forgot-bg: oklch(0.95 0.05 25);
-  --grade-hard: oklch(0.72 0.16 55);
+  --grade-hard: oklch(0.5 0.124 55);
   --grade-hard-bg: oklch(0.95 0.05 55);
-  --grade-good: oklch(0.62 0.155 145);
+  --grade-good: oklch(0.5 0.14 145);
   --grade-good-bg: oklch(0.95 0.04 145);
   --streak: oklch(0.72 0.16 55);
 }
@@ -112,6 +121,19 @@ body {
 }
 :focus:not(:focus-visible) {
   outline: none;
+}
+
+/* Fields are the exception. The study textarea autofocuses on every card, so the accent ring was
+   permanently lit around the largest surface on screen — a fifth accent job by accident. A --rule
+   ring says "focused" without spending the accent; the caret already says where you are. Drawn as
+   a zero-blur box-shadow rather than a border so it costs no layout, which is the same trick the
+   rest of the app avoids for *shadows* — there is nothing soft about it. Buttons and links keep
+   the accent ring, which is where keyboard focus actually needs to be loud. */
+textarea:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--rule);
 }
 
 button,

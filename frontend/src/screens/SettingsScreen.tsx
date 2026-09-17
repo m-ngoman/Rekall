@@ -3,6 +3,7 @@ import { exportUrl, getBillingStatus, listTutorVoices, logout, type BillingStatu
 import { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
 import { ACCENT_PRESETS, DEFAULT_ACCENT, readCustomAccent, writeCustomAccent } from '../hooks/useAccent'
 import Segmented from '../components/Segmented'
+import Notice from '../components/Notice'
 import type { GradingStrictness, Settings, SettingsPatch, Theme, TutorVoice } from '../types'
 
 interface Props {
@@ -84,10 +85,12 @@ export default function SettingsScreen({ me, settings, error, onChange, onOpenAd
 
   return (
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-10">
+      {/* Spans both columns on desktop: a failure that only covers half the page reads as
+          belonging to the section beneath it rather than to the screen. */}
       {error && (
-        <div className="rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
+        <Notice tone="error" className="lg:col-span-2" action={{ label: 'Retry', onClick: () => window.location.reload() }}>
           {error}
-        </div>
+        </Notice>
       )}
 
       <Section title="Appearance">
@@ -110,7 +113,7 @@ export default function SettingsScreen({ me, settings, error, onChange, onOpenAd
                   title={preset.name}
                   aria-label={preset.name}
                   aria-pressed={active}
-                  className="h-7 w-7 rounded-[var(--r-full)]"
+                  className="h-9 w-9 rounded-[var(--r-full)]"
                   style={{ background: preset.value, outline: active ? '2px solid var(--text)' : undefined, outlineOffset: 2 }}
                 />
               )
@@ -123,7 +126,7 @@ export default function SettingsScreen({ me, settings, error, onChange, onOpenAd
                 title="Your colour"
                 aria-label="Your colour"
                 aria-pressed={(settings.accent ?? DEFAULT_ACCENT) === customAccent}
-                className="h-7 w-7 rounded-[var(--r-full)]"
+                className="h-9 w-9 rounded-[var(--r-full)]"
                 style={{
                   background: customAccent,
                   outline: (settings.accent ?? DEFAULT_ACCENT) === customAccent ? '2px solid var(--text)' : undefined,
@@ -133,7 +136,7 @@ export default function SettingsScreen({ me, settings, error, onChange, onOpenAd
             )}
             <label
               title="Custom color"
-              className="relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-[var(--r-full)] border-[1.5px] border-dashed border-[var(--text-muted)] text-[var(--text-muted)]"
+              className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-[var(--r-full)] border-[1.5px] border-dashed border-[var(--text-muted)] text-[var(--text-muted)]"
             >
               <span className="text-sm font-bold">+</span>
               <input
@@ -571,7 +574,7 @@ function AISection({ settings, onChange }: { settings: Settings; onChange: (patc
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <div className="mb-2 text-[0.9375rem] font-bold">{title}</div>
+      <div className="mb-2 text-[1.0625rem] font-bold tracking-[-0.01em]">{title}</div>
       <div className="flex flex-col rounded-[var(--r-md)] bg-[var(--surface)] px-4 [&>*+*]:border-t [&>*+*]:border-[var(--rule)]">
         {children}
       </div>
@@ -621,12 +624,14 @@ function Stepper({
   const set = (next: number) => onChange(Math.min(max, Math.max(min, next)))
 
   return (
-    <div className="flex items-center gap-0.5">
+    // 44px buttons, overhanging the panel's own padding by 8px on the right so the row does not
+    // get wider for it. They were 36px, under the touch floor on a control you tap repeatedly.
+    <div className="-mr-2 flex items-center gap-0.5">
       <button
         onClick={() => set(value - step)}
         disabled={value <= min}
         aria-label="Decrease"
-        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[var(--r-sm)] text-lg text-[var(--text-muted)] disabled:opacity-40"
+        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[var(--r-sm)] text-xl text-[var(--text-muted)] disabled:opacity-40"
       >
         −
       </button>
@@ -637,7 +642,7 @@ function Stepper({
         onClick={() => set(value + step)}
         disabled={value >= max}
         aria-label="Increase"
-        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[var(--r-sm)] text-lg text-[var(--text-muted)] disabled:opacity-40"
+        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[var(--r-sm)] text-xl text-[var(--text-muted)] disabled:opacity-40"
       >
         +
       </button>

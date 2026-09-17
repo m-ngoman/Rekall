@@ -46,9 +46,12 @@ export default function ExamCalendar({ year, month, exams, load, prevLoad, onDay
     else byDate.set(e.date, [e])
   }
 
+  // `spoken` is what a screen reader says: the cells used to announce raw ISO ("2026-09-19"),
+  // which is a string a machine wrote for another machine.
+  const spokenDate = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
   const cells = Array.from({ length: 42 }, (_, i) => {
     const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)
-    return { iso: toISODate(d), day: d.getDate(), inMonth: d.getMonth() === month }
+    return { iso: toISODate(d), day: d.getDate(), inMonth: d.getMonth() === month, spoken: spokenDate.format(d) }
   })
   const max = Math.max(1, ...cells.map((c) => load[c.iso] ?? 0))
   const future = cells.filter((c) => c.iso >= todayISO).map((c) => load[c.iso] ?? 0)
@@ -56,18 +59,15 @@ export default function ExamCalendar({ year, month, exams, load, prevLoad, onDay
 
   return (
     <div>
-      {/* The key. Without it a first-time user has no way to know the bars are card counts. */}
-      <div className="mb-2.5 flex items-center justify-between gap-3">
-        <span className="text-[0.8125rem] text-[var(--text-muted)]">
-          <span className="lg:hidden">Bar beside each day</span>
-          <span className="hidden lg:inline">Gauge on each day</span> is its card load
-        </span>
-        <span className="flex items-end gap-1.5 text-[0.75rem] leading-none text-[var(--text-muted)]">
-          <span aria-hidden className="block h-1.5 w-[3px] bg-[var(--accent-dim)] lg:w-1.5 lg:rounded-[3px]" />
-          <span>{min}</span>
-          <span aria-hidden className="block h-3.5 w-[3px] bg-[var(--accent)] lg:h-4 lg:w-1.5 lg:rounded-[3px]" />
-          <span>{max}</span>
-        </span>
+      {/* The key, as one sentence. It used to be a label on the left and a bare "0 ▌ 53" on the
+          right, which read as two orphaned numbers with some marks between them. */}
+      <div className="mb-2.5 flex items-end gap-1.5 text-[0.8125rem] leading-none text-[var(--text-muted)]">
+        <span>Cards per day,</span>
+        <span aria-hidden className="block h-1.5 w-[3px] bg-[var(--accent-dim)] lg:w-1.5 lg:rounded-[3px]" />
+        <span>{min}</span>
+        <span>to</span>
+        <span aria-hidden className="block h-3.5 w-[3px] bg-[var(--accent)] lg:h-4 lg:w-1.5 lg:rounded-[3px]" />
+        <span>{max}</span>
       </div>
       <div className="grid grid-cols-7">
         {WEEKDAYS.map((d) => (
@@ -77,7 +77,7 @@ export default function ExamCalendar({ year, month, exams, load, prevLoad, onDay
         ))}
       </div>
       <div className="grid grid-cols-7 gap-y-0.5 border-t border-[var(--rule)] pt-1 [grid-template-columns:repeat(7,minmax(0,1fr))] lg:gap-0.5">
-        {cells.map(({ iso, day, inMonth }) => {
+        {cells.map(({ iso, day, inMonth, spoken }) => {
           const count = load[iso] ?? 0
           const before = prevLoad[iso] ?? 0
           const drain = before > count
@@ -96,7 +96,7 @@ export default function ExamCalendar({ year, month, exams, load, prevLoad, onDay
               key={iso}
               role={isPast ? undefined : 'button'}
               tabIndex={isPast ? -1 : 0}
-              aria-label={`${iso}${count ? `, ${count} cards` : ''}${dayExams.length ? `, ${dayExams.map((e) => e.name).join(', ')}` : ''}`}
+              aria-label={`${spoken}${count ? `, ${count} cards` : ''}${dayExams.length ? `, ${dayExams.map((e) => e.name).join(', ')}` : ''}`}
               onClick={() => !isPast && onDayTap(iso)}
               onKeyDown={(e) => {
                 if (!isPast && (e.key === 'Enter' || e.key === ' ')) {
@@ -145,6 +145,13 @@ export default function ExamCalendar({ year, month, exams, load, prevLoad, onDay
                   {count} {count === 1 ? 'card' : 'cards'}
                 </span>
               )}
+              {/* Phone: a tick, not a name. At 10px in a 44px cell the name truncated to
+                  "Pharma…", which is a label that says nothing and a 50×13 tap target besides.
+                  The rows beneath the grid already list every exam in the month by name, so the
+                  tick's whole job is marking which day, and the 44px cell opens it. */}
+              {dayExams.length > 0 && (
+                <span aria-hidden className="absolute bottom-[3px] left-1/2 block h-0.5 w-3 -translate-x-1/2 rounded-[1px] bg-[var(--accent)] lg:hidden" />
+              )}
               {dayExams.slice(0, 1).map((e) => (
                 <button
                   key={e.id}
@@ -153,7 +160,7 @@ export default function ExamCalendar({ year, month, exams, load, prevLoad, onDay
                     onExamTap(e)
                   }}
                   title={e.name}
-                  className="absolute inset-x-0 bottom-0 block w-full min-w-0 truncate px-0.5 text-center text-[0.625rem] font-bold leading-tight text-[var(--accent)] lg:static lg:mt-auto lg:px-0 lg:text-left lg:text-[0.75rem]"
+                  className="static mt-auto hidden w-full min-w-0 truncate text-left text-[0.75rem] font-bold leading-tight text-[var(--accent)] lg:block"
                 >
                   {e.name}
                   {dayExams.length > 1 ? ` +${dayExams.length - 1}` : ''}

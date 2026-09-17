@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import PlainMath from '../components/PlainMath'
+import Notice from '../components/Notice'
 import { NotSignedIn, PaymentRequired, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
 
 import { daysUntil } from '../lib/dates'
@@ -294,7 +295,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
           <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
             Something went wrong fetching today's cards. Your progress is safe.
           </p>
-          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold">
+          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
             Back to Home
           </button>
         </div>
@@ -309,7 +310,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
         <div>
           <div className="text-[1.25rem] font-bold leading-snug">Nothing due in this deck</div>
           <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">Every card is scheduled for later. Come back when the calendar says so.</p>
-          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold">
+          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
             Back to Home
           </button>
         </div>
@@ -342,7 +343,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
               </div>
             </div>
           )}
-          <button onClick={onExit} className="on-accent mt-8 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold">
+          <button onClick={onExit} className="on-accent mt-8 w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
             Back to Home
           </button>
         </div>
@@ -504,25 +505,16 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
           apart. --grade-forgot rather than a new hue: the palette already owns one colour for
           "this did not go well", and a second would be a fifth thing to keep in step. */}
       {error && (
-        <div
-          role="alert"
-          className="rounded-[var(--r-md)] bg-[var(--grade-forgot-bg)] px-4 py-3 text-[0.875rem] leading-relaxed"
-          style={{ color: 'var(--grade-forgot)' }}
-        >
+        <Notice tone="error" action={paywall ? { label: 'See plans', onClick: onOpenPricing } : undefined}>
           {error}
-          {paywall && (
-            <button onClick={onOpenPricing} className="ml-2 font-semibold underline underline-offset-4">
-              See plans
-            </button>
-          )}
-        </div>
+        </Notice>
       )}
 
       {!aiGrading && phase !== 'graded' ? (
         revealed === null ? (
           <button
             onClick={handleReveal}
-            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold"
+            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]"
           >
             Show the answer
           </button>
@@ -548,7 +540,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
           <button
             onClick={handleSubmit}
             disabled={phase === 'grading'}
-            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50 lg:w-auto lg:px-8 lg:py-3"
+            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2] disabled:opacity-50 lg:w-auto lg:px-8 lg:py-[0.6875rem]"
           >
             {phase === 'grading' ? 'Checking' : 'Check my answer'}
           </button>
@@ -558,7 +550,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5">
           <button
             onClick={advance}
-            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold lg:w-auto lg:self-start lg:px-8 lg:py-3"
+            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2] lg:w-auto lg:self-start lg:px-8 lg:py-[0.6875rem]"
           >
             {queue.length > 0 ? `Next card, ${queue.length} left` : 'Finish'}
           </button>

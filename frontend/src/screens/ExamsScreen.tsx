@@ -3,7 +3,7 @@ import { listDecks, listExams } from '../api'
 import ExamCalendar, { gridRange } from '../components/ExamCalendar'
 import ExamSheet from '../components/ExamSheet'
 import { useCachedResource } from '../hooks/useCachedResource'
-import { daysUntil, formatCountdown, formatDayShort, formatMonth, toISODate } from '../lib/dates'
+import { daysUntil, formatDayShort, formatMonth, toISODate } from '../lib/dates'
 import { getLoad, loadCache, loadKey, type LoadByDay } from '../lib/load'
 import type { Deck, Exam } from '../types'
 
@@ -106,9 +106,20 @@ export default function ExamsScreen({ onChanged }: Props) {
           </div>
         )}
 
+        {/* Desktop puts Add exam here rather than beside the month title. A filled accent pill
+            sitting next to the countdown numeral was a second accent fill competing with the one
+            thing on the screen that is supposed to be loud. */}
+        <div className="mb-1 mt-9 hidden items-center justify-between gap-3 lg:flex">
+          <span className="text-[1.0625rem] font-bold tracking-[-0.01em]">Coming up</span>
+          <button
+            onClick={() => setSheet({ exam: null, date: toISODate(new Date()), pickDate: true })}
+            className="flex h-9 flex-shrink-0 items-center rounded-[var(--r-full)] border border-[var(--rule)] px-3.5 text-[0.8125rem] font-bold"
+          >
+            Add exam
+          </button>
+        </div>
         {upcoming.length > 0 && (
           <div className="hidden lg:block">
-            <div className="mb-1 mt-9 text-[0.9375rem] font-bold">Coming up</div>
             <ExamRows exams={upcoming} onOpen={openExam} />
           </div>
         )}
@@ -116,13 +127,14 @@ export default function ExamsScreen({ onChanged }: Props) {
 
       <div className="flex flex-col gap-2 lg:order-1 lg:gap-6">
         <div className="flex items-center justify-between lg:justify-end">
-          <div className="text-[1.0625rem] font-bold lg:mr-2">{formatMonth(cursor.year, cursor.month)}</div>
+          <div className="text-[1.0625rem] font-bold tracking-[-0.01em] lg:mr-2">{formatMonth(cursor.year, cursor.month)}</div>
           <div className="flex items-center">
             <MonthNavButton dir="prev" onClick={() => moveMonth(-1)} />
             <MonthNavButton dir="next" onClick={() => moveMonth(1)} />
+            {/* Outline, not filled — see the Coming up header, where the desktop copy lives. */}
             <button
               onClick={() => setSheet({ exam: null, date: toISODate(new Date()), pickDate: true })}
-              className="on-accent ml-1 rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-2.5 text-[0.875rem] font-bold lg:ml-2"
+              className="ml-1 flex h-10 items-center rounded-[var(--r-full)] border border-[var(--rule)] px-4 text-[0.875rem] font-bold lg:hidden"
             >
               Add exam
             </button>
@@ -171,12 +183,22 @@ function ExamRows({ exams, onOpen }: { exams: Exam[]; onOpen: (e: Exam) => void 
           <button
             key={e.id}
             onClick={() => onOpen(e)}
-            className={`flex w-full items-baseline justify-between gap-4 border-b border-[var(--rule)] py-3.5 text-left ${days < 0 ? 'opacity-55' : ''}`}
+            className={`flex w-full items-center justify-between gap-4 border-b border-[var(--rule)] py-3 text-left ${days < 0 ? 'opacity-55' : ''}`}
           >
-            <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold">{e.name}</span>
-            <span className="flex-shrink-0 whitespace-nowrap text-[0.875rem] text-[var(--text-muted)]">
-              {formatDayShort(e.date)}, {formatCountdown(days)}
+            {/* Name over date on the left, the count in the condensed face on the right. The
+                old single line ("Fri 2 Oct, in 16 days") was the same shape as a deck row. */}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[0.9375rem] font-semibold">{e.name}</span>
+              <span className="mt-0.5 block text-[0.8125rem] text-[var(--text-muted)]">{formatDayShort(e.date)}</span>
             </span>
+            {days < 0 ? (
+              <span className="flex-shrink-0 text-[0.8125rem] text-[var(--text-muted)]">passed</span>
+            ) : (
+              <span className="flex flex-shrink-0 items-baseline gap-1">
+                <span className="numeral text-[1.125rem]">{days}</span>
+                <span className="text-[0.8125rem] text-[var(--text-muted)]">{days === 1 ? 'day' : 'days'}</span>
+              </span>
+            )}
           </button>
         )
       })}

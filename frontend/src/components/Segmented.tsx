@@ -36,7 +36,10 @@ export default function Segmented<T extends string | number>({
             ref={register(option.value)}
             onClick={() => onChange(option.value)}
             aria-pressed={active}
-            className="pill-option relative z-10 flex-1 whitespace-nowrap rounded-[4px] px-3 py-1.5 text-[0.8125rem]"
+            // h-8 inside the 2px track makes 36px overall; it was 30px. `whitespace-nowrap` is
+            // load-bearing: at four options on a 390px phone ("0.75x", "1x", "1.25x", "1.5x")
+            // the labels otherwise break after the number and put the unit on a second line.
+            className="pill-option relative z-10 h-8 flex-1 whitespace-nowrap rounded-[4px] px-2.5 text-[0.8125rem]"
             style={{ color: active ? 'var(--text)' : 'var(--text-muted)', fontWeight: active ? 700 : 600 }}
           >
             {option.label}

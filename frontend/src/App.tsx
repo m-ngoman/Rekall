@@ -123,9 +123,9 @@ export default function App() {
               {/* Home has no title of its own: the countdown below is the headline. The wordmark
                   says whose countdown it is and nothing more. */}
               {showAdmin ? (
-                <div className="truncate text-[1.375rem] font-bold tracking-tight lg:text-[1.75rem]">Admin</div>
+                <div className="truncate text-[1.5rem] font-bold tracking-[-0.02em] lg:text-[1.75rem]">Admin</div>
               ) : showPricing ? (
-                <div className="truncate text-[1.375rem] font-bold tracking-tight lg:text-[1.75rem]">Plans</div>
+                <div className="truncate text-[1.5rem] font-bold tracking-[-0.02em] lg:text-[1.75rem]">Plans</div>
               ) : tab === 'home' ? (
                 // Phone only. The sidebar already carries the wordmark at desktop widths, and
                 // the design draws no second one in the content area — it read as the page
@@ -135,7 +135,7 @@ export default function App() {
                   <span className="text-[0.9375rem] font-bold text-[var(--text-muted)]">Rekall</span>
                 </span>
               ) : (
-                <div className="truncate text-[1.375rem] font-bold tracking-tight lg:text-[1.75rem]">{TAB_TITLES[tab]}</div>
+                <div className="truncate text-[1.5rem] font-bold tracking-[-0.02em] lg:text-[1.75rem]">{TAB_TITLES[tab]}</div>
               )}
             </div>
             {tab !== 'settings' && (

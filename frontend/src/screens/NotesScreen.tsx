@@ -5,6 +5,7 @@ import { createDeck, createTextNote, deleteNote, getNote, listDecks, listNotes, 
 // never open a note, so it stays out of the main bundle until one does.
 const MarkdownEditor = lazy(() => import('../components/MarkdownEditor'))
 import { getCached, setCached, useCachedResource } from '../hooks/useCachedResource'
+import Notice from '../components/Notice'
 import { useCategoryDrag } from '../hooks/useCategoryDrag'
 import type { Deck, Note, NoteDetail } from '../types'
 
@@ -52,14 +53,8 @@ const FOLDER_ICON = (
   </svg>
 )
 
-const CROSS_ICON = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-    <path d="M6 6l12 12M18 6L6 18" />
-  </svg>
-)
-
 const PENCIL_ICON = (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" />
   </svg>
 )
@@ -370,7 +365,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
             setAdding(true)
           }}
           title={aiGeneration ? 'Write one, or add a photo or PDF' : 'Write one, or add a photo or PDF (not read into text while AI is off)'}
-          className="on-accent h-11 flex-shrink-0 rounded-[var(--r-full)] bg-[var(--accent)] px-4 text-[0.875rem] font-bold"
+          className="h-11 flex-shrink-0 rounded-[var(--r-full)] border border-[var(--rule)] px-4 text-[0.9375rem] font-bold"
         >
           Add notes
         </button>
@@ -379,19 +374,12 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
       {/* Notes are grouped by deck, not listed newest-first, so a new one can land well down the
           page — the banner is what confirms it actually arrived. */}
       {justAdded && (
-        <div
-          className="rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold"
-          style={{ background: 'var(--grade-good-bg)', color: 'var(--grade-good)' }}
-        >
+        <Notice tone="success">
           Added {justAdded.count} note{justAdded.count === 1 ? '' : 's'} to {justAdded.deckName}.
-        </div>
+        </Notice>
       )}
 
-      {error && (
-        <div className="rounded-[var(--r-sm)] px-4 py-2.5 text-sm font-semibold" style={{ background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }}>
-          {error}
-        </div>
-      )}
+      {error && <Notice tone="error">{error}</Notice>}
 
       {notes === null ? (
         <p className="text-sm text-[var(--text-muted)]">Loading…</p>
@@ -403,7 +391,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
         <>
           {notes.length === 0 && (
             <div className="pt-4">
-              <div className="text-[1.25rem] font-bold leading-snug">No notes yet</div>
+              <div className="text-[1.25rem] font-bold leading-snug tracking-[-0.02em]">No notes yet</div>
               <p className="mt-1.5 max-w-md text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
                 Write a note here, or add a photo or PDF and it's kept with the text the AI read from it, so you
                 can search it later.
@@ -416,11 +404,11 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
 
           {(notes.length > 0 || hasCategories) && (
             <>
-              <div className="flex items-baseline justify-between">
-                <span className="text-[0.9375rem] font-bold">Categories</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[1.0625rem] font-bold tracking-[-0.01em]">Categories</span>
                 <button
                   onClick={() => setCreatingCategory(true)}
-                  className="text-[0.8125rem] font-bold text-[var(--text-muted)]"
+                  className="-mr-2 flex h-11 items-center rounded-[var(--r-sm)] px-2 text-[0.875rem] font-bold text-[var(--text-muted)]"
                 >
                   New category
                 </button>
@@ -684,42 +672,52 @@ function CategoryGroup({
       style={isDropTarget ? { background: 'var(--accent-dim)' } : undefined}
     >
       {renaming && onRename ? (
-        <CategoryNameInput
-          initial={group.name}
-          placeholder="Category name"
-          onCommit={(name) => {
-            setRenaming(false)
-            onRename(name)
-          }}
-          onCancel={() => setRenaming(false)}
-        />
-      ) : (
-        <div className="mb-3 flex items-baseline justify-between gap-2 pt-1">
-          <div className="flex min-w-0 items-baseline gap-1.5">
-            <span className="truncate text-[0.9375rem] font-bold">{group.name}</span>
-            {onRename && (
-              <button
-                onClick={() => setRenaming(true)}
-                aria-label={`Rename ${group.name}`}
-                className="flex-shrink-0 self-center text-[var(--text-muted)]"
-              >
-                {PENCIL_ICON}
-              </button>
-            )}
-            {onRemove && (
-              <button
-                onClick={onRemove}
-                aria-label={`Remove ${group.name} from Notes`}
-                title="Remove from Notes. The notes move to Unfiled; the deck keeps its cards."
-                className="flex-shrink-0 self-center text-[var(--text-muted)]"
-              >
-                {CROSS_ICON}
-              </button>
-            )}
+        // Renaming is also where removing lives. Both used to be 13px glyphs six pixels apart in
+        // the header — two tiny targets, one of them destructive, side by side. Putting remove
+        // behind the rename state means you cannot hit it reaching for anything else.
+        <div className="mb-3 flex items-center gap-2 pt-1">
+          <div className="min-w-0 flex-1">
+            <CategoryNameInput
+              initial={group.name}
+              placeholder="Category name"
+              onCommit={(name) => {
+                setRenaming(false)
+                onRename(name)
+              }}
+              onCancel={() => setRenaming(false)}
+            />
           </div>
-          <span className="flex-shrink-0 text-[0.8125rem] text-[var(--text-muted)]">
-            {group.notes.length} note{group.notes.length === 1 ? '' : 's'}
-          </span>
+          {onRemove && (
+            <button
+              onClick={() => {
+                setRenaming(false)
+                onRemove()
+              }}
+              title="The notes move to Unfiled; the deck keeps its cards."
+              className="-mb-2.5 flex h-11 flex-shrink-0 items-center rounded-[var(--r-sm)] px-2 text-[0.875rem] font-semibold text-[var(--text-muted)]"
+            >
+              Remove from Notes
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="mb-3 flex items-center justify-between gap-2 pt-1">
+          <div className="flex min-w-0 items-baseline gap-1.5">
+            <span className="truncate text-[1.0625rem] font-bold tracking-[-0.01em]">{group.name}</span>
+            <span className="numeral flex-shrink-0 text-[1.0625rem]">{group.notes.length}</span>
+            <span className="flex-shrink-0 text-[0.8125rem] text-[var(--text-muted)]">
+              note{group.notes.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          {onRename && (
+            <button
+              onClick={() => setRenaming(true)}
+              aria-label={`Rename ${group.name}`}
+              className="-mr-3 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[var(--r-sm)] text-[var(--text-muted)]"
+            >
+              {PENCIL_ICON}
+            </button>
+          )}
         </div>
       )}
 
@@ -761,18 +759,31 @@ function NoteTile({
   onGrab: (e: React.PointerEvent) => void
 }) {
   return (
+    // A button, not a div with an onClick: note tiles were the one list in the app that a
+    // keyboard could not reach at all. Deck tiles already did this; this copies them.
+    // No surface fill either — only a deck is a card. The preview is a bordered block and the
+    // title sits on the page underneath it.
     <div
       onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+      role="button"
+      tabIndex={0}
       onPointerDown={onGrab}
-      className="flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-[var(--r-md)] bg-[var(--surface)] text-left"
+      className="flex min-w-0 cursor-pointer flex-col text-left"
     >
       {/* The preview is the tile. A photo shows itself; a PDF shows the text read from it, small
           and cropped, so either kind is recognised by what's on it rather than by its name. */}
+      {/* The preview is a bordered block, not the top half of a card. */}
       {note.file_type === 'image' ? (
-        <img src={noteFileUrl(note.id)} alt="" draggable={false} className="aspect-[4/3] w-full object-cover" style={{ background: 'var(--bg)' }} />
+        <img src={noteFileUrl(note.id)} alt="" draggable={false} className="aspect-[4/3] w-full rounded-[var(--r-sm)] border border-[var(--rule)] object-cover" style={{ background: 'var(--bg)' }} />
       ) : (
         <div
-          className="relative aspect-[4/3] w-full overflow-hidden border-b border-[var(--rule)] px-3 pt-2.5"
+          className="relative aspect-[4/3] w-full overflow-hidden rounded-[var(--r-sm)] border border-[var(--rule)] px-3 pt-2.5"
           style={{ background: 'color-mix(in oklab, var(--surface) 55%, var(--bg))' }}
         >
           <p className="text-[0.5625rem] leading-[1.5] text-[var(--text-muted)]">
@@ -785,7 +796,7 @@ function NoteTile({
           />
         </div>
       )}
-      <div className="flex items-baseline justify-between gap-2 px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-2 px-0.5 pt-2">
         <span className="min-w-0 truncate text-[0.8125rem] font-bold">{note.title ?? (note.preview.slice(0, 40) || 'Untitled')}</span>
         <span className="flex-shrink-0 whitespace-nowrap text-[0.6875rem] text-[var(--text-muted)]">
           {note.file_type === 'pdf' ? 'PDF, ' : ''}
@@ -794,9 +805,11 @@ function NoteTile({
       </div>
       {/* The select is the path that always works — dragging is the shortcut, not the only way,
           since it's unreachable by keyboard and awkward one-handed on a phone. Its own pointer
-          and click events stop here so opening the picker never grabs or opens the note. */}
+          and click events stop here so opening the picker never grabs or opens the note.
+          36px tall: it measured 21px, below the 24px floor, on the control that is the only way
+          to refile a note without a mouse. */}
       <div
-        className="flex items-center gap-1 border-t border-[var(--rule)] px-3 py-1.5 text-[var(--text-muted)]"
+        className="-ml-1.5 flex h-9 items-center gap-1 px-1.5 text-[var(--text-muted)]"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -805,7 +818,9 @@ function NoteTile({
           value={note.deck_id ?? UNFILED_KEY}
           onChange={(e) => onMove(e.target.value)}
           aria-label="Move to category"
-          className="min-w-0 max-w-full cursor-pointer truncate rounded-[var(--r-sm)] bg-transparent py-0.5 text-[0.6875rem] font-semibold outline-none"
+          // Height on the select itself, not just the row around it: the select *is* the target,
+          // and a 36px row containing a 22px control is still a 22px control.
+          className="h-9 min-w-0 max-w-full cursor-pointer truncate rounded-[var(--r-sm)] bg-transparent text-[0.75rem] font-semibold outline-none"
         >
           {categories.map((c) => (
             <option key={c.key} value={c.key}>

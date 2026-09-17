@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { deleteDeck, listDecks } from '../api'
+import { listDecks } from '../api'
 import ActionCard from '../components/ActionCard'
 import DeckTile from '../components/DeckTile'
 import { useCachedResource } from '../hooks/useCachedResource'
@@ -24,13 +24,6 @@ export default function CardsScreen({ onStudy, onChanged, aiGeneration, onOpenPr
   const [generating, setGenerating] = useState(false)
   const [writing, setWriting] = useState(false)
   const [editingDeckId, setEditingDeckId] = useState<string | null>(null)
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this deck and all study history?')) return
-    await deleteDeck(id)
-    setDecks((prev) => prev?.filter((d) => d.id !== id) ?? null)
-    onChanged()
-  }
 
   if (writing || editingDeckId) {
     return (
@@ -77,11 +70,52 @@ export default function CardsScreen({ onStudy, onChanged, aiGeneration, onOpenPr
 
   const totalCards = decks?.reduce((sum, d) => sum + d.total, 0) ?? 0
 
+  const WRITE_ICON = (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4z" />
+      <path d="M13.5 6.5l4 4" />
+    </svg>
+  )
+  const IMPORT_ICON = (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+  const GENERATE_ICON = (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z" />
+    </svg>
+  )
+
+  /** The three ways in, as text buttons. Desktop only: they collapse to a row above the library
+   * so the library itself can have the width, instead of a phone-shaped panel pinned beside it. */
+  const waysIn = (
+    <div className="hidden flex-shrink-0 items-center gap-1 lg:flex">
+      {[
+        { label: 'Write your own', icon: WRITE_ICON, onClick: () => setWriting(true), off: false },
+        { label: 'Import CSV', icon: IMPORT_ICON, onClick: () => setImporting(true), off: false },
+        { label: 'Generate with AI', icon: GENERATE_ICON, onClick: () => setGenerating(true), off: !aiGeneration },
+      ].map((w) => (
+        <button
+          key={w.label}
+          onClick={w.onClick}
+          disabled={w.off}
+          title={w.off ? 'Turned off in Settings, under AI features' : undefined}
+          className="flex h-10 items-center gap-2 rounded-[var(--r-sm)] px-3 text-[0.875rem] font-bold disabled:cursor-not-allowed"
+          style={{ opacity: w.off ? 0.45 : 1 }}
+        >
+          <span className="flex text-[var(--text-muted)]">{w.icon}</span>
+          {w.label}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
-    <div className="flex flex-col gap-7 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-14">
-      {/* One surface, three rows, inset dividers: the ways in are choices, not cards. Cards are
-          reserved for the decks below. */}
-      <div className="divide-y divide-[var(--rule)] overflow-hidden rounded-[var(--r-md)] bg-[var(--surface)] [&>*+*]:border-t [&>*+*]:border-[var(--rule)]">
+    <div className="flex flex-col gap-7">
+      {/* Phone keeps the panel: one surface, three rows, inset dividers. The ways in are choices,
+          not cards, and on a 390px screen a row of text buttons would not fit. */}
+      <div className="divide-y divide-[var(--rule)] overflow-hidden rounded-[var(--r-md)] bg-[var(--surface)] lg:hidden [&>*+*]:border-t [&>*+*]:border-[var(--rule)]">
         <ActionCard
           onClick={() => setWriting(true)}
           title="Write your own"
@@ -118,13 +152,16 @@ export default function CardsScreen({ onStudy, onChanged, aiGeneration, onOpenPr
       </div>
 
       <div>
-        <div className="mb-3 flex items-baseline justify-between">
-          <span className="text-[0.9375rem] font-bold">Your Library</span>
+        {/* Phone: title with the count beside it. Desktop: the count moves left and the three ways
+            in take the right of the same row, so nothing sits in a column of its own. */}
+        <div className="mb-3 flex items-baseline justify-between gap-4 lg:mb-2">
+          <span className="text-[1.0625rem] font-bold tracking-[-0.01em] lg:hidden">Library</span>
           {decks !== null && decks.length > 0 && (
-            <span className="text-[0.8125rem] text-[var(--text-muted)]">
+            <span className="text-[0.8125rem] text-[var(--text-muted)] lg:text-[0.875rem]">
               {decks.length} deck{decks.length === 1 ? '' : 's'}, {totalCards.toLocaleString()} card{totalCards === 1 ? '' : 's'}
             </span>
           )}
+          {waysIn}
         </div>
         {decks === null ? (
           <p className="text-sm text-[var(--text-muted)]">Loading…</p>
@@ -133,15 +170,17 @@ export default function CardsScreen({ onStudy, onChanged, aiGeneration, onOpenPr
             No decks yet. Write a few cards, import a CSV, or generate from your notes, and they'll show up here.
           </p>
         ) : (
-          <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-2.5">
+          // Rows on the page with a rule above the first, not a grid of tiles. A library is a
+          // list, and drawing it as cards is what made every screen look like the same screen.
+          <div className="border-t border-[var(--rule)]">
             {decks.map((deck, i) => (
               <DeckTile
                 key={deck.id}
                 deck={deck}
                 index={i}
+                variant="row"
                 onClick={() => onStudy(deck.id)}
                 onEdit={() => setEditingDeckId(deck.id)}
-                onDelete={() => handleDelete(deck.id)}
               />
             ))}
           </div>
