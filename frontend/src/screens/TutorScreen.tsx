@@ -72,6 +72,11 @@ const STATUS_LABEL: Record<OrbState, string> = {
 /** Tap-to-fill starters for the empty tutor screen. Deliberately phrased around what this tutor
  * can actually do given its grounding (it reads your weak cards — see tutor_prompt.py) rather
  * than generic "ask me anything" filler. */
+/** How far the reader may drift from the newest line and still count as following it. Wide
+ * enough that a nudge of the wheel, or a phone's rubber-band bounce, doesn't let go; narrow
+ * enough that a deliberate scroll up does. */
+const STICK_SLACK = 64
+
 const STARTER_PROMPTS = ['Quiz me on my weak cards', 'Explain a concept I keep missing', 'Help me study for an exam']
 
 /** The starters, with the third one naming the exam it would actually plan for. A starter that
@@ -113,6 +118,12 @@ const VOICE_ICON = (
     <path d="M11 5 6 9H3v6h3l5 4V5z" />
     <path d="M16 8a5 5 0 0 1 0 8" />
     <path d="M19 5a9 9 0 0 1 0 14" />
+  </svg>
+)
+
+const LATEST_ICON = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 5v14M19 12l-7 7-7-7" />
   </svg>
 )
 
@@ -305,6 +316,8 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
   const cancelWaitRef = useRef<(() => void) | null>(null)
   const voiceTurnAbortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const logRef = useRef<HTMLDivElement>(null)
+  const composerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const libraryInputRef = useRef<HTMLInputElement>(null)
@@ -360,8 +373,115 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
       .catch(() => setMemoryNotes([]))
   }, [])
 
+  /* The log follows its newest line while a reply streams, and lets go the moment the reader
+   * scrolls away from it.
+   *
+   * This was one line — scrollIntoView on every `messages` change — and `typeInto` below calls
+   * setMessages on a 20ms interval, so it re-pinned fifty times a second and could not tell the
+   * reader's scroll from its own. Measured before the fix: scrolling down 400px mid-reply was
+   * dragged back up 319px inside 200ms, in a visible series of steps, because each call replaced
+   * the in-flight smooth animation with a new one. `block: 'end'` was aiming at the wrong place
+   * besides — it aligns the anchor with the viewport bottom, which put 173px of the newest reply
+   * behind the composer, which is what the reader was scrolling down to uncover.
+   */
+
+  /** How much room above the viewport bottom the newest line needs: the composer's own height
+   * plus a gap. Measured rather than a constant, because the composer grows with a wrapped draft
+   * and with an attached photo, and sits at a different offset on desktop. */
+  const clearance = () => {
+    const el = composerRef.current
+    return el ? window.innerHeight - el.getBoundingClientRect().top + 12 : 180
+  }
+
+  /** How far the log has drifted below where it should rest. Negative means it is already clear. */
+  const drift = () => {
+    const el = bottomRef.current
+    return el ? el.getBoundingClientRect().bottom - window.innerHeight + clearance() : 0
+  }
+
+  /** Where `follow` last put the page. Anything else means the reader moved it.
+   *
+   * This ref is the whole answer to a pair of races, and both were measured rather than guessed.
+   * Scroll events are dispatched at the next rendering opportunity; a ResizeObserver callback
+   * runs *before* that. So within one frame the log can grow, the observer can fire, and a scroll
+   * event describing a position from before the growth can arrive afterwards — in either order
+   * relative to a scroll the reader just made. Geometry alone cannot tell "the reader scrolled
+   * up" from "the log grew downward", because both move the anchor the same way. Comparing the
+   * page against where we last put it can.
+   */
+  const ourScrollRef = useRef(0)
+
+  /** Settle whether the log is still following, from where the page is right now. */
+  const decide = () => {
+    const stuck = drift() <= STICK_SLACK
+    stickRef.current = stuck
+    setAway(!stuck)
+  }
+
+  const follow = (force = false) => {
+    // The page is somewhere we did not put it, so the reader moved it and the event saying so may
+    // not have been dispatched yet. Losing this one re-engaged the follow permanently, because
+    // the override lands exactly on the anchor.
+    if (!force && Math.abs(window.scrollY - ourScrollRef.current) > 1) decide()
+    if (!stickRef.current) return
+
+    const by = drift()
+    // Downward only, and instantly. The log grows downward, so a follow that scrolls *up* is
+    // never following — it is undoing a scroll the reader just made. Instant rather than smooth
+    // because at 20ms the deltas are a few pixels (it reads as smooth anyway), a restarted smooth
+    // animation never settles, and landing exactly on the target is what makes `drift` a
+    // trustworthy answer to "is the reader still with us".
+    if (by > 0) {
+      window.scrollTo(0, window.scrollY + by)
+      ourScrollRef.current = window.scrollY
+    }
+  }
+
+  /** Whether the log is still tracking its newest line. A ref because `follow` consults it on a
+   * 20ms tick and must not re-render; `away` is the same fact as state, for the pill. */
+  const stickRef = useRef(true)
+  const [away, setAway] = useState(false)
+
+  const pinToLatest = () => {
+    stickRef.current = true
+    setAway(false)
+    // Forced: the reader is by definition somewhere we did not put them, which is the one case
+    // where that must not be read as "they want to stay here".
+    follow(true)
+  }
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    const onScroll = () => {
+      // Only the reader's scrolls get a say. Our own arrive a frame late, by which time the log
+      // may have grown underneath them — and a log that grew looks exactly like a reader who
+      // scrolled up. That misreading stranded the follow 300px short every time a plot finished
+      // measuring itself in the same frame, which is how it was found.
+      if (Math.abs(window.scrollY - ourScrollRef.current) <= 1) return
+      // Asymmetric by construction: scrolling further down only makes `drift` more negative, so
+      // the reader can overscroll into the log's bottom padding without losing the follow. Only
+      // scrolling *up*, past the slack, lets go.
+      decide()
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Driven by the column's height rather than by `messages`, because the two are not the same
+  // event: a plot measures its container and renders a frame after the state change that carried
+  // it, and the lazy KaTeX chunk reflows whenever it finishes loading. Both grow the log after
+  // the message they belong to was already handled.
+  useEffect(() => {
+    const el = logRef.current
+    if (!el) return
+    // Not `new ResizeObserver(follow)`: that hands the entries array in as `force`.
+    const observer = new ResizeObserver(() => follow())
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  // The discrete case the observer misses: content that changes without changing the height.
+  useEffect(() => {
+    follow()
   }, [messages])
 
   // useLayoutEffect, not useEffect: this measures the textarea and then writes a pixel height
@@ -445,7 +565,12 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
       // Synchronous, not in a rAF: this has to land before the browser paints the first frame of
       // the overlay's fade, so the jump to the newest message happens while it's still opaque.
       window.scrollTo(0, scrollY)
-      bottomRef.current?.scrollIntoView({ block: 'end' })
+      // Through `follow`, so the newest line clears the composer here too, and so the log is
+      // tracking again — whatever arrived while the overlay was up is what you want to be looking
+      // at on the way out.
+      stickRef.current = true
+      setAway(false)
+      follow(true)
     }
   }, [voiceModeActive])
 
@@ -760,6 +885,10 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
     if (text.startsWith('/') && (await handleCommand(text))) return
     if ((!text && !image) || !session || orbState !== 'idle' || textTurnInFlightRef.current) return
     textTurnInFlightRef.current = true
+    // Sending takes you to the bottom even if you had scrolled up to re-read something: you just
+    // added the newest line yourself.
+    stickRef.current = true
+    setAway(false)
     setDraft('')
     setPendingImage(null)
     setError(null)
@@ -1048,7 +1177,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
           below is capped to so the two share an edge. Without it the starter rows and the chat
           log stretch the full content area on a desktop and a row's meta ends up a thousand
           pixels from the text it belongs to. */}
-      <div className={`mx-auto flex w-full max-w-[640px] flex-col gap-5 pb-64 ${enterClass ?? ''}`}>
+      <div ref={logRef} className={`mx-auto flex w-full max-w-[640px] flex-col gap-5 pb-64 ${enterClass ?? ''}`}>
         {messages.length === 0 ? (
           /* Was a single centered line of grey text on an otherwise blank screen. The starter
              prompts do real work beyond filling space: a blank tutor box gives no clue what it's
@@ -1176,8 +1305,31 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
       {/* `fixed`, not `sticky` — pinned to the viewport regardless of chat scroll. Offset by the
           sidebar's width on desktop (lg:left-60) so it centers within the content area, not the
           full window; bottom-24 on mobile clears the floating tab bar underneath it. */}
-      <div className={`fixed inset-x-0 bottom-24 z-20 flex justify-center px-5 lg:bottom-6 lg:left-60 lg:px-10 ${enterClass ?? ''}`}>
-        <div className="flex w-full max-w-xl flex-col gap-1.5 rounded-[var(--r-md)] bg-[var(--surface)] p-2 lg:max-w-[640px]">
+      <div ref={composerRef} className={`fixed inset-x-0 bottom-24 z-20 flex justify-center px-5 lg:bottom-6 lg:left-60 lg:px-10 ${enterClass ?? ''}`}>
+        {/* The way back to a reply still growing below you. It slides down *behind* the composer
+            rather than fading: the card below is opaque and comes later in the DOM, so it simply
+            covers this. That needs the card to be positioned too — otherwise this absolute box
+            paints above a static sibling regardless of order, which is why the card is
+            `relative`. Shown whenever the reader is away from the newest line, streaming or not.
+            Gating it on "a reply is in flight" was tried and is wrong: that flag follows the
+            network, and the typewriter keeps growing the log for a while after the wire closes,
+            so the pill parked itself with text still arriving underneath. "Is there something
+            below you" is both the simpler question and the one worth answering. */}
+        <div className="pointer-events-none absolute bottom-full left-0 right-0 flex justify-center">
+          <button
+            onClick={pinToLatest}
+            aria-label="Jump to the newest message"
+            aria-hidden={!away}
+            tabIndex={away ? 0 : -1}
+            className={`latest-pill mb-2 flex h-9 items-center gap-1.5 rounded-[var(--r-full)] border border-[var(--rule)] bg-[var(--surface)] px-3.5 text-[0.8125rem] font-bold ${
+              away ? 'pointer-events-auto' : 'translate-y-[calc(100%+1.5rem)]'
+            }`}
+          >
+            {LATEST_ICON}
+            Latest
+          </button>
+        </div>
+        <div className="relative flex w-full max-w-xl flex-col gap-1.5 rounded-[var(--r-md)] bg-[var(--surface)] p-2 lg:max-w-[640px]">
           {pendingImage && !voiceModeActive && (
             <div className="flex items-center gap-2 px-2 pt-1">
               <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-[var(--r-sm)]">

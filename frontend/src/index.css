@@ -197,9 +197,18 @@ a,
   opacity: 0;
 }
 
+/* The jump-to-latest pill in the tutor log. It leaves by sliding down behind the composer, which
+   is opaque and paints over it — so this is a transform and nothing else. A fade on top would be
+   two things happening where one is enough, and the pill would be visible through the card as it
+   went. */
+.latest-pill {
+  transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sliding-pill,
   .pill-option,
+  .latest-pill,
   .load-bar[data-drain='true'] {
     transition: none;
   }

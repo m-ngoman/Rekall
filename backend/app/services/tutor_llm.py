@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Iterator
 
 import httpx
@@ -150,15 +151,32 @@ _STUB_REPLY = (
     "It speeds up steadily for four seconds and then holds that speed. The slope of the first "
     "part is the acceleration, so a straight line means it is constant, and the shaded area is "
     "the distance covered while it was still speeding up.\n\n"
+    "Two things are worth separating here, because they are the two questions a velocity-time "
+    "graph answers and they are answered by different features of it. The slope tells you how "
+    "quickly the velocity is changing, which is the acceleration; a steeper line is a harder "
+    "push. The area underneath tells you how far the object actually went, because a velocity "
+    "multiplied by a time is a distance, and the area is that product added up across the whole "
+    "interval.\n\n"
+    "So a flat line is not an object standing still — it is an object whose speed has stopped "
+    "changing. Standing still is the line sitting on the axis. That distinction catches people "
+    "out more than anything else on this topic.\n\n"
     '<<plot fn="min(2*x, 8)" domain="0,10" label="velocity against time" mark="4,8" '
     'note="end of acceleration" xlabel="time (s)" ylabel="velocity (m/s)" shade="0,4">>'
 )
+
+
+#: Pacing between stub chunks. A stub that hands over the whole reply in one burst isn't standing
+#: in for a stream at all — the thing it replaces takes seconds, and everything downstream of it
+#: (the typewriter, the marker hold-back, the log's scroll follow) is timing-sensitive. Roughly
+#: the rate a real reply arrives at, which puts the whole canned answer at about two seconds.
+_STUB_DELAY = 0.012
 
 
 def _stream_stub() -> Iterator[str]:
     # Seven characters at a time: small enough that the marker lands across several chunks, which
     # is the hold-back path, and uneven enough not to align with anything.
     for i in range(0, len(_STUB_REPLY), 7):
+        time.sleep(_STUB_DELAY)
         yield _STUB_REPLY[i : i + 7]
 
 
