@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createExam, deleteExam, updateExam } from '../api'
+import { useConfirm } from '../hooks/useConfirm'
+import ConfirmDialog from './ConfirmDialog'
 import { formatDayLong } from '../lib/dates'
 import type { Deck, Exam } from '../types'
 
@@ -26,6 +28,7 @@ export default function ExamSheet({ exam, initialDate, showDatePicker, decks, on
   const [deckIds, setDeckIds] = useState<Set<string>>(() => new Set(exam?.deck_ids ?? []))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { confirmation, ask, cancel } = useConfirm()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -60,18 +63,25 @@ export default function ExamSheet({ exam, initialDate, showDatePicker, decks, on
     }
   }
 
-  const remove = async () => {
+  const remove = () => {
     if (!exam || busy) return
-    if (!confirm('Delete this exam? Its decks go back to normal scheduling.')) return
-    setBusy(true)
-    try {
-      await deleteExam(exam.id)
-      onSaved(null, exam.id)
-      onClose()
-    } catch {
-      setError("Couldn't delete the exam. Please try again.")
-      setBusy(false)
-    }
+    ask({
+      title: `Delete ${exam.name}?`,
+      body: 'Its decks go back to normal scheduling. The cards themselves are kept.',
+      confirmLabel: 'Delete exam',
+      destructive: true,
+      onConfirm: async () => {
+        setBusy(true)
+        try {
+          await deleteExam(exam.id)
+          onSaved(null, exam.id)
+          onClose()
+        } catch {
+          setError("Couldn't delete the exam. Please try again.")
+          setBusy(false)
+        }
+      },
+    })
   }
 
   return (
@@ -82,6 +92,9 @@ export default function ExamSheet({ exam, initialDate, showDatePicker, decks, on
       aria-modal
       aria-label={exam ? 'Edit exam' : 'Add exam'}
     >
+      {/* Above this sheet's own backdrop, and it swallows the click that would close the sheet
+          underneath it. */}
+      <ConfirmDialog confirmation={confirmation} onCancel={cancel} />
       <div
         className="w-full max-w-md rounded-t-[var(--r-md)] bg-[var(--surface)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:rounded-[var(--r-md)]"
         onClick={(e) => e.stopPropagation()}

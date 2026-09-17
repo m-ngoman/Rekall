@@ -5,6 +5,7 @@ import DesktopSidebar from './components/DesktopSidebar'
 import Logo from './components/Logo'
 import TabBar from './components/TabBar'
 import { DEFAULT_ACCENT } from './hooks/useAccent'
+import { useRoute } from './hooks/useRoute'
 import { useSettings } from './hooks/useSettings'
 import AdminScreen from './screens/AdminScreen'
 import CardsScreen from './screens/CardsScreen'
@@ -27,15 +28,16 @@ const TAB_TITLES: Record<Exclude<Tab, 'home'>, string> = {
 }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('home')
-  // Not a tab: it's one account's screen, and a seventh destination in a six-item tab bar would
-  // be crowding the layout for everyone else's benefit of never seeing it. Reached from Settings,
-  // and left by any navigation — hence goToTab rather than setTab on the nav components.
-  const [showAdmin, setShowAdmin] = useState(false)
-  // Same shape as admin: reached from Settings or from any paywalled action, left by any
-  // navigation. Not a tab — it's a door you go through once, not somewhere you live.
-  const [showPricing, setShowPricing] = useState(false)
-  const [studyDeckId, setStudyDeckId] = useState<string | null>(null)
+  // One value for where we are, held in browser history — see hooks/useRoute. Admin and Pricing
+  // are routes rather than tabs: each is a door you go through once, not somewhere you live, and
+  // a seventh destination in a six-item tab bar would crowd the layout for everyone who never
+  // sees it. Study is its own route because a session is a place you can be linked to and,
+  // more to the point, a place the back gesture should return you from.
+  const { route, go, replace } = useRoute()
+  const tab: Tab = route.kind === 'tab' ? route.tab : 'home'
+  const showAdmin = route.kind === 'admin'
+  const showPricing = route.kind === 'pricing'
+  const studyDeckId = route.kind === 'study' ? route.deckId : null
   const [refreshKey, setRefreshKey] = useState(0)
   const { settings, error: settingsError, update: updateSettings } = useSettings(DEFAULT_ACCENT)
   const blockedTabs: Tab[] = settings && !settings.ai_tutor ? ['tutor'] : []
@@ -61,22 +63,24 @@ export default function App() {
     window.scrollTo(0, 0)
   }, [tab, showAdmin, showPricing])
 
-  const goToTab = (next: Tab) => {
-    setShowAdmin(false)
-    setShowPricing(false)
-    setTab(next)
-  }
-  const openPricing = () => {
-    // Study is its own branch; leaving it is what makes the pricing screen reachable at all.
-    setStudyDeckId(null)
-    setShowAdmin(false)
-    setShowPricing(true)
-  }
+  const goToTab = (next: Tab) => go({ kind: 'tab', tab: next })
+  // Study is its own route; `go` leaving it is what makes the pricing screen reachable at all.
+  const openPricing = () => go({ kind: 'pricing' })
+  const openStudy = (deckId: string) => go({ kind: 'study', deckId })
 
   const exitStudy = () => {
-    setStudyDeckId(null)
+    // `back`, not a push: leaving a session should undo the entry that started it, so the back
+    // button doesn't drop you into the session you just finished.
+    if (window.history.state && window.history.length > 1) window.history.back()
+    else replace({ kind: 'tab', tab: 'home' })
     setRefreshKey((k) => k + 1)
   }
+
+  // Admin is one account's screen. Landing on /admin without it is a correction, not a
+  // navigation, so it replaces rather than pushes — back still goes where you came from.
+  useEffect(() => {
+    if (route.kind === 'admin' && me && !me.is_owner) replace({ kind: 'tab', tab: 'settings' })
+  }, [route.kind, me, replace])
 
   if (me === undefined) return null
   if (me === null) return <SignInScreen error={authError} />
@@ -89,7 +93,7 @@ export default function App() {
             settings={settings}
             onChange={updateSettings}
             onFinish={({ goToCards }) => {
-              setTab(goToCards ? 'cards' : 'home')
+              replace({ kind: 'tab', tab: goToCards ? 'cards' : 'home' })
               setRefreshKey((k) => k + 1)
             }}
           />
@@ -156,15 +160,15 @@ export default function App() {
             )}
           </div>
           <div key={showAdmin ? 'admin' : showPricing ? 'pricing' : tab}>
-            {showAdmin && <AdminScreen onBack={() => setShowAdmin(false)} />}
-            {showPricing && !showAdmin && <PricingScreen onBack={() => setShowPricing(false)} />}
+            {showAdmin && <AdminScreen onBack={() => goToTab('settings')} />}
+            {showPricing && !showAdmin && <PricingScreen onBack={() => goToTab('settings')} />}
             {!showAdmin && !showPricing && tab === 'home' && (
-              <HomeScreen key={refreshKey} onStudy={setStudyDeckId} onGoToCards={() => setTab('cards')} onOpenExams={() => setTab('calendar')} />
+              <HomeScreen key={refreshKey} onStudy={openStudy} onGoToCards={() => goToTab('cards')} onOpenExams={() => goToTab('calendar')} />
             )}
             {!showAdmin && !showPricing && tab === 'cards' && (
               <CardsScreen
                 key={refreshKey}
-                onStudy={setStudyDeckId}
+                onStudy={openStudy}
                 onChanged={() => setRefreshKey((k) => k + 1)}
                 aiGeneration={settings?.ai_generation ?? true}
                 onOpenPricing={openPricing}
@@ -173,10 +177,10 @@ export default function App() {
             {/* Not keyed by refreshKey: its own saves bump the key (for Home/Cards), and a remount
                 here would snap the month back to today and close the sheet mid-edit. */}
             {!showAdmin && !showPricing && tab === 'calendar' && <ExamsScreen onChanged={() => setRefreshKey((k) => k + 1)} />}
-            {!showAdmin && !showPricing && tab === 'notes' && <NotesScreen onGoToCards={() => setTab('cards')} aiGeneration={settings?.ai_generation ?? true} />}
+            {!showAdmin && !showPricing && tab === 'notes' && <NotesScreen onGoToCards={() => goToTab('cards')} aiGeneration={settings?.ai_generation ?? true} />}
             {!showAdmin && !showPricing && tab === 'tutor' && <TutorScreen settings={settings} enterClass="" isOwner={me.is_owner} onOpenPricing={openPricing} />}
             {!showAdmin && !showPricing && tab === 'settings' && (
-              <SettingsScreen me={me} settings={settings} error={settingsError} onChange={updateSettings} onOpenAdmin={() => setShowAdmin(true)} onOpenPricing={openPricing} />
+              <SettingsScreen me={me} settings={settings} error={settingsError} onChange={updateSettings} onOpenAdmin={() => go({ kind: 'admin' })} onOpenPricing={openPricing} />
             )}
           </div>
         </main>

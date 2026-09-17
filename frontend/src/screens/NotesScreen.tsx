@@ -6,6 +6,8 @@ import { createDeck, createTextNote, deleteNote, getNote, listDecks, listNotes, 
 const MarkdownEditor = lazy(() => import('../components/MarkdownEditor'))
 import { getCached, setCached, useCachedResource } from '../hooks/useCachedResource'
 import Notice from '../components/Notice'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { useConfirm } from '../hooks/useConfirm'
 import { useCategoryDrag } from '../hooks/useCategoryDrag'
 import type { Deck, Note, NoteDetail } from '../types'
 
@@ -111,6 +113,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
   const [justAdded, setJustAdded] = useState<{ count: number; deckName: string } | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [creatingCategory, setCreatingCategory] = useState(false)
+  const { confirmation, ask, cancel } = useConfirm()
   /** Decks made from this tab in this session. A category is only listed once it holds notes
    * (see the grouping below), but one you just created has to be visible before anything is in
    * it, or "New category" would appear to do nothing. Mirrored into the tab cache: this screen
@@ -204,18 +207,29 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
 
   /** Takes a category out of this tab. Its notes go to Unfiled and stay; the deck keeps its
    * cards. Applied locally first, like a move, so the group folds away on the tap. */
-  const handleRemoveCategory = async (deckId: string) => {
+  const handleRemoveCategory = (deckId: string) => {
     const count = notes?.filter((n) => n.deck_id === deckId).length ?? 0
     const keepsDeck = (decks.find((d) => d.id === deckId)?.total ?? 0) > 0
     // Mid-search the list only holds the matches, so a count from it would understate what the
     // server is about to move. The wording goes general rather than quoting a wrong number.
-    const what = query.trim()
-      ? "Move all of this category's notes to Unfiled and remove it from Notes?"
+    // Mid-search the list only holds the matches, so a count from it would understate what the
+    // server is about to move. The wording goes general rather than quoting a wrong number.
+    const moved = query.trim()
+      ? "Every note in it moves to Unfiled."
       : count === 0
-        ? 'Remove this category from Notes?'
-        : `Move ${count} note${count === 1 ? '' : 's'} to Unfiled and remove this category from Notes?`
-    if (!confirm(keepsDeck ? `${what} The deck and its cards stay.` : what)) return
+        ? 'It has no notes in it.'
+        : `${count} note${count === 1 ? '' : 's'} move${count === 1 ? 's' : ''} to Unfiled.`
+    const name = decks.find((d) => d.id === deckId)?.name ?? 'this category'
+    ask({
+      title: `Remove ${name} from Notes?`,
+      body: `${moved} ${keepsDeck ? 'The deck and its cards stay.' : 'The deck has no cards, so it goes too.'}`,
+      confirmLabel: 'Remove',
+      destructive: !keepsDeck,
+      onConfirm: () => void removeCategory(deckId),
+    })
+  }
 
+  const removeCategory = async (deckId: string) => {
     const wasRevealed = revealed.has(deckId)
     setNotes((prev) => prev?.map((n) => (n.deck_id === deckId ? { ...n, deck_id: null, deck_name: null } : n)) ?? null)
     setRevealed((prev) => {
@@ -346,6 +360,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
+      <ConfirmDialog confirmation={confirmation} onCancel={cancel} />
       <div className="flex gap-2">
         <label className="flex h-11 flex-1 items-center gap-2.5 rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[var(--text-muted)]">
           {SEARCH_ICON}
@@ -1019,22 +1034,44 @@ function NoteEditorView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const { confirmation, ask, cancel } = useConfirm()
+
   const handleBack = async () => {
     await queue.current // a create still in flight decides whether there's anything to discard
     if (discardIfEmpty()) return // onDiscard closes the editor
     if (isDirty()) {
       await save()
-      if (isDirty() && !confirm("This note couldn't be saved. Leave anyway and lose the changes?")) return
+      if (isDirty()) {
+        ask({
+          title: "This note couldn't be saved",
+          body: 'Leaving now loses the changes you just made.',
+          confirmLabel: 'Leave anyway',
+          destructive: true,
+          onConfirm: () => {
+            abandoned.current = true
+            onBack()
+          },
+        })
+        return
+      }
     }
     abandoned.current = true
     onBack()
   }
 
   const handleDelete = () => {
-    if (!onDelete || !confirm('Delete this note? Cards already generated from it are kept.')) return
-    abandoned.current = true // no point flushing edits into a note that's about to go
-    cancelTimer()
-    onDelete()
+    if (!onDelete) return
+    ask({
+      title: 'Delete this note?',
+      body: 'Cards already generated from it are kept.',
+      confirmLabel: 'Delete note',
+      destructive: true,
+      onConfirm: () => {
+        abandoned.current = true // no point flushing edits into a note that's about to go
+        cancelTimer()
+        onDelete()
+      },
+    })
   }
 
   const kind = note ? kindLabel(note.file_type) : 'Note'
@@ -1043,6 +1080,7 @@ function NoteEditorView({
 
   return (
     <div className="flex flex-col gap-5">
+      <ConfirmDialog confirmation={confirmation} onCancel={cancel} />
       <div className="flex items-center justify-between">
         <button onClick={handleBack} className={BACK_CLASS}>
           {BACK_CHEVRON}

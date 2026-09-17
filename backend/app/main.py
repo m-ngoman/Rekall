@@ -3,6 +3,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.admin import router as admin_router
@@ -66,10 +67,34 @@ def health() -> dict[str, str]:
 # Mounted LAST on purpose: FastAPI matches routes in registration order, so a catch-all at "/"
 # declared earlier would swallow every API route beneath it.
 #
-# `html=True` serves index.html for "/" and for directory paths. It does NOT catch arbitrary
-# unknown paths — those 404, which is correct here: the app is one page whose navigation is React
-# state, so there are no deep URLs to refresh on. If client-side routing is ever added, this needs
-# an explicit catch-all handler; html=True alone will not cover it.
+# `html=True` serves index.html for "/" and for directory paths, but not for arbitrary unknown
+# paths. The app has real URLs now (/cards, /study/<id>, ...) that exist only client-side, so the
+# shell is served for those explicitly — see `_is_app_route` and the 404 fallback in get_response.
+
+# The paths the frontend can be at that are not files on disk. This list is the other half of a
+# contract with frontend/src/lib/route.ts; a route added there and not here 404s on refresh.
+_APP_ROUTES = frozenset({"cards", "calendar", "notes", "tutor", "settings", "plans", "admin"})
+
+
+def _is_app_route(path: str) -> bool:
+    """Whether `path` is one of the app's own client-side routes.
+
+    `path` arrives relative to the mount, so there is no leading slash.
+
+    Deliberately a fixed list rather than "anything that 404s". Serving the shell for every
+    unknown path would turn a mistyped asset or a dead blog link into a page that looks
+    deliberate, which hides the mistake from whoever has to find it later.
+
+    Study is the only route carrying a parameter. The id is not validated here — the app checks
+    it anyway, and a wrong one should reach the app's own "deck not found" rather than a bare 404
+    from the file server.
+    """
+    head, _, rest = path.partition("/")
+    if head == "study":
+        return bool(rest) and "/" not in rest
+    return path in _APP_ROUTES
+
+
 class _CachedStatic(StaticFiles):
     """StaticFiles with cache headers that match how Vite names things.
 
@@ -85,7 +110,16 @@ class _CachedStatic(StaticFiles):
     """
 
     async def get_response(self, path: str, scope):
-        response = await super().get_response(path, scope)
+        try:
+            response = await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            # A client-side route: no such file, but the app knows what to do with it once it
+            # boots. Starlette *raises* its 404 rather than returning one, so this has to be a
+            # handler and not a status check on the response — which is exactly the mistake the
+            # first version of this made, and it 404'd every deep link in production.
+            if exc.status_code != 404 or not _is_app_route(path):
+                raise
+            response = await super().get_response("index.html", scope)
         if path.startswith("assets/"):
             response.headers["cache-control"] = "public, max-age=31536000, immutable"
         else:

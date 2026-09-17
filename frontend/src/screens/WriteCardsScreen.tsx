@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createCard, createDeck, deleteCard, deleteDeck, listCards, listDecks, updateCard } from '../api'
 import type { Card, Deck } from '../types'
+import { useConfirm } from '../hooks/useConfirm'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 interface Props {
   /** Opens straight into one deck and hides the picker — this is the "edit this deck" entry
@@ -38,6 +40,7 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
    * library knows whether it has to refetch on the way out. */
   const [countsChanged, setCountsChanged] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const { confirmation, ask, cancel } = useConfirm()
 
   const questionRef = useRef<HTMLTextAreaElement>(null)
 
@@ -122,15 +125,22 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this card?')) return
-    try {
-      await deleteCard(id)
-      setCards((prev) => prev?.filter((c) => c.id !== id) ?? null)
-      setCountsChanged(true)
-    } catch {
-      setError("Couldn't delete that card.")
-    }
+  const handleDelete = (id: string) => {
+    ask({
+      title: 'Delete this card?',
+      body: 'Its review history goes with it.',
+      confirmLabel: 'Delete card',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await deleteCard(id)
+          setCards((prev) => prev?.filter((c) => c.id !== id) ?? null)
+          setCountsChanged(true)
+        } catch {
+          setError("Couldn't delete that card.")
+        }
+      },
+    })
   }
 
   const handleSaveEdit = async (id: string, patch: { question: string; answer: string; subtopic: string }) => {
@@ -143,19 +153,28 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
     }
   }
 
-  const handleDeleteDeck = async () => {
+  const handleDeleteDeck = () => {
     const name = decks?.find((d) => d.id === deckId)?.name ?? 'this deck'
-    if (!confirm(`Delete ${name} and all its cards and study history? This cannot be undone.`)) return
-    try {
-      await deleteDeck(deckId)
-      onDone(true)
-    } catch {
-      setError('Could not delete that deck.')
-    }
+    const count = cards?.length ?? 0
+    ask({
+      title: `Delete ${name}?`,
+      body: `${count === 0 ? 'The deck' : `All ${count} card${count === 1 ? '' : 's'} and their`} study history will be deleted. This cannot be undone.`,
+      confirmLabel: 'Delete deck',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await deleteDeck(deckId)
+          onDone(true)
+        } catch {
+          setError('Could not delete that deck.')
+        }
+      },
+    })
   }
 
   return (
     <div>
+      <ConfirmDialog confirmation={confirmation} onCancel={cancel} />
       <button onClick={() => onDone(countsChanged)} className="-ml-2 mb-3 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M15 18l-6-6 6-6" />
