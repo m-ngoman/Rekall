@@ -2,6 +2,12 @@
 
 Context for Claude Code: this document summarizes architecture and product decisions made during planning conversations with Claude (chat), before any code was written. Nothing described here has been implemented yet — treat all of it as design intent to build toward, not existing code to assume is present.
 
+
+> **Correction, 2026-09-18.** This planning document predates the build and several of its
+> decisions were superseded. Most importantly: spoken answers are **not** graded — the study
+> loop is typed-only, and voice is a tutor feature. TTS/STT shipped as Cartesia/Deepgram rather
+> than local Chatterbox/whisper.cpp, and Prometheus 2 lost to a general instruct model.
+
 ## Project overview
 
 PipCards is a flashcard/study app being rebuilt from the ground up. Not being commercialized broadly for now — pivoting to a self-hosted app for Adam + friends, since early prototype testers loved it.
@@ -19,9 +25,9 @@ PipCards is a flashcard/study app being rebuilt from the ground up. Not being co
 
 ## Core feature additions
 
-1. **Typed/voice answer entry** — replaces self-assessment difficulty rating. Students type or speak actual answers instead of just rating recall difficulty (active recall > self-assessment).
+1. **Typed answer entry** — replaces self-assessment difficulty rating. Students type actual answers instead of just rating recall difficulty (active recall > self-assessment). *(Voice entry was planned here and not built — see the correction note above.)*
 
-2. **Answer grading pipeline** — local model grades typed/spoken answers against a reference answer, outputs an FSRS-compatible rating (again/hard/good/easy) plus a short explanation. Explanation scales with correctness (brief when correct, more detail when wrong/partial). Explanation and FSRS rating are kept as separate fields in structured JSON output — explanation must never leak into scheduling logic.
+2. **Answer grading pipeline** — local model grades typed answers against a reference answer, outputs an FSRS-compatible rating (again/hard/good/easy) plus a short explanation. Explanation scales with correctness (brief when correct, more detail when wrong/partial). Explanation and FSRS rating are kept as separate fields in structured JSON output — explanation must never leak into scheduling logic.
 
 3. **Voice mode** — alternative input method, not a replacement for typing. Whisper-class STT (whisper.cpp / faster-whisper, base/small size) + local TTS to read questions/explanations aloud. Push-to-talk, not hands-free/wake-word (simpler build, matches "alternative not replacement" framing).
 

@@ -57,7 +57,7 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props)
         <div className="text-[1.375rem] font-bold leading-snug">Nothing to remember yet.</div>
         <p className="max-w-sm text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
           Rekall quizzes you on your own notes and checks what you actually wrote. Add cards, link
-          them to an exam date, and every card gets scheduled before the day.
+          them to an exam date, and new cards get paced to land before the day.
         </p>
         <button onClick={onGoToCards} className="on-accent self-start rounded-[var(--r-full)] bg-[var(--accent)] px-6 py-3.5 text-[0.9375rem] font-bold">
           Add cards
@@ -103,7 +103,7 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props)
           <>
             <div className="text-[1.25rem] font-bold leading-snug">No exam on the calendar</div>
             <button onClick={onOpenExams} className="mt-1 self-start text-left text-[0.9375rem] font-semibold text-[var(--text-muted)] underline decoration-[var(--rule)] underline-offset-4">
-              Add one and every card gets scheduled before the day
+              Add one and new cards get paced to land before the day
             </button>
           </>
         )}

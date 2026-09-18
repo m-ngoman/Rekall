@@ -168,7 +168,7 @@ export default function SettingsScreen({ me, settings, error, onChange, onOpenAd
           />
         </Row>
 
-        <Row label="Session size" hint="Caps the whole queue. Due cards are kept before new ones.">
+        <Row label="Session size" hint="Caps the whole queue. Due cards are kept before new ones. Lifted for decks with an exam coming up, so the pacing still fits everything in.">
           <Stepper
             value={settings.session_size}
             min={0}
@@ -304,7 +304,7 @@ export default function SettingsScreen({ me, settings, error, onChange, onOpenAd
       <Section title="Your data">
         <Row
           label="Export your cards"
-          hint="Everything, in one file. CSV opens in a spreadsheet and can be imported back here. JSON also keeps each card's review schedule."
+          hint="Every deck and card, in one file. CSV opens in a spreadsheet and can be imported back here. JSON also records each card's review schedule."
         >
           <div className="flex gap-2.5">
             {/* Anchors rather than buttons + fetch: the browser's own download handling is the

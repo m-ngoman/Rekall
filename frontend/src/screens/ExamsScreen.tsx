@@ -23,6 +23,8 @@ export default function ExamsScreen({ onChanged }: Props) {
   const { start, end } = gridRange(cursor.year, cursor.month)
   const key = loadKey(start, end)
   const [load, setLoad] = useState<LoadByDay>(() => loadCache.get(key) ?? {})
+  // Bumped whenever scheduling changes, so the run-up count refetches even if the date did not.
+  const [loadToken, setLoadToken] = useState(0)
   // What was on screen before the fresh numbers arrived — the calendar drains the difference.
   const prevLoad = useRef<LoadByDay>(load)
 
@@ -41,9 +43,10 @@ export default function ExamsScreen({ onChanged }: Props) {
     return () => {
       alive = false
     }
-    // start/end are derived from key.
+    // start/end are derived from key. loadToken is here so a saved exam re-baselines the bars
+    // as well as the run-up count — handleSaved clears the cache, and this is what refetches.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
+  }, [key, loadToken])
 
   const moveMonth = (delta: number) => {
     const d = new Date(cursor.year, cursor.month + delta, 1)
@@ -59,16 +62,52 @@ export default function ExamsScreen({ onChanged }: Props) {
     })
     // Scheduling changed, so the load did too; drop the cache so the next fetch re-baselines.
     loadCache.delete(key)
+    setLoadToken((t) => t + 1)
     onChanged()
   }
 
   const upcoming = (exams ?? []).filter((e) => daysUntil(e.date) >= 0).sort((a, b) => a.date.localeCompare(b.date))
   const next = upcoming[0]
   const nextDays = next ? daysUntil(next.date) : null
-  const todayISO = toISODate(new Date())
-  const cardsBeforeNext = next
-    ? Object.entries(load).reduce((sum, [iso, n]) => (iso >= todayISO && iso <= next.date ? sum + n : sum), 0)
-    : 0
+
+  // The run-up spans today → exam, which is usually not the month on screen, so it gets its own
+  // fetch. Summing the grid's `load` undercounted whenever the exam fell outside the visible
+  // month, and the number moved as you paged even though the exam had not — an exam five weeks
+  // out read as almost no work.
+  const nextDate = next?.date
+  const [cardsBeforeNext, setCardsBeforeNext] = useState<number | null>(null)
+  useEffect(() => {
+    if (!nextDate) {
+      setCardsBeforeNext(null)
+      return
+    }
+    // A day early on purpose: the backend buckets against UTC today and folds every overdue card
+    // onto it, so a window starting at local today drops the whole overdue pile for anyone east
+    // of UTC in the small hours. It never emits a day before its own today, so the extra day
+    // costs nothing and no lower bound is needed when summing.
+    const from = new Date(Date.now() - 86_400_000)
+    const to = new Date(`${nextDate}T00:00:00`)
+    const runUpKey = loadKey(from, to)
+    const sum = (byDay: LoadByDay) =>
+      Object.entries(byDay).reduce((acc, [iso, n]) => (iso <= nextDate ? acc + n : acc), 0)
+
+    // Render the last known total for *this* exam immediately; null while it is a different one,
+    // so a stale count never sits under a new exam's name.
+    const cached = loadCache.get(runUpKey)
+    setCardsBeforeNext(cached ? sum(cached) : null)
+
+    let alive = true
+    getLoad(from, to)
+      .then((byDay) => {
+        if (!alive) return
+        loadCache.set(runUpKey, byDay)
+        setCardsBeforeNext(sum(byDay))
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [nextDate, loadToken])
 
   const monthPrefix = `${cursor.year}-${String(cursor.month + 1).padStart(2, '0')}`
   const monthExams = (exams ?? []).filter((e) => e.date.startsWith(monthPrefix))
@@ -89,11 +128,11 @@ export default function ExamsScreen({ onChanged }: Props) {
             <div className="mt-1 flex items-baseline gap-2.5 lg:mt-1.5 lg:gap-3">
               <span className="numeral text-[3.5rem] text-[var(--accent)] lg:text-[6rem]">{nextDays}</span>
               <span className="text-[0.9375rem] font-semibold text-[var(--text-muted)] lg:text-[1rem]">{nextDays === 1 ? 'day' : 'days'}</span>
-              {cardsBeforeNext > 0 && (
+              {(cardsBeforeNext ?? 0) > 0 && (
                 <span className="ml-auto whitespace-nowrap text-[0.875rem] text-[var(--text-muted)] lg:hidden">{cardsBeforeNext} cards before it</span>
               )}
             </div>
-            {cardsBeforeNext > 0 && (
+            {(cardsBeforeNext ?? 0) > 0 && (
               <div className="mt-3.5 hidden text-[0.875rem] text-[var(--text-muted)] lg:block">{cardsBeforeNext} cards before it</div>
             )}
           </button>
@@ -101,7 +140,7 @@ export default function ExamsScreen({ onChanged }: Props) {
           <div className="flex flex-col">
             <div className="text-[1.125rem] font-bold">No exam coming up</div>
             <div className="mt-0.5 text-[0.875rem] text-[var(--text-muted)]">
-              Tap a day to add one. Linked decks get every card in before the date.
+              Tap a day to add one. Linked decks pace their new cards to land before the date.
             </div>
           </div>
         )}

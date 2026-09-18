@@ -16,7 +16,7 @@ export default function SignInScreen({ error }: { error: string | null }) {
         </div>
         <h1 className="mb-2 text-[1.375rem] font-bold tracking-tight">Rekall</h1>
         <p className="mx-auto mb-8 max-w-xs text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
-          Flashcards that read what you actually wrote or said, and tell you what you missed.
+          Flashcards that read what you actually wrote, and tell you what you missed.
         </p>
 
         {error && (

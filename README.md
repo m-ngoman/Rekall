@@ -1,6 +1,6 @@
 # Rekall
 
-**Flashcards that read what you actually wrote or said, and tell you what you missed.**
+**Flashcards that read what you actually wrote, and tell you what you missed.**
 
 Live at **[rekall.study](https://rekall.study)**
 
@@ -11,13 +11,14 @@ Live at **[rekall.study](https://rekall.study)**
 
 Conventional flashcards make you grade yourself: flip the card, decide whether you were close
 enough, move on. That self-assessment is where most of the learning leaks out — it is exactly the
-moment you are least equipped to be honest. Rekall takes a free-recall answer, typed or spoken,
-grades it against the reference with an LLM, tells you specifically what you missed, and feeds the
-resulting grade into FSRS spaced-repetition scheduling.
+moment you are least equipped to be honest. Rekall takes a typed free-recall answer, grades it
+against the reference with an LLM, tells you specifically what you missed, and feeds the resulting
+grade into FSRS spaced-repetition scheduling.
 
-Around that core loop: an AI tutor with persistent memory of what you keep getting wrong, deck
-generation from photographed or pasted notes, exam countdowns that reshape scheduling, and a
-metered free tier that runs entirely on local inference.
+Around that core loop: an AI tutor you can type at or talk to, with persistent memory of what you
+keep getting wrong, deck generation from photographed or pasted notes, exam countdowns that reshape
+scheduling, and a review path that uses no model at all — you see the answer and rate your own
+recall, the way paper flashcards work.
 
 ---
 
@@ -33,7 +34,7 @@ call site:
 
 | Grader | Model | Why it exists |
 |---|---|---|
-| `local` | `qwen2.5:7b` via Ollama | ~0.15s to first token, costs nothing. A metered API can't sit in the core loop of users who pay nothing, so the free tier runs here. The prompt carries extra scaffolding to compensate for a 7B model. |
+| `local` | `qwen2.5:7b` via Ollama | ~0.15s to first token, costs nothing. Built so grading need not depend on a metered API; the deployment currently runs `cloud`, and the per-user routing seam above is shaped but not wired. The prompt carries extra scaffolding to compensate for a 7B model. |
 | `cloud` | `google/gemini-2.5-flash` via OpenRouter | ~0.62s to first token, noticeably better writing. Roughly $0.50 per user per month at 200 reviews/day. |
 | `prometheus` | `prometheus-7b-v2.0` + `qwen2.5:7b` | A purpose-built LLM-as-judge model, kept for comparison. Prometheus emits a rubric verdict, then a general instruct model restyles it into something worth showing a student. |
 | `stub` | fuzzy string match | No model at all. Tests and offline work. |
@@ -106,19 +107,21 @@ frontend/src/
 Beyond grading, the pieces worth a look:
 
 - **Tutor with persistent memory** — [`services/memory_extraction.py`](backend/app/services/memory_extraction.py)
-  reads review history and conversation for durable facts about the student, so the tutor knows
-  what you keep failing. Prompt assembly is in [`services/tutor_prompt.py`](backend/app/services/tutor_prompt.py),
-  with a non-overridable base layer applied server-side at inference time so a custom personality
-  can't escape it.
+  reads the conversation in the background for durable facts about the student, and
+  [`services/tutor_prompt.py`](backend/app/services/tutor_prompt.py) grounds every turn in the cards
+  FSRS says you keep forgetting, so the tutor knows what you keep failing. Prompt assembly puts a
+  base layer server-side on every turn, layered under any custom personality rather than replaced
+  by it.
 - **Deck generation** — [`services/deck_generation.py`](backend/app/services/deck_generation.py)
   turns photographed or pasted notes into cards via a vision model.
 - **Metering and entitlements** — [`core/usage.py`](backend/app/core/usage.py) and
   [`core/entitlements.py`](backend/app/core/entitlements.py). Cost-passthrough billing, credits,
-  and the free/paid split that makes local inference worth the trouble.
+  and the free/paid split. Wired but dormant: every account is created on the comped tier, so the
+  entitlement checks never fire yet.
 - **Notes** — Postgres full-text search over stored source material, linked to decks.
 - **FSRS** — [`services/fsrs.py`](backend/app/services/fsrs.py), ported 1:1 from the original
-  vanilla-JS prototype preserved in [`docs/reference/`](docs/reference/), with regression tests
-  pinning the port to the original's output.
+  vanilla-JS prototype preserved in [`docs/reference/`](docs/reference/) — same 19-weight vector,
+  with unit tests pinning the port's scheduling behaviour.
 
 ## Tests
 
@@ -139,7 +142,8 @@ docker compose up -d          # or podman compose up -d
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-cp ../.env.example .env       # set GOOGLE_CLIENT_ID and SESSION_SECRET
+cp ../.env.example .env       # set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and SESSION_SECRET
+                              # with either Google key missing, every visitor shares one dev user
 alembic upgrade head
 uvicorn app.main:app --reload # http://localhost:8000
 

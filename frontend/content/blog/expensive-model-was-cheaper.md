@@ -7,9 +7,9 @@ date: 2026-09-08
 *Measurements in this post were taken August-September 2026. Model pricing and cache behaviour
 change constantly, so check current numbers before trusting any of them.*
 
-I built [Rekall](https://rekall.study), a flashcard app that grades what you actually wrote or
-said instead of asking you to grade yourself. You type or speak a free-recall answer, an LLM
-scores it against the reference, tells you what you missed, and the grade feeds FSRS spaced-repetition
+I built [Rekall](https://rekall.study), a flashcard app that grades what you actually wrote
+instead of asking you to grade yourself. You type a free-recall answer, an LLM scores it against
+the reference, tells you what you missed, and the grade feeds FSRS spaced-repetition
 scheduling.
 
 The pitch is one sentence. The grading pipeline took months, and almost every architectural
@@ -94,9 +94,11 @@ one deserves a real eval and I haven't run it.
 
 ## 4. The bigger local model was slower for a reason that had nothing to do with the prompt
 
-The free tier runs entirely on local inference, because you cannot put a metered API in the core
-loop of users who pay you nothing. That constraint drove more of the architecture than anything
-else.
+I wanted a free tier with no AI in it at all — cards self-graded, the way paper flashcards work —
+because you cannot put a metered API in the core loop of users who pay you nothing. That constraint
+is what sent me looking for a local grader good enough to sit in the loop, and the search drove
+more of the architecture than anything else. The tier itself isn't switched on yet; today every
+account is comped and grading runs in the cloud.
 
 I tried gemma-4-12B first. It took 4-5+ seconds to first token. My initial assumption was prompt
 length or a cold-load artifact, so I measured the prefill separately: under 0.15s. The prompt
@@ -144,8 +146,9 @@ score-to-grade mapping per level, so the wording and the consequence stay consis
 
 Two other separations turned out to matter. `grading_explanation` is a structurally separate field
 from `grade`, and the explanation never reaches scheduling logic, so prose cannot contaminate the
-algorithm however the prompt drifts. And a blank or don't-know response routes to an explain-only
-path that teaches the card instead of grading a non-attempt. Grading a non-attempt as a failure is
+algorithm however the prompt drifts. And a blank or don't-know response skips the judge
+entirely: the rating is fixed to Forgot in code, and the model is asked only to teach the card
+rather than to critique the non-attempt. Asking a judge to write a verdict on a non-attempt is
 technically correct and pedagogically useless, and it made the app feel punitive in exactly the
 moment a user was already discouraged.
 

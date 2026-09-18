@@ -203,8 +203,8 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
         </div>
       ) : (
         <p className="mb-5 text-sm text-[var(--text-muted)]">
-          Type a question and the answer you'd accept as correct. Grading compares what you say or write against
-          this answer, so write it the way you'd actually say it out loud.
+          Type a question and the answer you'd accept as correct. Grading compares what you typed against
+          this answer, so keep it to the points you'd want to get credit for.
         </p>
       )}
 

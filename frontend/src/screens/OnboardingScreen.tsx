@@ -64,8 +64,8 @@ export default function OnboardingScreen({ settings, onChange, onFinish }: Props
             </div>
             <h1 className="mb-2 text-[1.375rem] font-bold tracking-tight">Welcome to Rekall</h1>
             <p className="mx-auto mb-7 max-w-sm text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
-              Most flashcard apps ask whether you got it right. Rekall reads what you actually wrote
-              or said, and tells you what you missed.
+              Most flashcard apps ask whether you got it right. Rekall reads what you actually
+              wrote, and tells you what you missed.
             </p>
             <Primary onClick={() => setStep(1)}>Get started</Primary>
           </>

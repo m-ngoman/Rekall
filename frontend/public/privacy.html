@@ -20,7 +20,7 @@
 </head>
 <body>
 <h1>Privacy Policy</h1>
-<p class="updated">Rekall · last updated 26 August 2026</p>
+<p class="updated">Rekall · last updated 18 September 2026</p>
 
 <p>Rekall is a small study app run by one person. This policy says exactly what it stores, why,
 and who else sees it. It is written to be read, not to be survived.</p>
@@ -30,23 +30,32 @@ and who else sees it. It is written to be read, not to be survived.</p>
   <li><strong>Your Google account details</strong> — your Google account ID, email address, name
     and profile picture URL. Used to sign you in and to keep your data separate from everyone
     else's. Rekall never sees or stores your Google password.</li>
-  <li><strong>What you upload</strong> — photos and PDFs of your notes, kept as files, along with
-    the text an AI model read out of them.</li>
-  <li><strong>Your study material</strong> — decks, cards, and categories you create or generate.</li>
-  <li><strong>Your review history</strong> — for each answer: what you typed or said, whether you
-    typed or spoke it, the grade, and when. This is what makes the scheduling work; without it
-    Rekall cannot tell you what to study.</li>
+  <li><strong>What you upload or write</strong> — photos and PDFs of your notes, kept as files,
+    along with the text an AI model read out of them, and any notes you type straight into
+    Rekall.</li>
+  <li><strong>Your study material</strong> — decks, cards, categories and exam dates you create
+    or generate.</li>
+  <li><strong>Your review history</strong> — for each answer: what you typed, whether it was
+    graded for you or you rated your own recall, the grade, what the model said you missed, and
+    when. This is what makes the scheduling work; without it Rekall cannot tell you what to
+    study.</li>
   <li><strong>Tutor conversations</strong> — the messages you and the tutor exchange, and short
     notes the tutor keeps about what you find difficult, so it does not start from nothing each
     time.</li>
   <li><strong>Your settings</strong> — theme, accent colour, study limits, voice preferences.</li>
+  <li><strong>Your billing state</strong> — whether a plan is active, when it runs out, how many
+    voice hours you have left, and an ID linking you to your payment record. Rekall never sees or
+    stores your card details.</li>
   <li><strong>Problem reports</strong> — if a generated card looks wrong, the report includes the
     card and the model output that produced it.</li>
 </ul>
 
 <h2>What Rekall does not do</h2>
-<p>No advertising. No analytics or tracking pixels. No selling or sharing your data with anyone
-for marketing. No profiling beyond what is needed to schedule your cards and run the tutor.</p>
+<p>No advertising. No third-party analytics or tracking pixels. No selling or sharing your data
+with anyone for marketing. No profiling beyond what is needed to schedule your cards and run the
+tutor. Rekall does count its own use — a row recording that a review happened, or a tutor turn, or
+how many characters were spoken — so it can meter voice credits and show the person running it how
+busy the app is. Those rows hold no card, note or conversation text.</p>
 
 <h2>Who else sees your data</h2>
 <p>Rekall cannot generate cards, grade answers or speak without sending data to other companies.
@@ -55,9 +64,15 @@ This is the part most policies bury, so plainly:</p>
   <li><strong>Photos and PDFs you upload are sent to an AI provider</strong> to be read and turned
     into cards. Do not upload anything you would not want a third party to process — including
     other people's private information.</li>
-  <li><strong>Your typed or spoken answers are sent to an AI provider</strong> to be graded.</li>
+  <li><strong>Your typed answers are sent to an AI provider</strong> to be graded. Answers you
+    rate yourself are not sent anywhere.</li>
+  <li><strong>Your tutor conversation is sent to an AI provider</strong> — your messages, any
+    photo you attach, and the notes the tutor keeps about you. The conversation so far is re-sent
+    each turn, because that is the only way the model can follow the thread.</li>
   <li><strong>In voice mode, your speech is sent to a speech-to-text provider</strong>, and the
     tutor's replies are sent to a text-to-speech provider to be spoken.</li>
+  <li><strong>If you buy anything, your email address and name are sent to Stripe</strong>, which
+    handles the payment. Your card is entered on Stripe's own page and never reaches Rekall.</li>
 </ul>
 <p>These providers process the data to return a result. Rekall does not authorise them to use it
 for anything else. Providers may change; this page will be updated when they do.</p>
@@ -68,7 +83,9 @@ upload are stored on disk; everything else is in a database on the same machine.
 
 <h2>How long it is kept</h2>
 <p>Until you delete it or ask for your account to be removed. Deleting a note, deck or card
-removes it. Closing your account removes everything associated with it.</p>
+removes it, including the file on disk. To close your account, email the address below — it is
+done by hand, covering your uploaded files as well as everything in the database, and you get a
+confirmation when it is finished.</p>
 
 <h2>What you can ask for</h2>
 <p>A copy of your data, correction of anything wrong, or complete deletion. Email the address
