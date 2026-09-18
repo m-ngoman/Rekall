@@ -8,7 +8,12 @@ from app.models.base import Base, TimestampMixin, UUIDPKMixin
 
 
 class UserTier(str, enum.Enum):
-    """Drives billing: friend tier is cost-absorbed by Adam, public tier is billed at a profitable rate."""
+    """Drives billing: friend tier is cost-absorbed by Adam, public tier is billed at a profitable rate.
+
+    Nothing assigns `public` yet. Both creation paths hardcode `friend` (api/auth.py, core/auth.py)
+    and the column defaults to it, so the entitlement checks in core/entitlements.py are wired but
+    dormant — every account currently rides free.
+    """
 
     friend = "friend"
     public = "public"

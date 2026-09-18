@@ -16,14 +16,17 @@ class MemoryCategory(str, enum.Enum):
 
 
 class MemorySource(str, enum.Enum):
-    manual = "manual"  # student/Adam wrote it directly — the only source v1 supports
-    auto = "auto"  # reserved for a future tutor-suggested-and-approved note, not written yet
+    manual = "manual"  # student/Adam wrote it directly
+    auto = "auto"  # written by the tutor via services/memory_extraction.py; badged "auto" in the
+    # UI and deletable in one tap
 
 
 class StudentMemoryNote(UUIDPKMixin, TimestampMixin, Base):
-    """Persistent, student-visible notes fed into every tutor system prompt — deliberately
-    manual-only for now (no auto-summarization) so a bad LLM inference can't silently corrupt a
-    student's profile; see [[project-pipcards-voice-tutor]] planning notes for why.
+    """Persistent, student-visible notes fed into every tutor system prompt.
+
+    Originally manual-only, so a bad LLM inference could not silently corrupt a student's profile.
+    The tutor now writes notes itself with no approval gate — see the module docstring in
+    services/memory_extraction.py for why that trade was made, and what replaces the gate.
     """
 
     __tablename__ = "student_memory_notes"

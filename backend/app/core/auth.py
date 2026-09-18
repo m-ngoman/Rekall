@@ -5,8 +5,9 @@ Two modes, chosen by whether Google OAuth is configured:
 - **Configured** (`GOOGLE_CLIENT_ID` and secret set): the signed session cookie holds a user id,
   put there by the OAuth callback. No cookie, no user, 401.
 - **Not configured**: every request acts as one shared dev user, auto-provisioned. This is what
-  made local development possible before sign-in existed, and it is why filling in the client id
-  is the single switch that turns real authentication on.
+  made local development possible before sign-in existed, and it is why filling in both the client
+  id and the client secret is the single switch that turns real authentication on. Either one alone
+  leaves the fallback active.
 
 The fallback is deliberately tied to configuration rather than to a separate DEV flag. A separate
 flag is something you can forget to turn off; this one cannot be left on by accident once the

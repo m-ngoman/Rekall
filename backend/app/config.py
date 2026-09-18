@@ -5,8 +5,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     database_url: str = "postgresql+psycopg://pipcards:pipcards@localhost:5432/pipcards"
-    # OAuth. When google_client_id is empty the app falls back to a single shared dev user — see
-    # app/core/auth.py. Setting it is what turns real authentication on.
+    # OAuth. Real authentication needs BOTH of these; with either missing the app falls back to a
+    # single shared dev user that every request is signed in as — see app/core/auth.py.
     google_client_id: str = ""
     google_client_secret: str = ""
     # Must match the redirect URI registered in the Google Cloud console exactly, including scheme
@@ -14,14 +14,16 @@ class Settings(BaseSettings):
     oauth_redirect_uri: str = "https://rekall.study/api/auth/callback"
     session_secret: str = "change-me"
 
-    # The one account that can file and read bug reports (see app/api/bugs.py). Compared
+    # The one account that can reach the owner-only surfaces: the bug inbox (app/api/bugs.py) and
+    # the usage dashboard (app/api/admin.py). Compared
     # case-insensitively against the Google account's email. Empty disables the feature outright,
     # which is what any deployment that isn't Adam's should have.
     owner_email: str = ""
 
-    # "local" runs on this machine and costs nothing, which is what the free tier needs — you
-    # cannot put a metered API in the core loop of users who pay nothing. "cloud" is the better
-    # writer and one fewer prompt workaround, for anyone whose subscription covers it.
+    # "local" runs on this machine and costs nothing — the point is that grading need not depend
+    # on a metered API for users who pay nothing. "cloud" is the better writer and one fewer prompt
+    # workaround. This is a deployment-wide switch: get_grader() reads it globally and no per-user
+    # or per-tier routing is wired yet (see services/grading.py).
     grader: str = "local"  # "local" | "cloud" | "prometheus" | "stub"
 
     # Gemini 2.5 Flash rather than Haiku or DeepSeek, measured 2026-08-26 on the real grading
