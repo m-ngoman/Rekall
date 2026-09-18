@@ -41,6 +41,7 @@ frontend/tsconfig.tsbuildinfo
 # `prebuild` hook regenerates it on every build. The markdown is the source; this is output.
 # Needs the frontend/ prefix: a pattern containing a slash is anchored to this file's directory.
 frontend/public/blog/
+frontend/public/sitemap.xml
 design/design-system/.render/
 design/incoming/
 frontend/_plotcheck.html
