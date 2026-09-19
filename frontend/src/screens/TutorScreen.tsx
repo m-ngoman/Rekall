@@ -166,6 +166,9 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
    * onQueueEmpty and dropped voice mode into listening in the middle of the tutor's reply. */
   const replyInFlightRef = useRef(false)
   const cancelListenRef = useRef<(() => void) | null>(null)
+  /** True from the moment a listen cycle is entered until its capture resolves. Guards against
+   * two watchers handing off the same utterance — see startListenCycle. */
+  const listeningRef = useRef(false)
   /** Cancels the free local amplitude watch that holds voice mode open between turns. */
   const cancelWaitRef = useRef<(() => void) | null>(null)
   const voiceTurnAbortRef = useRef<AbortController | null>(null)
@@ -694,6 +697,14 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
    */
   const startListenCycle = async () => {
     if (!voiceModeRef.current) return
+    // Seven call sites reach this, and two of them can fire for the same utterance — the
+    // between-turns watcher handing off, and the barge-in watcher on a reply that is still
+    // finishing. Without this, both open their own capture, both resolve with the same words,
+    // and the turn runs twice: the tutor is asked the same question twice and answers it twice.
+    // Set synchronously, because cancelListenRef is only populated once listenUntilSilence has
+    // awaited and a second caller gets through the gap.
+    if (listeningRef.current) return
+    listeningRef.current = true
     // A watcher still holding this handle means we arrived from somewhere other than its own
     // hand-off (which clears it first), so it's still watching — release it before this cycle
     // opens its own capture.
@@ -712,6 +723,8 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
       cancelListenRef.current = cancel
       const text = await promise
       cancelListenRef.current = null
+      // Capture is over; the turn below is free to run and the next cycle free to start.
+      listeningRef.current = false
       setLiveTranscript('')
       if (!voiceModeRef.current) return // toggled off while we were listening
       if (!text.trim()) {
@@ -725,6 +738,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
       }
       await runVoiceTurn(text)
     } catch {
+      listeningRef.current = false
       setError('Could not access your microphone — check browser permissions.')
       voiceModeRef.current = false
       setVoiceModeActive(false)
@@ -746,6 +760,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
       } else if (orbStateRef.current === 'listening') {
         cancelListenRef.current?.()
         cancelListenRef.current = null
+        listeningRef.current = false
       } else {
         // Mid-thinking/speaking — stop the tutor talking right now rather than letting the turn
         // finish naturally, which is what it used to do.
