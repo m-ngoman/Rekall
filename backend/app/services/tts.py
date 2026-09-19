@@ -9,8 +9,11 @@ voice reference, that's personal to Hermes.
 from __future__ import annotations
 
 import base64
+import io
 import json
 import struct
+import uuid
+import wave
 
 import httpx
 
@@ -41,6 +44,12 @@ def _characteristics(description: str) -> str:
 
 
 def list_voices() -> list[dict]:
+    if settings.tts_provider == "inworld":
+        return _list_voices_inworld()
+    return _list_voices_cartesia()
+
+
+def _list_voices_cartesia() -> list[dict]:
     response = httpx.get(
         "https://api.cartesia.ai/voices",
         headers={"Authorization": f"Bearer {settings.cartesia_api_key}", "Cartesia-Version": "2026-08-14"},
@@ -151,6 +160,112 @@ def _synthesize_cartesia_timed(text: str, voice_id: str | None) -> tuple[bytes, 
     return _wav_header(len(pcm)) + bytes(pcm), words
 
 
+_INWORLD_URL = "https://api.inworld.ai/tts/v1/voice"
+
+
+def _inworld_headers() -> dict[str, str]:
+    """The portal issues a value already encoded as base64("<key>:"), so it is sent verbatim as
+    Basic credentials rather than being encoded again here."""
+    return {"Authorization": f"Basic {settings.inworld_api_key}", "Content-Type": "application/json"}
+
+
+def _list_voices_inworld() -> list[dict]:
+    response = httpx.get(_INWORLD_URL.replace("/voice", "/voices"), headers=_inworld_headers(), timeout=15.0)
+    response.raise_for_status()
+    items = response.json().get("voices", [])
+    # `languages` is a list here where Cartesia has a single `language`, and there is no gender
+    # field at all — the tutor's voice picker shows it when present and omits it otherwise.
+    return [
+        {
+            "id": v["voiceId"],
+            "name": v.get("displayName") or v["voiceId"],
+            "description": _characteristics(v.get("description") or ""),
+            "gender": "",
+        }
+        for v in items
+        if "en" in (v.get("languages") or [])
+    ]
+
+
+def _inworld_voice(voice_id: str | None) -> str:
+    """Voice ids are provider-specific, and the two providers' namespaces don't overlap: Cartesia
+    issues UUIDs, Inworld uses names like "Ashley". A stored pick from before a provider switch
+    would otherwise be sent to an API that has never heard of it and 400 the whole reply, so a
+    UUID is read as "not ours" and the default stands in.
+    """
+    if not voice_id:
+        return settings.inworld_voice_id
+    try:
+        uuid.UUID(voice_id)
+    except ValueError:
+        return voice_id
+    return settings.inworld_voice_id
+
+
+def _inworld_body(text: str, voice_id: str | None, timestamps: bool) -> dict:
+    body: dict = {
+        "text": text,
+        "voiceId": _inworld_voice(voice_id),
+        "modelId": settings.inworld_model,
+        "audioConfig": {"audioEncoding": "LINEAR16", "sampleRateHertz": _SAMPLE_RATE},
+    }
+    if timestamps:
+        body["timestampType"] = "WORD"
+    return body
+
+
+def _inworld_pcm(audio_content: str) -> bytes:
+    """Inworld returns a complete WAV, not raw PCM. The frames are pulled back out and re-wrapped
+    by _wav_header rather than passed through, because the client computes a reply's duration as
+    `(size - 44) / 88200` — which is only true of a header this module built. Nothing guarantees
+    a provider's own header is 44 bytes, and an extra LIST chunk would silently skew every
+    duration.
+    """
+    with wave.open(io.BytesIO(base64.b64decode(audio_content))) as w:
+        return w.readframes(w.getnframes())
+
+
+def _inworld_words(timestamp_info: dict) -> list[dict]:
+    """Inworld's word alignment, in the {"w","s","e"} shape the client already reads.
+
+    Its tokens are not words: whitespace is its own entry and punctuation splits off the word it
+    follows, so "Tertiary substrates go SN1; primary ones almost always go SN2." comes back as 21
+    tokens for 10 words. That matters because TutorScreen only lights the exact word when the
+    count matches the written text's — anything else silently degrades to a proportional remap.
+    Dropping the blanks and folding punctuation back into the word before it restores the match.
+    """
+    alignment = (timestamp_info or {}).get("wordAlignment") or {}
+    words: list[dict] = []
+    for token, start, end in zip(
+        alignment.get("words", []),
+        alignment.get("wordStartTimeSeconds", []),
+        alignment.get("wordEndTimeSeconds", []),
+        strict=False,
+    ):
+        if not token.strip():
+            continue
+        if words and not any(c.isalnum() for c in token):
+            words[-1]["e"] = end
+            continue
+        words.append({"w": token.strip(), "s": start, "e": end})
+    return words
+
+
+def _synthesize_inworld(text: str, voice_id: str | None) -> bytes:
+    response = httpx.post(_INWORLD_URL, headers=_inworld_headers(), json=_inworld_body(text, voice_id, False), timeout=30.0)
+    response.raise_for_status()
+    pcm = _inworld_pcm(response.json()["audioContent"])
+    return _wav_header(len(pcm)) + pcm
+
+
+def _synthesize_inworld_timed(text: str, voice_id: str | None) -> tuple[bytes, list[dict]]:
+    response = httpx.post(_INWORLD_URL, headers=_inworld_headers(), json=_inworld_body(text, voice_id, True), timeout=30.0)
+    response.raise_for_status()
+    payload = response.json()
+    pcm = _inworld_pcm(payload["audioContent"])
+    return _wav_header(len(pcm)) + pcm, _inworld_words(payload.get("timestampInfo"))
+
+
 def _synthesize_chatterbox(text: str) -> bytes:
     response = httpx.post(f"{settings.tts_base_url}/tts", json={"text": text}, timeout=60.0)
     response.raise_for_status()
@@ -160,6 +275,8 @@ def _synthesize_chatterbox(text: str) -> bytes:
 def synthesize(text: str, voice_id: str | None = None) -> bytes:
     if settings.tts_provider == "chatterbox":
         return _synthesize_chatterbox(text)
+    if settings.tts_provider == "inworld":
+        return _synthesize_inworld(text, voice_id)
     return _synthesize_cartesia(text, voice_id)
 
 
@@ -171,4 +288,6 @@ def synthesize_timed(text: str, voice_id: str | None = None) -> tuple[bytes, lis
     """
     if settings.tts_provider == "chatterbox":
         return _synthesize_chatterbox(text), []
+    if settings.tts_provider == "inworld":
+        return _synthesize_inworld_timed(text, voice_id)
     return _synthesize_cartesia_timed(text, voice_id)

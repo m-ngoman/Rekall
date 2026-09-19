@@ -55,10 +55,24 @@ class Settings(BaseSettings):
     # server (from the Hermes assistant setup on this machine, still available as a fallback) has
     # a ~2.5-3s floor per call regardless of text length, tested and confirmed as the bottleneck
     # in voice tutor mode. See app/services/tts.py.
-    tts_provider: str = "cartesia"  # "cartesia" | "chatterbox"
+    tts_provider: str = "cartesia"  # "cartesia" | "inworld" | "chatterbox"
     cartesia_api_key: str = ""
     cartesia_voice_id: str = "db6b0ed5-d5d3-463d-ae85-518a07d3c2b4"  # "Skylar", a public Cartesia voice
     tts_base_url: str = "http://127.0.0.1:13231"  # Chatterbox, only used when tts_provider == "chatterbox"
+
+    # Inworld. The reason it exists: TTS is the whole cost model for voice, and Cartesia is the
+    # expensive end of it — its cheapest published tier works out around $31 per million
+    # characters and the tier a small deployment is actually on is nearer $42. Against what a
+    # voice pack nets, anything above roughly $17/1M loses money on every hour sold.
+    #
+    # `inworld-tts-2-flash` is $15/1M and clears that; `inworld-tts-2` is $25/1M and does not, at
+    # any plan tier reachable without $300/month of committed volume. Flash also has the lower
+    # time-to-first-byte of the two, which is the number that matters in conversation. Billing is
+    # per character, not per UTF-8 byte — confirmed against the API's own `processedCharactersCount`
+    # — so a language deck in Japanese costs what an English one does.
+    inworld_api_key: str = ""
+    inworld_model: str = "inworld-tts-2-flash"
+    inworld_voice_id: str = "Ashley"  # "A warm, natural female voice"
 
     # Tutor chat: OpenRouter (cloud) is the default, per Adam's call — the local grading model
     # (qwen2.5:7b) is plenty for short single-turn grading, but planning notes specifically wanted

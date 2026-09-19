@@ -61,7 +61,7 @@ def test_the_topup_pack_and_the_ledger_agree_on_its_size() -> None:
     charges for. A drift between them is a pricing bug that nothing else would catch — the
     customer is charged $5 and granted whatever the other number happens to say.
     """
-    assert CATALOGUE[Product.pages_5]["pages"] == TOPUP_PAGES
+    assert CATALOGUE[Product.pages_200]["pages"] == TOPUP_PAGES
 
 
 @pytest.mark.parametrize("name,value", [("generation_pages_per_day", 30), ("ai_grades_per_day", 500)])

@@ -49,13 +49,13 @@ def test_a_product_grants_exactly_one_kind_of_thing(product: Product) -> None:
 def test_product_values_are_stable_identifiers() -> None:
     """`product.value` is written into Stripe session metadata at checkout and matched on the
     webhook, so renaming one orphans every checkout already in flight. Pinned as a reminder that
-    these strings are persisted state, not labels — the ids name the price in cents, which is why
-    voice_25 sells thirty hours.
+    these strings are persisted state, not labels. They name the quantity; they used to name the
+    price, which read as a quantity and was not one.
     """
     assert {p.value for p in Product} == {
         "text_monthly",
         "text_lifetime",
-        "voice_10",
-        "voice_25",
-        "pages_5",
+        "voice_10h",
+        "voice_20h",
+        "pages_200",
     }

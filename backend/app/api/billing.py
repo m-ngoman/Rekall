@@ -31,11 +31,20 @@ router = APIRouter(prefix="/api/billing", tags=["billing"])
 
 
 class Product(str, enum.Enum):
+    """Ids name what you get, not what it costs.
+
+    They used to name the price in cents — `voice_10` was $10, `voice_25` was $25 for *thirty*
+    hours — which read as a quantity and was not one. Renamed while nothing had ever been sold,
+    because `product.value` is written into Stripe session metadata at checkout and matched back
+    on the webhook: a rename after the fact silently fails to grant for every session already in
+    flight, and the customer has paid by then.
+    """
+
     text_monthly = "text_monthly"
     text_lifetime = "text_lifetime"
-    voice_10 = "voice_10"
-    voice_25 = "voice_25"
-    pages_5 = "pages_5"
+    voice_10h = "voice_10h"
+    voice_20h = "voice_20h"
+    pages_200 = "pages_200"
 
 
 # The catalogue lives here rather than in the Stripe dashboard. Prices are passed inline to
@@ -66,29 +75,37 @@ CATALOGUE: dict[Product, dict] = {
         "pages": 0,
         "lifetime": True,
     },
-    Product.voice_10: {
+    # One rate for both, $1.50 CAD an hour. The old pair sold the larger pack at $0.83/hour
+    # against the smaller one's $1.00 — a volume discount on a good with no fixed cost to
+    # amortise beyond Stripe's flat $0.30, which is worth about 2%, not 17%. The large pack was
+    # underwater at every plausible speech mix as a result.
+    #
+    # $1.50 is also where the currency risk stops mattering. At $1.00/hour a pack broke even at
+    # 0.7129 USD/CAD against a spot rate of ~0.72 — a 1% cushion, narrower than the surcharge on
+    # a single international card. At $1.50 it breaks even at 0.47, which CAD has not been near.
+    Product.voice_10h: {
         "label": "10 hours of voice",
         "description": "Spoken tutoring. Never expires.",
         "kind": "credits",
-        "amount": 1000,
+        "amount": 1500,
         "recurring": False,
         "credit_hours": 10,
         "pages": 0,
         "lifetime": False,
     },
-    Product.voice_25: {
-        "label": "30 hours of voice",
+    Product.voice_20h: {
+        "label": "20 hours of voice",
         "description": "Spoken tutoring. Never expires.",
         "kind": "credits",
-        "amount": 2500,
+        "amount": 3000,
         "recurring": False,
-        "credit_hours": 30,
+        "credit_hours": 20,
         "pages": 0,
         "lifetime": False,
     },
     # A new `kind`, not "credits". The pricing screen titles that group "Voice", and filing a
     # generation top-up under it would print pages and hours as if they were the same unit.
-    Product.pages_5: {
+    Product.pages_200: {
         "label": "200 pages",
         "description": "Pages of notes for making cards, on top of the 30 a day your plan includes. Never expires.",
         "kind": "pages",
