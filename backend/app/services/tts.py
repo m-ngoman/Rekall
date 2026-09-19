@@ -169,10 +169,40 @@ def _inworld_headers() -> dict[str, str]:
     return {"Authorization": f"Basic {settings.inworld_api_key}", "Content-Type": "application/json"}
 
 
+# Eight, in this order, out of the 159 English voices the provider returns. The full list is not
+# a menu — it is a catalogue for every product Inworld sells, so most of it is villains, ASMR,
+# game-show hosts and anime dubbing, and a student scrolling it is being asked to audition a
+# stranger rather than pick a tutor.
+#
+# Chosen for the job: clear, warm, unhurried, nobody performing a character. Spread across
+# American, British, Indian and Australian because the students are, and evenly split by gender.
+# Ashley leads because she is the default, so the first entry is what an untouched account hears.
+#
+# Curated in code rather than filtered by the provider's own `tutoring` tag: the tag is theirs to
+# redefine, and a voice quietly appearing in a study app because a marketing label moved is the
+# thing this list exists to prevent.
+_CURATED_INWORLD = (
+    "Ashley",    # warm, natural American female
+    "Arthur",    # warm, mature male; encouraging and knowledgeable
+    "Eleanor",   # polished, approachable British female
+    "Brian",     # friendly, encouraging American male
+    "Jessica",   # encouraging, articulate American female
+    "Alistair",  # clear, articulate British male
+    "Saanvi",    # crisp, articulate Indian female
+    "Pippa",     # friendly, casual Australian female
+)
+
+
 def _list_voices_inworld() -> list[dict]:
     response = httpx.get(_INWORLD_URL.replace("/voice", "/voices"), headers=_inworld_headers(), timeout=15.0)
     response.raise_for_status()
     items = response.json().get("voices", [])
+    # Filtered against what the provider actually returns rather than trusted blindly, so a voice
+    # they retire disappears from the picker instead of 400ing the first spoken reply after
+    # somebody selects it. If none of them survive, showing the full list beats showing nothing.
+    by_id = {v["voiceId"]: v for v in items}
+    curated = [by_id[name] for name in _CURATED_INWORLD if name in by_id]
+    items = curated or items
     # `languages` is a list here where Cartesia has a single `language`, and there is no gender
     # field at all — the tutor's voice picker shows it when present and omits it otherwise.
     return [
@@ -184,7 +214,7 @@ def _list_voices_inworld() -> list[dict]:
         }
         for v in items
         if "en" in (v.get("languages") or [])
-    ]
+    ]  # order is _CURATED_INWORLD's, deliberately, so the default sits first
 
 
 def _inworld_voice(voice_id: str | None) -> str:
