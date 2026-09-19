@@ -41,3 +41,52 @@ def test_everything_else_keeps_its_404(path: str) -> None:
     """Serving the shell for any unknown path would turn a mistyped asset or a dead blog link
     into a page that looks deliberate, hiding the mistake from whoever has to find it."""
     assert not _is_app_route(path)
+
+
+# The three-way split the static mount has to get right, exercised end to end rather than through
+# _is_app_route alone. The unit tests above pass happily while the served behaviour is wrong: when
+# a file named 404.html sits in the dist directory, StaticFiles(html=True) serves it on every miss
+# before get_response can fall back, which silently turns every deep link into a 404 and every API
+# miss into HTML. That shipped once. These are what would have caught it.
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import _DIST, app
+
+pytestmark = pytest.mark.skipif(not _DIST.is_dir(), reason="frontend not built")
+
+
+@pytest.fixture(scope="module")
+def client() -> TestClient:
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.mark.parametrize("path", ["/cards", "/settings", "/study/abc123"])
+def test_a_client_side_route_still_gets_the_app_shell(client: TestClient, path: str) -> None:
+    res = client.get(path)
+    assert res.status_code == 200
+    assert "<div id=" in res.text or "<script" in res.text
+
+
+@pytest.mark.parametrize("path", ["/nope", "/blog/dead-link/", "/privacy"])
+def test_an_unknown_page_gets_the_human_404(client: TestClient, path: str) -> None:
+    res = client.get(path)
+    assert res.status_code == 404
+    assert res.headers["content-type"].startswith("text/html")
+
+
+@pytest.mark.parametrize("path", ["/api/nonexistent", "/api/decks/not-a-real-id"])
+def test_the_api_keeps_its_json_404(client: TestClient, path: str) -> None:
+    """The client reads `detail` off these to build its error and paywall copy, so an HTML body
+    here replaces a real message with nothing."""
+    res = client.get(path)
+    assert res.status_code == 404
+    assert res.headers["content-type"].startswith("application/json")
+    assert "detail" in res.json()
+
+
+def test_the_404_page_is_not_named_404_html(client: TestClient) -> None:
+    """StaticFiles(html=True) claims that exact filename for itself. See the comment on
+    _NOT_FOUND_PAGE in app/main.py."""
+    assert not (_DIST / "404.html").exists()

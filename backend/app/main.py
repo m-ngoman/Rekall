@@ -1,7 +1,9 @@
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
@@ -132,3 +134,34 @@ class _CachedStatic(StaticFiles):
 _DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if _DIST.is_dir():
     app.mount("/", _CachedStatic(directory=_DIST, html=True), name="frontend")
+
+
+# Deliberately NOT named 404.html. StaticFiles(html=True) looks for exactly that filename on any
+# miss and serves it itself, which sounds like the feature we want and is not: it returns before
+# get_response's fallback can run, so every client-side route (/cards, /study/<id>) starts 404ing
+# on refresh, and /api starts answering with HTML that the client cannot read a `detail` off.
+# Shipping it under another name keeps the miss a raise, and the handler below decides.
+_NOT_FOUND_PAGE = _DIST / "not-found.html"
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _not_found(request: Request, exc: StarletteHTTPException):
+    """A 404 a person can read, for everything that isn't the API.
+
+    `/api` keeps its JSON body: the client reads `detail` off it to build its error and paywall
+    copy (see the `detail` handling in frontend/src/api.ts), so serving HTML there would replace
+    real in-app messages with nothing useful.
+
+    Only GET and HEAD get the page. A POST to a dead URL is a script, not a person, and handing
+    it a document to parse helps no one.
+    """
+    if (
+        exc.status_code == 404
+        and request.method in ("GET", "HEAD")
+        and not request.url.path.startswith("/api")
+        and _NOT_FOUND_PAGE.is_file()
+    ):
+        # Revalidate rather than cache: the page is small, and a stale 404 held by a browser
+        # outlives whatever fix put real content at that URL.
+        return FileResponse(_NOT_FOUND_PAGE, status_code=404, headers={"cache-control": "no-cache"})
+    return await http_exception_handler(request, exc)
