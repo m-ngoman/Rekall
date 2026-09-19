@@ -77,7 +77,11 @@ function speechLevel(analyser: AnalyserNode, data: Uint8Array<ArrayBuffer>): num
 const OVER_FLOOR = 6
 
 /** Tracks the quiet baseline of the room: drops to any new low immediately, climbs back only
- * slowly, so a burst of talking can't drag the floor up behind it and deafen the detector. */
+ * slowly, so a burst of talking can't drag the floor up behind it and deafen the detector.
+ *
+ * One of these per capture, never per turn — see floorFor. The first reading it is given becomes
+ * the floor outright, because a fresh tracker has nothing better to go on, and that is only safe
+ * if the first reading is actually of a quiet room. */
 function noiseFloorTracker() {
   let floor = -1
   return (level: number) => {
@@ -105,6 +109,29 @@ export function useMicRecorder(tuning: MicTuning = {}) {
   const analyserRef = useRef<AnalyserNode | null>(null)
   // One source node for the whole capture. See start() for why there must only ever be one.
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const floorRef = useRef<((level: number) => number) | null>(null)
+
+  /** The room's noise floor, shared by every watcher and listen cycle on one capture.
+   *
+   * It used to be built fresh inside each of them, which quietly broke the hand-off between the
+   * two. A tracker's first reading becomes its floor, and listenUntilSilence is entered from the
+   * watcher at the exact moment speech was detected — so its brand-new tracker took its first
+   * reading of a person mid-word and adopted *speech* as the room's baseline. Everything then had
+   * to clear speech + OVER_FLOOR to count as speech: a loud opening syllable would trip
+   * speechStarted, nothing after it registered, lastLoudTime went stale, and the turn ended on
+   * silence about a second and a half in. Two or three words, then cut off.
+   *
+   * It showed up on phones and not desktops because the difference is latency: a slower hand-off
+   * lands the first reading further into the word. Turning the sensitivity threshold up made it
+   * worse rather than better, which is the tell that the floor and not the threshold was wrong.
+   *
+   * A room's quiet is a property of the room, not of a turn, and the watcher between turns is
+   * listening to exactly that. Shared, it learns the floor in real silence and the listen cycle
+   * inherits it. Reset only when the capture ends. */
+  const floorFor = useCallback((level: number) => {
+    if (!floorRef.current) floorRef.current = noiseFloorTracker()
+    return floorRef.current(level)
+  }, [])
 
   const start = useCallback(async (): Promise<AnalyserNode> => {
     // Reuse a capture that's already live. The amplitude watcher hands straight over to a real
@@ -144,6 +171,8 @@ export function useMicRecorder(tuning: MicTuning = {}) {
     audioCtxRef.current = null
     analyserRef.current = null
     sourceRef.current = null
+    // The next capture is a new room as far as this is concerned.
+    floorRef.current = null
   }, [])
 
   const getAnalyser = useCallback(() => analyserRef.current, [])
@@ -168,7 +197,7 @@ export function useMicRecorder(tuning: MicTuning = {}) {
       let loudSince: number | null = null
       const dataArray = new Uint8Array(analyser.frequencyBinCount)
 
-      const floorOf = noiseFloorTracker()
+      const floorOf = floorFor
       const intervalId = window.setInterval(() => {
         if (cancelled) return
         const avg = speechLevel(analyser, dataArray)
@@ -192,7 +221,7 @@ export function useMicRecorder(tuning: MicTuning = {}) {
       }
       return { cancel }
     },
-    [start, stop],
+    [start, stop, floorFor],
   )
 
   /** Starts recording and streams raw PCM live to our backend's Deepgram proxy (see
@@ -298,7 +327,7 @@ export function useMicRecorder(tuning: MicTuning = {}) {
 
       const promise = new Promise<string>((resolve) => {
         const dataArray = new Uint8Array(analyser.frequencyBinCount)
-        const floorOf = noiseFloorTracker()
+        const floorOf = floorFor
         let speechStarted = false
         let lastLoudTime = Date.now()
         const startTime = Date.now()
@@ -340,7 +369,7 @@ export function useMicRecorder(tuning: MicTuning = {}) {
 
       return { promise, cancel }
     },
-    [start, stop],
+    [start, stop, floorFor],
   )
 
   return { stop, getAnalyser, listenUntilSilence, watchForSpeech }
