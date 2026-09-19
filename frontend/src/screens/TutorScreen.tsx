@@ -13,7 +13,7 @@ import { daysUntil, formatDayLong } from '../lib/dates'
 import { useCachedResource } from '../hooks/useCachedResource'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import { useMicRecorder } from '../hooks/useMicRecorder'
-import { useScrambleText } from '../hooks/useScrambleText'
+import { useRevealText } from '../hooks/useRevealText'
 import type {
   Exam,
   MemoryCategory,
@@ -277,7 +277,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
   const voiceName = (voices?.find((v) => v.id === session?.voice_id) ?? voices?.[0])?.name
   const [pendingImage, setPendingImage] = useState<File | null>(null)
   const [liveTranscript, setLiveTranscript] = useState('')
-  const scrambledTranscript = useScrambleText(liveTranscript)
+  const revealedTranscript = useRevealText(liveTranscript)
 
   /** The current reply, one entry per synthesized sentence, in arrival order. Drives the focus
    * view's karaoke text — the chat log behind it still gets the same reply via the typewriter,
@@ -1609,7 +1609,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
                 )}
 
                 {orbState === 'listening' && liveTranscript && (
-                  <p className="max-w-[88%] self-end text-right text-white">{scrambledTranscript}</p>
+                  <p className="max-w-[88%] self-end text-right text-white">{revealedTranscript}</p>
                 )}
 
                 {orbState === 'thinking' && (
