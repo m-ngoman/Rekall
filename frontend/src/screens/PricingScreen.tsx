@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getBillingStatus, getCatalogue, startCheckout, type BillingStatus, type Catalogue, type CatalogueProduct, type ProductKind } from '../api'
+import { getBillingStatus, getCatalogue, serverDetail, startCheckout, type BillingStatus, type Catalogue, type CatalogueProduct, type ProductKind } from '../api'
 
 interface Props {
   onBack: () => void
@@ -18,19 +18,8 @@ const GROUPS: { kind: ProductKind; title: string }[] = [
   { kind: 'subscription', title: 'Monthly' },
   { kind: 'lifetime', title: 'Once' },
   { kind: 'credits', title: 'Voice' },
+  { kind: 'pages', title: 'Cards' },
 ]
-
-/** The server's own sentence for a failed checkout, if it sent one.
- *
- * request() folds a non-2xx body into the thrown message as `503 Service Unavailable: {"detail":
- * "..."}`. The status prefix is noise to a person, but the detail is exactly the sentence worth
- * showing — the server refusing to sell what it can't deliver says so in plain words, and
- * replacing that with a generic "try again" would hide the one thing the user needs to know. */
-function serverDetail(e: unknown): string | null {
-  if (!(e instanceof Error)) return null
-  const m = e.message.match(/"detail":"((?:[^"\\]|\\.)*)"/)
-  return m ? m[1].replace(/\\"/g, '"') : null
-}
 
 function price(amount: number, currency: string, recurring: boolean): string {
   const whole = amount % 100 === 0 ? String(amount / 100) : (amount / 100).toFixed(2)
@@ -77,8 +66,9 @@ export default function PricingScreen({ onBack }: Props) {
 
       <div className="mb-1 text-[1.25rem] font-bold">Rekall AI</div>
       <p className="mb-6 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
-        The app is free. AI grading, cards from your notes, and the tutor are what a plan turns on. Voice is
-        bought by the hour and never expires.
+        The app is free. AI grading, cards from your notes, and the tutor are what a plan turns on, with 30
+        pages of notes a day included. Voice is bought by the hour, extra pages by the pack, and neither
+        ever expires.
       </p>
 
       {status && (
@@ -93,6 +83,18 @@ export default function PricingScreen({ onBack }: Props) {
             <span className="text-[0.9375rem] font-semibold">Voice</span>
             <span className="text-[0.875rem] text-[var(--text-muted)]">
               {absorbed ? 'Included' : `${status.voice_hours} h left`}
+            </span>
+          </div>
+          {/* Shown whether or not any have been bought. Most of the difference between an
+              allowance that reads as fair and one that reads as a trap is finding out about it
+              before you hit it rather than at the moment you are refused. */}
+          <div className="flex items-baseline justify-between gap-4 py-3.5">
+            <span className="text-[0.9375rem] font-semibold">Card generation</span>
+            <span className="text-[0.875rem] text-[var(--text-muted)]">
+              {absorbed
+                ? 'Included'
+                : `${status.generation_pages_today} pages left today` +
+                  (status.generation_pages ? ` · ${status.generation_pages} bought` : '')}
             </span>
           </div>
         </div>

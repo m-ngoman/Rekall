@@ -36,6 +36,9 @@ def _oauth_configured() -> bool:
 def _dev_user(db: Session) -> User:
     user = db.query(User).filter(User.google_sub == DEV_GOOGLE_SUB).one_or_none()
     if user is None:
+        # Still `friend` while every other creation path is `public`: this user only exists when
+        # OAuth is unconfigured, which is local development and nowhere else, and a dev instance
+        # that paywalled its own AI would be useless for working on the AI.
         user = User(google_sub=DEV_GOOGLE_SUB, email=DEV_EMAIL, name="Dev User", tier=UserTier.friend)
         db.add(user)
         db.commit()

@@ -378,6 +378,15 @@ export default function SettingsScreen({ me, settings, error, onChange, onOpenAd
                 {billing.tier === 'friend' ? 'Included' : `${billing.voice_hours} h left`}
               </span>
             </div>
+            <div className="flex items-baseline justify-between gap-4 py-3.5">
+              <span className="text-[0.9375rem] font-semibold">Card generation</span>
+              <span className="text-[0.875rem] text-[var(--text-muted)]">
+                {billing.tier === 'friend'
+                  ? 'Included'
+                  : `${billing.generation_pages_today} pages left today` +
+                    (billing.generation_pages ? ` · ${billing.generation_pages} bought` : '')}
+              </span>
+            </div>
           </>
         )}
         <button onClick={onOpenPricing} className="flex w-full items-center justify-between py-3.5 text-[0.9375rem] font-semibold">

@@ -10,9 +10,12 @@ from app.models.base import Base, TimestampMixin, UUIDPKMixin
 class UserTier(str, enum.Enum):
     """Drives billing: friend tier is cost-absorbed by Adam, public tier is billed at a profitable rate.
 
-    Nothing assigns `public` yet. Both creation paths hardcode `friend` (api/auth.py, core/auth.py)
-    and the column defaults to it, so the entitlement checks in core/entitlements.py are wired but
-    dormant — every account currently rides free.
+    `public` is the default for anyone who signs in (api/auth.py), and the column defaults to it
+    too so that a creation path which forgets to say fails closed rather than handing out free AI.
+    Friends are promoted by hand afterwards.
+
+    The one exception is the local dev user (core/auth.py), which is still `friend` — it only
+    exists when OAuth is unconfigured, i.e. never in a deployment.
     """
 
     friend = "friend"
@@ -27,7 +30,7 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     name: Mapped[str | None] = mapped_column(String, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
     tier: Mapped[UserTier] = mapped_column(
-        Enum(UserTier, name="user_tier"), default=UserTier.friend, server_default=UserTier.friend.value
+        Enum(UserTier, name="user_tier"), default=UserTier.public, server_default=UserTier.public.value
     )
 
     # Billing. Set from Stripe webhooks only — never from a checkout redirect, which the user can
@@ -48,3 +51,4 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     feedback_items: Mapped[list["Feedback"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     tutor_sessions: Mapped[list["TutorSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     credit_entries: Mapped[list["CreditLedger"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    page_entries: Mapped[list["PageLedger"]] = relationship(back_populates="user", cascade="all, delete-orphan")

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.settings_store import get_settings_row
+from app.core.allowance import charge_grade, require_grading_headroom
 from app.core.entitlements import require_text_ai
 from app.core.sse import guard, sse_event
 from app.core.usage import record
@@ -51,30 +52,18 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
     update and review log once grading finishes and sends the final result (event: done).
     """
     user = get_current_user(request, db)
-    card = (
-        db.query(Card)
-        .join(Deck, Card.deck_id == Deck.id)
-        .filter(Card.id == card_id, Deck.user_id == user.id)
-        .one_or_none()
-    )
-    if card is None:
-        raise HTTPException(404, "Card not found")
-
-    # Read before the generator starts: the stream runs in a worker thread, and resolving the
-    # user's settings inside it would touch the session from two places at once. Pulled out as
-    # plain values for the same reason — holding the ORM row and reading an attribute later could
-    # trigger a refresh from inside that thread.
     prefs = get_settings_row(db, user.id)
-    strictness = prefs.grading_strictness.value
-    retention = prefs.fsrs_retention_pct / 100
-    max_interval_days = prefs.fsrs_max_interval_days
 
+    # Every gate runs before the card is loaded, because charge_grade commits and a commit expires
+    # every loaded row. The card is read last so it cannot be one of them — otherwise the first
+    # `card.question` inside the generator would refresh from the worker thread, which is exactly
+    # the hazard the note below is about.
+    #
     # Self-assessment is the No-AI grading path: the user saw the answer and rated their own
     # recall, so there is nothing to grade and FSRS takes the grade straight through — it has
     # never cared where a 1-4 came from. It stays available even with AI grading on, because
     # some cards (a diagram, a formula) are genuinely easier to judge yourself.
     self_assessed = payload.input_mode == InputMode.self_assessed
-    is_math = card.is_math
     if self_assessed:
         if payload.grade not in (1, 2, 3, 4):
             raise HTTPException(400, "A self-assessed review needs a grade from 1 to 4")
@@ -83,8 +72,33 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
     else:
         # Only the graded path. Self-assessment is the free way to review and stays free — it is
         # what the No-AI mode already offers, and it is the fallback the paywall degrades to
-        # rather than a dead end.
+        # rather than a dead end. Neither the ceiling nor the meter touches it.
         require_text_ai(user)
+        require_grading_headroom(db, user)
+        # Counted before the work, so a client that abandons every stream is still counted —
+        # which is the only thing a tripwire against automation could usefully count. It does
+        # mean a review naming a card you don't own is counted too, since the 404 is below; for
+        # this meter that is the right semantics and for the dashboard it is a rounding error on
+        # an event no person produces.
+        charge_grade(db, user)
+
+    # Read before the generator starts: the stream runs in a worker thread, and resolving the
+    # user's settings inside it would touch the session from two places at once. Pulled out as
+    # plain values for the same reason — holding the ORM row and reading an attribute later could
+    # trigger a refresh from inside that thread.
+    strictness = prefs.grading_strictness.value
+    retention = prefs.fsrs_retention_pct / 100
+    max_interval_days = prefs.fsrs_max_interval_days
+
+    card = (
+        db.query(Card)
+        .join(Deck, Card.deck_id == Deck.id)
+        .filter(Card.id == card_id, Deck.user_id == user.id)
+        .one_or_none()
+    )
+    if card is None:
+        raise HTTPException(404, "Card not found")
+    is_math = card.is_math
 
     def stream() -> Generator[str, None, None]:
         result: GradeResult | None = None

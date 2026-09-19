@@ -1,5 +1,5 @@
 import { type ChangeEvent, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react'
-import { createDeck, createTextNote, deleteNote, getNote, listDecks, listNotes, moveNote, noteFileUrl, renameDeck, saveNoteContent, unfileCategory, uploadNotes } from '../api'
+import { createDeck, createTextNote, deleteNote, getNote, listDecks, listNotes, moveNote, noteFileUrl, renameDeck, saveNoteContent, unfileCategory, uploadNotes, serverDetail } from '../api'
 
 // The editor is ProseMirror plus a markdown parser — about half the app again — and most visits
 // never open a note, so it stays out of the main bundle until one does.
@@ -547,8 +547,11 @@ function AddNotesPanel({
       // NEW_CATEGORY is a UI-only sentinel; the API sees a real id or a name, never both.
       await uploadNotes(files, draft.deckId, draft.deckId ? '' : draft.deckName)
       onAdded(files.length, draft.deckName || UNFILED)
-    } catch {
-      setError('Could not upload that — check the file and try again.')
+    } catch (e) {
+      // The server's own sentence when it sent one. An upload that is refused for a reason
+      // (too large, wrong type, out of pages) used to read as a file problem the user could not
+      // act on, because every failure got the same fixed string.
+      setError(serverDetail(e) ?? 'Could not upload that — check the file and try again.')
     } finally {
       setBusy(false)
     }

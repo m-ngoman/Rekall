@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import PlainMath from '../components/PlainMath'
 import Notice from '../components/Notice'
-import { NotSignedIn, PaymentRequired, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
+import { NotSignedIn, PaymentRequired, TooManyRequests, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
 
 import { daysUntil } from '../lib/dates'
 import type { Exam, ReviewResult, StudyCard } from '../types'
@@ -50,6 +50,10 @@ const GRADE_COLOR: Record<number, string> = {
 function message(error: unknown, fallback: string): string {
   if (error instanceof NotSignedIn) return 'You have been signed out. Reload to sign in again.'
   if (error instanceof PaymentRequired) return error.message
+  // Would otherwise be filtered as machine wording by the /^\d{3}\s/ test below and replaced with
+  // "check your connection", which is both wrong and unactionable — the connection is fine and
+  // self-assessment still works.
+  if (error instanceof TooManyRequests) return error.message
   if (!(error instanceof Error)) return fallback
   const raw = error.message
   if (!raw || /^\d{3}\s/.test(raw) || /failed to fetch|networkerror|load failed/i.test(raw)) {

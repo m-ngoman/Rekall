@@ -23,6 +23,20 @@ def user(**kwargs) -> User:
     return User(**{**defaults, **kwargs})
 
 
+def test_a_new_account_defaults_to_the_billed_tier() -> None:
+    """The gate this whole module describes was unreachable in production until 2026-09-19,
+    because every account was created on the friend tier and friends short-circuit every check.
+    Flipping the default back would not fail any other test in here — they all construct their
+    users explicitly — so this is the one that notices.
+
+    Both defaults are asserted: `default` covers an ORM insert that omits the column, and
+    `server_default` covers anything that reaches the table without going through the ORM.
+    """
+    tier = User.__table__.c.tier
+    assert tier.default.arg is UserTier.public
+    assert tier.server_default.arg == UserTier.public.value
+
+
 def test_friends_are_entitled_without_paying() -> None:
     """The tier predates billing and exists precisely so these accounts are absorbed."""
     assert has_text_ai(user(tier=UserTier.friend)) is True

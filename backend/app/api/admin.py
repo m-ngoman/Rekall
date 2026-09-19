@@ -44,6 +44,11 @@ FEATURE_LABELS: list[tuple[UsageEventType, str]] = [
     # is exactly the sort of thing the fallback exists to survive rather than to be relied on.
     (UsageEventType.tts_characters, "Speech synthesized"),
     (UsageEventType.stt_seconds, "Speech transcribed"),
+    # The allowance meters. "Pages read" rather than "pages generated": one page is one page of
+    # source handed to a vision model, whether a generation run or a notes transcription did it,
+    # and they share one daily allowance because they cost the same.
+    (UsageEventType.pages_read, "Pages read"),
+    (UsageEventType.ai_grades, "Answers AI-graded"),
 ]
 
 DEFAULT_DAYS = 30

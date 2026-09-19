@@ -38,14 +38,42 @@ export class NotSignedIn extends Error {
  */
 export class PaymentRequired extends Error {}
 
-async function paymentRequired(res: Response): Promise<PaymentRequired> {
-  let detail = 'This needs a Rekall AI plan.'
+/** The server said 429: a daily cap, not a missing plan.
+ *
+ * Its own class rather than folding into PaymentRequired, because the answer is different. A 402
+ * has somewhere to send you; this has nothing to buy, so the sentence is the whole response and a
+ * screen showing it must not offer a link to a page with nothing on it.
+ */
+export class TooManyRequests extends Error {}
+
+/** The server's own sentence out of a JSON error body, or `fallback` if it didn't send one. */
+async function detailOf(res: Response, fallback: string): Promise<string> {
   try {
-    detail = (await res.json()).detail ?? detail
+    return (await res.json()).detail ?? fallback
   } catch {
-    /* a bare 402 with no body still needs a sentence */
+    /* a bare status with no body still needs a sentence */
+    return fallback
   }
-  return new PaymentRequired(detail)
+}
+
+async function paymentRequired(res: Response): Promise<PaymentRequired> {
+  return new PaymentRequired(await detailOf(res, 'This needs a Rekall AI plan.'))
+}
+
+async function tooManyRequests(res: Response): Promise<TooManyRequests> {
+  return new TooManyRequests(await detailOf(res, "That's as much as today allows."))
+}
+
+/** The server's sentence dug out of an already-folded error message.
+ *
+ * request() collapses a non-2xx into `"503 Service Unavailable: {\"detail\": \"...\"}"`. The status
+ * prefix is noise to a person but the detail is exactly what is worth showing, so any screen that
+ * catches a generic Error and wants to be useful reads it back out through here.
+ */
+export function serverDetail(e: unknown): string | null {
+  if (!(e instanceof Error)) return null
+  const m = e.message.match(/"detail":"((?:[^"\\]|\\.)*)"/)
+  return m ? m[1].replace(/\\"/g, '"') : null
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -55,6 +83,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (res.status === 401) throw new NotSignedIn()
   if (res.status === 402) throw await paymentRequired(res)
+  if (res.status === 429) throw await tooManyRequests(res)
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`)
   }
@@ -71,6 +100,7 @@ async function streamSSE(url: string, init: RequestInit, onEvent: (eventType: st
   // stream that failed, and callers already know how to tell those apart.
   if (res.status === 401) throw new NotSignedIn()
   if (res.status === 402) throw await paymentRequired(res)
+  if (res.status === 429) throw await tooManyRequests(res)
   if (!res.ok || !res.body) {
     throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`)
   }
@@ -416,7 +446,7 @@ export function addToStudyList(cardId: string): Promise<void> {
   return request(`/cards/${cardId}/study-list`, { method: 'POST' })
 }
 
-export type ProductKind = 'subscription' | 'lifetime' | 'credits'
+export type ProductKind = 'subscription' | 'lifetime' | 'credits' | 'pages'
 
 export interface CatalogueProduct {
   id: string
@@ -427,6 +457,7 @@ export interface CatalogueProduct {
   amount: number
   recurring: boolean
   credit_hours: number
+  pages: number
 }
 
 export interface Catalogue {
@@ -440,6 +471,10 @@ export interface BillingStatus {
   text_ai_expires_at: string | null
   voice_credits: number
   voice_hours: number
+  /** Purchased pages on hand. Never expires. */
+  generation_pages: number
+  /** What's left of today's included allowance. Refills; not a balance. */
+  generation_pages_today: number
   tier: string
 }
 

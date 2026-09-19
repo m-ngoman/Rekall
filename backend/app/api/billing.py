@@ -22,9 +22,10 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.auth import get_current_user
+from app.core.allowance import allowance_left, grant_pages, page_balance
 from app.core.entitlements import balance, grant, has_text_ai
 from app.db import get_db
-from app.models import CREDITS_PER_HOUR, CreditReason, StripeEvent, User
+from app.models import CREDITS_PER_HOUR, TOPUP_PAGES, CreditReason, PageReason, StripeEvent, User
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
@@ -34,6 +35,7 @@ class Product(str, enum.Enum):
     text_lifetime = "text_lifetime"
     voice_10 = "voice_10"
     voice_25 = "voice_25"
+    pages_5 = "pages_5"
 
 
 # The catalogue lives here rather than in the Stripe dashboard. Prices are passed inline to
@@ -51,6 +53,7 @@ CATALOGUE: dict[Product, dict] = {
         "amount": 500,
         "recurring": True,
         "credit_hours": 0,
+        "pages": 0,
         "lifetime": False,
     },
     Product.text_lifetime: {
@@ -60,6 +63,7 @@ CATALOGUE: dict[Product, dict] = {
         "amount": 5000,
         "recurring": False,
         "credit_hours": 0,
+        "pages": 0,
         "lifetime": True,
     },
     Product.voice_10: {
@@ -69,6 +73,7 @@ CATALOGUE: dict[Product, dict] = {
         "amount": 1000,
         "recurring": False,
         "credit_hours": 10,
+        "pages": 0,
         "lifetime": False,
     },
     Product.voice_25: {
@@ -78,6 +83,19 @@ CATALOGUE: dict[Product, dict] = {
         "amount": 2500,
         "recurring": False,
         "credit_hours": 30,
+        "pages": 0,
+        "lifetime": False,
+    },
+    # A new `kind`, not "credits". The pricing screen titles that group "Voice", and filing a
+    # generation top-up under it would print pages and hours as if they were the same unit.
+    Product.pages_5: {
+        "label": "200 pages",
+        "description": "Pages of notes for making cards, on top of the 30 a day your plan includes. Never expires.",
+        "kind": "pages",
+        "amount": 500,
+        "recurring": False,
+        "credit_hours": 0,
+        "pages": TOPUP_PAGES,
         "lifetime": False,
     },
 }
@@ -136,6 +154,7 @@ def get_catalogue() -> dict:
                 "amount": c["amount"],
                 "recurring": c["recurring"],
                 "credit_hours": c["credit_hours"],
+                "pages": c["pages"],
             }
             for p, c in CATALOGUE.items()
         ],
@@ -152,6 +171,10 @@ def get_status(request: Request, db: Session = Depends(get_db)) -> dict:
         "text_ai_expires_at": user.text_ai_expires_at.isoformat() if user.text_ai_expires_at else None,
         "voice_credits": balance(db, user.id),
         "voice_hours": round(balance(db, user.id) / CREDITS_PER_HOUR, 2),
+        "generation_pages": page_balance(db, user.id),
+        # Shown before it bites, which is most of the difference between an allowance that
+        # reads as fair and one that reads as a trap.
+        "generation_pages_today": allowance_left(db, user.id),
         "tier": user.tier.value,
     }
 
@@ -284,6 +307,14 @@ async def webhook(request: Request, db: Session = Depends(get_db)) -> dict:
                         user.id,
                         item["credit_hours"] * CREDITS_PER_HOUR,
                         CreditReason.purchase,
+                        stripe_event_id=event["id"],
+                    )
+                if item["pages"]:
+                    grant_pages(
+                        db,
+                        user.id,
+                        item["pages"],
+                        PageReason.purchase,
                         stripe_event_id=event["id"],
                     )
 

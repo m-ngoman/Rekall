@@ -15,6 +15,7 @@ import httpx
 import pymupdf
 
 from app.config import settings
+from app.services.llm_cache import log_cache, supports_cache_control
 
 MAX_PDF_PAGES = 20
 
@@ -114,13 +115,33 @@ def _image_mime(data: bytes) -> str:
     return "image/jpeg"
 
 
-def _user_content(images: list[bytes], text: str | None, lead_in: str) -> list[dict]:
-    content: list[dict] = [{"type": "text", "text": lead_in}]
+# A fixed sentence between the material and the task, carrying the cache breakpoint. It is a text
+# block rather than the last image on purpose: OpenRouter normalises image parts, and
+# `cache_control` on a trailing text block is the better-travelled shape. `log_cache` is how you
+# find out if that was wrong, because nothing else reports it.
+_END_OF_SOURCE = "That is the whole of the source material."
+
+
+def _user_content(images: list[bytes], text: str | None, task: str, cacheable: bool) -> list[dict]:
+    """Material first, then the breakpoint, then the task.
+
+    The order is the whole trick. Draft and verify are handed the same pages, which is the
+    expensive part of both, but a prefix cache stops reading at the first byte that differs — so
+    the task description has to come *after* the images, not before them. It used to lead, and
+    verify's carries the draft JSON, so the two passes diverged on block one and paid full price
+    for every image twice.
+    """
+    content: list[dict] = []
     if text:
         content.append({"type": "text", "text": text})
     for img in images:
         b64 = base64.b64encode(img).decode()
         content.append({"type": "image_url", "image_url": {"url": f"data:{_image_mime(img)};base64,{b64}"}})
+    marker: dict = {"type": "text", "text": _END_OF_SOURCE}
+    if cacheable:
+        marker["cache_control"] = {"type": "ephemeral"}
+    content.append(marker)
+    content.append({"type": "text", "text": task})
     return content
 
 
@@ -139,38 +160,53 @@ def _call_json(system_prompt: str, user_content: list[dict]) -> dict:
         timeout=90.0,
     )
     resp.raise_for_status()
-    raw = resp.json()["choices"][0]["message"]["content"]
+    body = resp.json()
+    # A plain POST, so usage is in the body — no stream_options needed, unlike the tutor's
+    # streaming call which gets nothing back without it.
+    log_cache("generation", body.get("usage") or {})
+    raw = body["choices"][0]["message"]["content"]
     return json.loads(_strip_fence(raw))
 
 
-_DRAFT_SYSTEM_PROMPT = """You are helping a student turn their notes into spaced-repetition flashcards for the Rekall app. Read the provided material carefully — it may be a photo of handwritten or printed notes, or extracted text from a PDF.
+# ONE system prompt for both passes. The two used to differ, which alone was enough to defeat the
+# cache: a prefix cache stops at the first difference, and the system message is block one. What
+# each pass is actually asked to do now lives in its task text, after the material.
+_GENERATION_SYSTEM_PROMPT = """You are helping a student turn their notes into spaced-repetition flashcards for the Rekall app. You will be given their source material — a photo of handwritten or printed notes, or extracted text from a PDF — and then the task to carry out on it.
+""" + _MATH_NOTATION + """
+Respond with ONLY a JSON object (no markdown fence, no commentary), in the exact shape the task asks for."""
+
+
+_DRAFT_TASK = """Generate flashcards from the material above.
 
 Produce flashcards only for genuinely test-worthy facts, definitions, and concepts — skip trivial or redundant restatements, and skip material that isn't actually study content (blank margins, doodles, unrelated text). Group related cards under a short "subtopic" label. Also propose a short, specific deck name (2-5 words) describing the subject.
-""" + _MATH_NOTATION + """
-Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:
+
+Shape:
 {"deck_name": "string", "cards": [{"subtopic": "string", "question": "string", "answer": "string", "is_math": true|false}]}"""
 
 
-def generate_draft(images: list[bytes], text: str | None) -> dict:
-    content = _user_content(images, text, "Here is my notes material. Generate flashcards from it.")
-    return _call_json(_DRAFT_SYSTEM_PROMPT, content)
-
-
-_VERIFY_SYSTEM_PROMPT = """You are fact-checking a set of AI-drafted flashcards against the original source material, to catch hallucinated, wrong, or unsupported cards before they reach a student's study queue.
+_VERIFY_TASK = """Fact-check a set of AI-drafted flashcards against the material above, to catch hallucinated, wrong, or unsupported cards before they reach a student's study queue.
 
 For each draft card, check that its question and answer are actually supported by the source material. Fix minor wording issues if needed. Drop any card that misrepresents the source, invents information not present in it, or isn't meaningfully supported by it.
 
-Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:
-{"cards": [{"subtopic": "string", "question": "string", "answer": "string", "is_math": true|false}], "dropped": [{"question": "string", "reason": "string"}]}"""
+Shape:
+{"cards": [{"subtopic": "string", "question": "string", "answer": "string", "is_math": true|false}], "dropped": [{"question": "string", "reason": "string"}]}
+
+The draft flashcards to check:
+"""
+
+
+def _cacheable() -> bool:
+    return supports_cache_control(settings.card_generation_model)
+
+
+def generate_draft(images: list[bytes], text: str | None) -> dict:
+    content = _user_content(images, text, _DRAFT_TASK, _cacheable())
+    return _call_json(_GENERATION_SYSTEM_PROMPT, content)
 
 
 def verify_cards(images: list[bytes], text: str | None, draft_cards: list[dict]) -> dict:
-    lead_in = (
-        "Here is the source material, followed by the draft flashcards to check it against:\n\n"
-        + json.dumps(draft_cards)
-    )
-    content = _user_content(images, text, lead_in)
-    return _call_json(_VERIFY_SYSTEM_PROMPT, content)
+    content = _user_content(images, text, _VERIFY_TASK + json.dumps(draft_cards), _cacheable())
+    return _call_json(_GENERATION_SYSTEM_PROMPT, content)
 
 
 _TRANSCRIBE_SYSTEM_PROMPT = """You are transcribing a student's notes for a study app's searchable notes library. Read the provided material — a photo of handwritten or printed notes, or text extracted from a PDF.
@@ -194,7 +230,8 @@ def transcribe_notes(images: list[bytes], text: str | None) -> tuple[str, str | 
 
     result = _call_json(
         _TRANSCRIBE_SYSTEM_PROMPT,
-        _user_content(images, text, "Transcribe this material."),
+        # Never cacheable: one call per note, with no second pass to reuse the prefix.
+        _user_content(images, text, "Transcribe the material above.", cacheable=False),
     )
     return (result.get("markdown") or "").strip(), result.get("problem")
 

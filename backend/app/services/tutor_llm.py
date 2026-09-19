@@ -13,37 +13,17 @@ from collections.abc import Iterator
 import httpx
 
 from app.config import settings
+from app.services.llm_cache import log_cache, supports_cache_control
 
 logger = logging.getLogger(__name__)
-
-
-def _log_cache(usage: dict) -> None:
-    """Whether the cache actually worked, which is not otherwise observable.
-
-    A breakpoint below the model's minimum cacheable size is ignored silently — no error, just
-    full-price tokens forever. Logging the read/write split is the only way that shows up.
-    """
-    details = usage.get("prompt_tokens_details") or {}
-    read = details.get("cached_tokens", 0)
-    written = details.get("cache_write_tokens", 0)
-    if read or written:
-        logger.info("tutor cache: %s read, %s written of %s prompt tokens", read, written, usage.get("prompt_tokens"))
-    else:
-        logger.info("tutor cache: no hit (%s prompt tokens) — check the prefix is above the model minimum", usage.get("prompt_tokens"))
 
 
 # Anthropic models bill a cached prefix at a tenth of the input price, and this conversation is
 # almost entirely prefix: the system prompt is re-sent on every turn, and every prior message goes
 # with it. Caching is what stops the cost of a long voice session growing quadratically.
 #
-# Only Anthropic models take these markers. OpenRouter passes `cache_control` through to Anthropic
-# and ignores it elsewhere, but the wrapping alone (content as a list of parts) is a shape other
-# providers needn't be handed, so it is applied by model family rather than unconditionally.
-_CACHEABLE_PREFIXES = ("anthropic/",)
-
-
-def _supports_cache_control(model: str) -> bool:
-    return model.startswith(_CACHEABLE_PREFIXES)
+# Whether a model caches at all, and whether it did, are shared with card generation and live in
+# services/llm_cache.py. Where the breakpoints go is specific to a conversation and stays here.
 
 
 def _mark(message: dict) -> dict:
@@ -67,7 +47,7 @@ def _with_cache_breakpoints(messages: list[dict], model: str) -> list[dict]:
     Nothing is marked on the final message — that is this turn's new input, which by definition
     has never been seen before and is what the next turn will read from cache.
     """
-    if not _supports_cache_control(model) or not messages:
+    if not supports_cache_control(model) or not messages:
         return messages
 
     out = list(messages)
@@ -132,7 +112,7 @@ def _stream_openrouter(messages: list[dict]) -> Iterator[str]:
                 break
             chunk = json.loads(payload)
             if usage := chunk.get("usage"):
-                _log_cache(usage)
+                log_cache("tutor", usage)
             if not chunk.get("choices"):
                 continue
             delta = chunk["choices"][0]["delta"].get("content", "")

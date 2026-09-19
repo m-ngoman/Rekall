@@ -133,6 +133,23 @@ class Settings(BaseSettings):
     # grants credits to anyone who posts to it.
     stripe_webhook_secret: str = ""
 
+    # What the $5/month plan includes per day, and the ceiling that stops a script.
+    #
+    # Configuration rather than literals because these are the dials that get turned when the
+    # measurements move: card generation is ~$0.01 a page against a plan netting $3.28, so 30
+    # pages a day is the number that keeps a maximal user from costing more than they pay, and it
+    # will want changing the moment the model or its price does.
+    #
+    # Daily rather than monthly, for the reason the voice caps are daily: a month can be burned in
+    # three days and leave someone stuck, and unused daily allowance is forfeited, so real spend
+    # sits well below the cap while the advertised number stays honest.
+    #
+    # `ai_grades_per_day` is not a cost control. Grading is ~$0.00026 an answer, so 500 is roughly
+    # thirteen cents and far past anything a person does in a day — it is there so an automated
+    # client cannot run an unbounded bill, and nothing else.
+    generation_pages_per_day: int = 30
+    ai_grades_per_day: int = 500
+
     # Speech is billed by the second, but TTS is billed by the character, so one has to convert
     # into the other. 15 chars/sec is ordinary speaking pace; it decides how much of a credit a
     # spoken reply costs, so it is configuration rather than a literal in the deduction path.

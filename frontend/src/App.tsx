@@ -6,6 +6,7 @@ import Logo from './components/Logo'
 import TabBar from './components/TabBar'
 import { DEFAULT_ACCENT } from './hooks/useAccent'
 import { useRoute } from './hooks/useRoute'
+import { useBilling } from './hooks/useBilling'
 import { useSettings } from './hooks/useSettings'
 import AdminScreen from './screens/AdminScreen'
 import CardsScreen from './screens/CardsScreen'
@@ -41,6 +42,19 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0)
   const { settings, error: settingsError, update: updateSettings } = useSettings(DEFAULT_ACCENT)
   const blockedTabs: Tab[] = settings && !settings.ai_tutor ? ['tutor'] : []
+
+  // Two independent reasons a feature can be off, ANDed here so every screen gets one boolean:
+  // the user switched it off (settings), or it was never paid for (billing). Both resolve to the
+  // same No-AI experience the app already has, which is the point — an unentitled account should
+  // land in self-assessment review, not on a 402 with nowhere to go.
+  //
+  // `?? true` on both sides keeps the optimistic default the rest of this file uses: while either
+  // request is in flight, assume on. The server's require_text_ai is the real gate, and study is
+  // entered by tapping a deck, by which point both have long since landed.
+  const { billing } = useBilling()
+  const entitled = billing?.text_ai ?? true
+  const aiGrading = (settings?.ai_grading ?? true) && entitled
+  const aiGeneration = (settings?.ai_generation ?? true) && entitled
 
   const [me, setMe] = useState<Me | null | undefined>(undefined)
   const [authError, setAuthError] = useState<string | null>(null)
@@ -110,7 +124,7 @@ export default function App() {
             column beside a 360px rail with 72px between them, which simply doesn't fit in the
             max-w-xl this used to inherit at every width. */}
         <main className="mx-auto max-w-xl px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))] lg:max-w-7xl lg:px-10">
-          <StudyScreen deckId={studyDeckId} onExit={exitStudy} aiGrading={settings?.ai_grading ?? true} aiTutor={settings?.ai_tutor ?? true} onOpenPricing={openPricing} />
+          <StudyScreen deckId={studyDeckId} onExit={exitStudy} aiGrading={aiGrading} aiTutor={settings?.ai_tutor ?? true} onOpenPricing={openPricing} />
         </main>
       </div>
     )
@@ -170,14 +184,14 @@ export default function App() {
                 key={refreshKey}
                 onStudy={openStudy}
                 onChanged={() => setRefreshKey((k) => k + 1)}
-                aiGeneration={settings?.ai_generation ?? true}
+                aiGeneration={aiGeneration}
                 onOpenPricing={openPricing}
               />
             )}
             {/* Not keyed by refreshKey: its own saves bump the key (for Home/Cards), and a remount
                 here would snap the month back to today and close the sheet mid-edit. */}
             {!showAdmin && !showPricing && tab === 'calendar' && <ExamsScreen onChanged={() => setRefreshKey((k) => k + 1)} />}
-            {!showAdmin && !showPricing && tab === 'notes' && <NotesScreen onGoToCards={() => goToTab('cards')} aiGeneration={settings?.ai_generation ?? true} />}
+            {!showAdmin && !showPricing && tab === 'notes' && <NotesScreen onGoToCards={() => goToTab('cards')} aiGeneration={aiGeneration} />}
             {!showAdmin && !showPricing && tab === 'tutor' && <TutorScreen settings={settings} enterClass="" isOwner={me.is_owner} onOpenPricing={openPricing} />}
             {!showAdmin && !showPricing && tab === 'settings' && (
               <SettingsScreen me={me} settings={settings} error={settingsError} onChange={updateSettings} onOpenAdmin={() => go({ kind: 'admin' })} onOpenPricing={openPricing} />

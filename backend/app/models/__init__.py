@@ -7,6 +7,7 @@ from app.models.exam import Exam
 from app.models.feedback import Feedback, FeedbackCategory
 from app.models.memory import MemoryCategory, MemorySource, StudentMemoryNote
 from app.models.note import Note, NoteFileType
+from app.models.page_ledger import TOPUP_PAGES, PageLedger, PageReason
 from app.models.review_log import InputMode, ReviewLog
 from app.models.study_list import StudyListEntry
 from app.models.tutor import TutorMessage, TutorMessageRole, TutorPersonality, TutorSession
@@ -43,6 +44,9 @@ __all__ = [
     "CreditReason",
     "StripeEvent",
     "CREDITS_PER_HOUR",
+    "PageLedger",
+    "PageReason",
+    "TOPUP_PAGES",
     "UserSettings",
     "Theme",
     "GradingStrictness",

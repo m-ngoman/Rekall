@@ -112,7 +112,11 @@ def callback(request: Request, db: Session = Depends(get_db), code: str = "", st
             email=info.get("email", ""),
             name=info.get("name"),
             avatar_url=info.get("picture"),
-            tier=UserTier.friend,
+            # Public, not friend. The friend tier absorbs cost by design, so defaulting to it
+            # meant every account that could sign in got unmetered AI and voice and the
+            # entitlement checks in core/entitlements.py could never fire. Friends are made by
+            # hand now — an UPDATE on this column — which is the rare case and the deliberate one.
+            tier=UserTier.public,
         )
         db.add(user)
     else:
