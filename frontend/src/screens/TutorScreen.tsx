@@ -752,20 +752,21 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     if (voiceModeActive) {
       voiceModeRef.current = false
       setVoiceModeActive(false)
-      if (orbStateRef.current === 'waiting') {
-        // The watcher owns an open mic with no transcription attached — cancelling it is what
-        // actually releases the microphone (and clears the browser's recording indicator).
-        cancelWaitRef.current?.()
-        cancelWaitRef.current = null
-      } else if (orbStateRef.current === 'listening') {
-        cancelListenRef.current?.()
-        cancelListenRef.current = null
-        listeningRef.current = false
-      } else {
-        // Mid-thinking/speaking — stop the tutor talking right now rather than letting the turn
-        // finish naturally, which is what it used to do.
-        interruptSpeaking()
-      }
+      // Everything, in every state. This used to pick one teardown based on the orb, which left
+      // two ways out wrong. Leaving while listening or waiting never called player.stop() or
+      // aborted the turn, so a reply still streaming in carried on arriving and playing after
+      // voice mode was off. And nothing here released the microphone in any state: a watcher's
+      // cancel() only clears its polling interval — mic.stop() is what ends the capture and
+      // clears the browser's recording indicator.
+      //
+      // Each of these is a no-op when it has nothing to do, so there is no state to match on.
+      interruptSpeaking()
+      cancelWaitRef.current?.()
+      cancelWaitRef.current = null
+      cancelListenRef.current?.()
+      cancelListenRef.current = null
+      listeningRef.current = false
+      mic.stop()
       setOrbState('idle')
     } else {
       // Synchronously inside the tap, before anything awaits: iOS only lets audio start from a
