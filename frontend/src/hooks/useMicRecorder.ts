@@ -103,6 +103,8 @@ export function useMicRecorder(tuning: MicTuning = {}) {
   const streamRef = useRef<MediaStream | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
+  // One source node for the whole capture. See start() for why there must only ever be one.
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
 
   const start = useCallback(async (): Promise<AnalyserNode> => {
     // Reuse a capture that's already live. The amplitude watcher hands straight over to a real
@@ -119,7 +121,14 @@ export function useMicRecorder(tuning: MicTuning = {}) {
 
     const audioCtx = new AudioContext()
     audioCtxRef.current = audioCtx
+    // Created here and nowhere else. A MediaStream feeds exactly one source node reliably:
+    // build a second from the same stream and the browser stops delivering audio to one of
+    // them, with no error anywhere. listenUntilSilence used to make its own per utterance, so
+    // a conversation accumulated one node per turn and the analyser this one feeds went silent
+    // after the first — the silence detector then saw nothing, every later turn timed out at
+    // NO_SPEECH_TIMEOUT_MS, and the transcript came back empty while the socket looked healthy.
     const source = audioCtx.createMediaStreamSource(stream)
+    sourceRef.current = source
     const analyser = audioCtx.createAnalyser()
     analyser.fftSize = 256
     source.connect(analyser)
@@ -134,6 +143,7 @@ export function useMicRecorder(tuning: MicTuning = {}) {
     audioCtxRef.current?.close()
     audioCtxRef.current = null
     analyserRef.current = null
+    sourceRef.current = null
   }, [])
 
   const getAnalyser = useCallback(() => analyserRef.current, [])
@@ -198,7 +208,7 @@ export function useMicRecorder(tuning: MicTuning = {}) {
     async (onPartial: (text: string) => void): Promise<{ promise: Promise<string>; cancel: () => void }> => {
       const analyser = await start()
       const audioCtx = audioCtxRef.current!
-      const stream = streamRef.current!
+      const source = sourceRef.current!
 
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const socket = new WebSocket(`${wsProtocol}//${window.location.host}/api/tutor/live-transcribe?sample_rate=${audioCtx.sampleRate}`)
@@ -223,7 +233,6 @@ export function useMicRecorder(tuning: MicTuning = {}) {
       }
       await audioCtx.audioWorklet.addModule(workletModuleUrl)
       const worklet = new AudioWorkletNode(audioCtx, 'pcm-worklet')
-      const source = audioCtx.createMediaStreamSource(stream)
       source.connect(worklet)
       worklet.port.onmessage = (e: MessageEvent<ArrayBuffer>) => {
         if (socket.readyState === WebSocket.OPEN) socket.send(e.data)
@@ -239,7 +248,10 @@ export function useMicRecorder(tuning: MicTuning = {}) {
       const releaseGraph = () => {
         worklet.port.onmessage = null
         try {
-          source.disconnect()
+          // Only this turn's edge. A bare source.disconnect() would also drop the analyser the
+          // silence detector and the between-turns watcher both read, which is the same failure
+          // by a different route — the mic stays open and nothing ever hears anything again.
+          source.disconnect(worklet)
           worklet.disconnect()
         } catch {
           // Already disconnected — nothing to undo.
