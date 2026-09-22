@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 from app.config import settings
 from app.services.llm_cache import log_cache, supports_cache_control
@@ -78,7 +78,7 @@ def _stream_ollama(messages: list[dict]) -> Iterator[str]:
     )
 
 
-def _stream_openrouter(messages: list[dict]) -> Iterator[str]:
+def _stream_openrouter(messages: list[dict], on_usage: Callable[[dict], None] | None = None) -> Iterator[str]:
     model = settings.openrouter_model
     return stream_openrouter(
         {
@@ -95,8 +95,17 @@ def _stream_openrouter(messages: list[dict]) -> Iterator[str]:
         },
         headers=bearer(settings.openrouter_api_key),
         timeout=60.0,
-        on_usage=lambda usage: log_cache("tutor", usage),
+        on_usage=lambda usage: _usage_seen(usage, on_usage),
     )
+
+
+def _usage_seen(usage: dict, on_usage: Callable[[dict], None] | None) -> None:
+    log_cache("tutor", usage)
+    # Handed back so the caller can decide whether this conversation has grown past the point
+    # where carrying its opening verbatim is worth it. The provider's own count is the only
+    # honest measure of that.
+    if on_usage:
+        on_usage(usage)
 
 
 # A canned reply, emitted a few characters at a time. Exists for the same reason `grader = "stub"`
@@ -139,13 +148,15 @@ def _stream_stub() -> Iterator[str]:
         yield _STUB_REPLY[i : i + 7]
 
 
-def stream_chat(messages: list[dict]) -> Iterator[str]:
+def stream_chat(messages: list[dict], on_usage: Callable[[dict], None] | None = None) -> Iterator[str]:
+    """`on_usage` receives the provider's usage block when there is one — only the OpenRouter
+    path reports it, and only on the final chunk."""
     if settings.tutor_provider == "stub":
         yield from _stream_stub()
     elif settings.tutor_provider == "ollama":
         yield from _stream_ollama(messages)
     else:
-        yield from _stream_openrouter(messages)
+        yield from _stream_openrouter(messages, on_usage)
 
 
 def complete_chat(messages: list[dict], model: str | None = None) -> str:

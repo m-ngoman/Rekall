@@ -1,7 +1,7 @@
 import MemoryPicker from '../MemoryPicker'
 import PersonalityPicker, { PERSONALITY_PRESETS } from '../PersonalityPicker'
 import VoicePicker from '../VoicePicker'
-import type { MemoryCategory, MemoryNote, Settings, TutorPersonality, TutorSession, TutorVoice } from '../../types'
+import type { MemoryCategory, MemoryNote, Settings, StudentProfile, TutorPersonality, TutorSession, TutorVoice } from '../../types'
 import type { Popover } from './types'
 
 /** Derived from the picker's own presets rather than restated here — two hand-written copies of
@@ -24,6 +24,15 @@ const PERSONALITY_ICON = (
   </svg>
 )
 
+/** A fresh page with a pen — "start a new one", not a plus, which reads as "add an attachment"
+ * in a row that already has one of those. */
+const NEW_CHAT_ICON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z" />
+  </svg>
+)
+
 const VOICE_ICON = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M11 5 6 9H3v6h3l5 4V5z" />
@@ -43,25 +52,34 @@ export default function ComposerChips({
   voices,
   voiceName,
   memoryNotes,
+  profile,
   open,
   onToggle,
   onPersonalityChange,
   onVoiceChange,
   onAddMemory,
   onDeleteMemory,
+  onDeleteProfileLine,
+  onNewConversation,
 }: {
   session: TutorSession | null
   settings: Settings | null
   voices: TutorVoice[] | null
   voiceName: string | undefined
   memoryNotes: MemoryNote[] | null
+  /** The tutor's own reading of the student, kept apart from the notes they wrote. */
+  profile: StudentProfile | null
   open: Popover | null
   onToggle: (which: Popover) => void
   onPersonalityChange: (personality: TutorPersonality, customPrompt?: string) => void
   onVoiceChange: (voiceId: string) => void
   onAddMemory: (category: MemoryCategory, content: string) => void
   onDeleteMemory: (id: string) => void
+  onDeleteProfileLine: (text: string) => void
+  /** Offered only once there is something to leave behind; null hides the chip. */
+  onNewConversation: (() => void) | null
 }) {
+  const memoryCount = (memoryNotes?.length ?? 0) + (profile?.lines.length ?? 0)
   return (
     <div className="relative z-20 flex flex-wrap items-end gap-1.5">
       <div className="relative">
@@ -121,7 +139,7 @@ export default function ComposerChips({
       <div className="relative">
         <button
           onClick={() => onToggle('memory')}
-          aria-label={`Notes the tutor remembers: ${memoryNotes?.length ?? 0}`}
+          aria-label={`What the tutor remembers: ${memoryCount}`}
           className="flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
           style={{ background: open === 'memory' ? 'var(--bg)' : undefined }}
         >
@@ -129,20 +147,43 @@ export default function ComposerChips({
           {/* Named even at zero, like its neighbours: an unlabelled glyph in a row of
               labelled chips reads as a different kind of control, and "Memory" is what
               tells you the tutor keeps notes at all. */}
+          {/* Counts both halves of the panel. Your notes and the tutor's own observations
+              are deliberately separate inside it, but on the chip the useful number is
+              "how much does it hold about me", not one of the two. */}
           <span className="inline">
-            {memoryNotes && memoryNotes.length > 0
-              ? `${memoryNotes.length} ${memoryNotes.length === 1 ? 'note' : 'notes'}`
-              : 'Memory'}
+            {memoryCount > 0 ? `${memoryCount} ${memoryCount === 1 ? 'thing' : 'things'}` : 'Memory'}
           </span>
         </button>
         {open === 'memory' && (
           <>
             <div className="absolute bottom-12 left-0 z-20">
-              <MemoryPicker notes={memoryNotes} onAdd={onAddMemory} onDelete={onDeleteMemory} />
+              <MemoryPicker
+                notes={memoryNotes}
+                profile={profile}
+                onAdd={onAddMemory}
+                onDelete={onDeleteMemory}
+                onDeleteProfileLine={onDeleteProfileLine}
+              />
             </div>
           </>
         )}
       </div>
+
+      {/* Only once there is something to leave behind. On an empty log it would be a
+          button that does nothing visible, and on a fresh visit it is the wrong offer —
+          the conversation is already new. Sits with the other chips rather than up in the
+          log, because it belongs to the same row of things you can change about the
+          conversation you're in. */}
+      {onNewConversation && (
+        <button
+          onClick={onNewConversation}
+          aria-label="Start a new conversation"
+          className="flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
+        >
+          {NEW_CHAT_ICON}
+          <span className="inline">New</span>
+        </button>
+      )}
 
     </div>
   )

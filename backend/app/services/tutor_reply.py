@@ -19,6 +19,7 @@ from app.core.entitlements import charge_voice, credits_for_tts
 from app.core.sse import sse_event
 from app.core.usage import record
 from app.models import CreditReason, TutorMessage, TutorMessageRole, TutorSession, UsageEventType
+from app.services.conversation_compaction import schedule_if_due as compact_if_due
 from app.services.llm_http import image_data_url
 from app.services.memory_extraction import schedule_if_due
 from app.services.tts import synthesize_timed
@@ -83,6 +84,30 @@ def history_window(history: list[TutorMessage]) -> list[TutorMessage]:
     return history[start:]
 
 
+def conversation_context(session: TutorSession, history: list[TutorMessage]) -> list[dict]:
+    """The conversation as the model should see it: a summary of the opening, then the rest.
+
+    Returns message dicts rather than ORM rows because a compacted conversation has one turn in it
+    that was never said by anybody.
+
+    The summary goes in as the first message *after* the system prompt, deliberately. That is
+    inside the history prefix — cache breakpoint 2 — rather than in the system prompt, which is
+    breakpoint 1: putting it there would re-cache the system prompt on every compaction for no
+    reason. Its role is `user` because the role enum has only two values and an `assistant` turn
+    the assistant never took reads as the model's own words when it is read back.
+
+    `history_window`'s trim still applies underneath, as a backstop for the case where compaction
+    keeps failing. A hard drop is worse than a summary and better than an unbounded prefix.
+    """
+    if session.summary and session.summarized_through:
+        tail = [m for m in history if m.created_at > session.summarized_through]
+        return [
+            {"role": "user", "content": f"[Earlier in this conversation: {session.summary}]"},
+            *({"role": m.role.value, "content": m.content} for m in history_window(tail)),
+        ]
+    return [{"role": m.role.value, "content": m.content} for m in history_window(history)]
+
+
 def stream_reply(
     db: Session,
     session: TutorSession,
@@ -106,11 +131,10 @@ def stream_reply(
     db.commit()
 
     history = db.query(TutorMessage).filter(TutorMessage.session_id == session.id).order_by(TutorMessage.created_at).all()
-    history = history_window(history)
     # `synth` is also what decides how the reply may be written: spoken turns get plain words for
     # the synthesizer, typed turns get LaTeX the screen renders.
     messages = [{"role": "system", "content": build_system_prompt(db, session, spoken=synth)}]
-    messages += [{"role": m.role.value, "content": m.content} for m in history]
+    messages += conversation_context(session, history)
 
     if image_bytes:
         if settings.tutor_provider == "openrouter":
@@ -166,7 +190,11 @@ def stream_reply(
     # always arrive in the same chunk as the marker, though, which left a visible gap mid-reply
     # that the same-chunk collapse in pop_markers couldn't see.
     trim_leading = False
-    for piece in stream_chat(messages):
+    # The provider's own prompt-token count, which is what decides whether this conversation has
+    # outgrown carrying its opening verbatim. Captured in a cell rather than assigned directly
+    # because the callback fires inside the generator.
+    usage_seen: dict = {}
+    for piece in stream_chat(messages, on_usage=usage_seen.update):
         pending, markers, new_traces = pop_markers(pending + piece)
         # Every trace is a graph's — an exam offer leaves none — and a voice turn never shows a
         # graph, so keeping one there stored "[Graph shown: …]" for a graph nobody saw, which the
@@ -243,5 +271,14 @@ def stream_reply(
     # but run on a background thread, so it neither delays the client's last event nor depends on
     # this generator surviving the client's disconnect.
     schedule_if_due(db, session.id, session.user_id)
+
+    # Same deal for compaction, and it has to come after the commit above so the turn just taken
+    # is part of what gets summarised. Only the OpenRouter path reports usage; on the stub and
+    # Ollama paths this stays None and compaction simply never fires, which is correct — neither
+    # is billed per token.
+    if prompt_tokens := usage_seen.get("prompt_tokens"):
+        session.last_prompt_tokens = prompt_tokens
+        db.commit()
+        compact_if_due(session)
 
     yield sse_event("done", {"transcript": user_text, "reply": full_reply.strip()})

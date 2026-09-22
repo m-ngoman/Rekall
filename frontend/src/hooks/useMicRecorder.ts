@@ -76,6 +76,19 @@ function speechLevel(analyser: AnalyserNode, data: Uint8Array<ArrayBuffer>): num
  * everywhere: 10 is silence in a café and shouting in a quiet bedroom. */
 const OVER_FLOOR = 6
 
+/** How much quieter than the starting bar a voice may go and still count as "still talking".
+ *
+ * Starting and continuing were one test, and that is the reason turns ended mid-sentence. Speech
+ * is not continuous: it dips between words and dips further between clauses, several times a
+ * sentence. Gated on the same bar, every one of those dips reads as silence, and the turn ends
+ * as soon as one of them outlasts the silence timeout — a second, on the settings actually in
+ * use. The louder the starting bar is set, the more of ordinary speech falls under it, which is
+ * why raising sensitivity made this worse rather than better.
+ *
+ * Hysteresis is the standard answer: a high bar to open, a low bar to hold. Starting still has
+ * to clear the user's full setting, so nothing is easier to trigger by accident. */
+const CONTINUE_RATIO = 0.5
+
 /** Tracks the quiet baseline of the room: drops to any new low immediately, climbs back only
  * slowly, so a burst of talking can't drag the floor up behind it and deafen the detector.
  *
@@ -88,6 +101,20 @@ function noiseFloorTracker() {
     floor = floor < 0 || level < floor ? level : floor * 0.998 + level * 0.002
     return floor
   }
+}
+
+export interface MicTurnDebug {
+  reason: 'silence' | 'transcriber' | 'nobody-spoke' | 'max-length'
+  ms: number
+  peak: number
+  mean: number
+  floor: number
+  startBar: number
+  silenceMs: number
+  /** Worklet buffers posted this turn, and how long since the last one. If audio stops arriving
+   * while somebody is still speaking, the fault is upstream of every threshold. */
+  chunks: number
+  msSinceAudio: number
 }
 
 export interface MicTuning {
@@ -109,7 +136,20 @@ export function useMicRecorder(tuning: MicTuning = {}) {
   const analyserRef = useRef<AnalyserNode | null>(null)
   // One source node for the whole capture. See start() for why there must only ever be one.
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  /** A silent path from the capture to the speakers. It exists to be connected, not heard.
+   *
+   * Web Audio renders by pulling from the destination backwards. A branch with no route there is
+   * not guaranteed to be rendered at all, and the capture graph had no route: source fed the
+   * analyser and the worklet, and both were dead ends. Desktop Chrome pulls them anyway. A phone,
+   * throttling its audio thread, is under no obligation to — and when it stops, the worklet stops
+   * posting PCM and the analyser freezes at once, mid-word, with nothing raised anywhere.
+   *
+   * Gain stays at zero, so nothing is audible and no echo is fed back into the microphone. */
+  const muteRef = useRef<GainNode | null>(null)
   const floorRef = useRef<((level: number) => number) | null>(null)
+  /** What the last turn's detector actually saw. Diagnostic only — two wrong guesses at why
+   * turns were ending early is two more than it should take to just look. */
+  const debugRef = useRef<MicTurnDebug | null>(null)
 
   /** The room's noise floor, shared by every watcher and listen cycle on one capture.
    *
@@ -158,7 +198,14 @@ export function useMicRecorder(tuning: MicTuning = {}) {
     sourceRef.current = source
     const analyser = audioCtx.createAnalyser()
     analyser.fftSize = 256
+    const mute = audioCtx.createGain()
+    mute.gain.value = 0
+    mute.connect(audioCtx.destination)
+    muteRef.current = mute
+
     source.connect(analyser)
+    // Anchors the branch. Without it the analyser is a leaf the renderer may skip.
+    analyser.connect(mute)
     analyserRef.current = analyser
 
     return analyser
@@ -171,6 +218,7 @@ export function useMicRecorder(tuning: MicTuning = {}) {
     audioCtxRef.current = null
     analyserRef.current = null
     sourceRef.current = null
+    muteRef.current = null
     // The next capture is a new room as far as this is concerned.
     floorRef.current = null
   }, [])
@@ -242,6 +290,20 @@ export function useMicRecorder(tuning: MicTuning = {}) {
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const socket = new WebSocket(`${wsProtocol}//${window.location.host}/api/tutor/live-transcribe?sample_rate=${audioCtx.sampleRate}`)
       let finalText = ''
+      /** Last moment *anything* said the user was still talking. Amplitude is one witness; the
+       * transcriber is the other, and it is the better one.
+       *
+       * Amplitude alone cannot tell a pause from an ending, because a pause is silence — that is
+       * what a pause is. Somebody breaking mid-sentence at an em dash, or drawing breath before
+       * the next clause, produces exactly the trace of somebody who has stopped, and the turn
+       * ended on them mid-thought. Deepgram is running its own endpointing over the same audio
+       * and keeps emitting while it believes the utterance is still open, so its output is a
+       * direct read on "still going" that no amount of level-watching can reconstruct.
+       *
+       * The turn now ends only when both have gone quiet. */
+      let endedByTranscriber = false
+      let chunks = 0
+      let lastChunkAt = Date.now()
 
       await new Promise<void>((resolve, reject) => {
         socket.onopen = () => resolve()
@@ -251,6 +313,12 @@ export function useMicRecorder(tuning: MicTuning = {}) {
       socket.onmessage = (e) => {
         const msg = JSON.parse(e.data)
         const transcript = msg?.channel?.alternatives?.[0]?.transcript as string | undefined
+        // `speech_final` is Deepgram's own endpointing saying this utterance is over — a real
+        // end-of-speech decision made on the audio, not a guess from amplitude. Interim results
+        // are NOT evidence of the opposite: Deepgram keeps re-emitting its running hypothesis
+        // through a pause, so treating any transcript as "still talking" kept the turn alive
+        // until the 30s cap and it never ended on its own at all.
+        if (msg.speech_final) endedByTranscriber = true
         if (transcript) {
           if (msg.is_final) finalText = (finalText + ' ' + transcript).trim()
           onPartial(msg.is_final ? finalText : (finalText + ' ' + transcript).trim())
@@ -263,7 +331,14 @@ export function useMicRecorder(tuning: MicTuning = {}) {
       await audioCtx.audioWorklet.addModule(workletModuleUrl)
       const worklet = new AudioWorkletNode(audioCtx, 'pcm-worklet')
       source.connect(worklet)
+      // Same reason as the analyser: a worklet nothing pulls from is a worklet that may stop
+      // being asked for samples.
+      worklet.connect(muteRef.current!)
       worklet.port.onmessage = (e: MessageEvent<ArrayBuffer>) => {
+        // Counted so a turn that dies can say whether the audio thread was still producing.
+        // If these stop while the user is mid-word, nothing downstream of here is the problem.
+        chunks += 1
+        lastChunkAt = Date.now()
         if (socket.readyState === WebSocket.OPEN) socket.send(e.data)
       }
 
@@ -331,6 +406,11 @@ export function useMicRecorder(tuning: MicTuning = {}) {
         let speechStarted = false
         let lastLoudTime = Date.now()
         const startTime = Date.now()
+        // Kept so a turn that ends wrongly can say what it saw, rather than being guessed at from
+        // the outside. Surfaced by TutorScreen only when ?mic=debug is on the URL.
+        let peak = 0
+        let levelSum = 0
+        let levelCount = 0
 
         intervalId = window.setInterval(() => {
           if (cancelled) return
@@ -338,10 +418,19 @@ export function useMicRecorder(tuning: MicTuning = {}) {
           const floor = floorOf(avg)
           const now = Date.now()
 
-          if (avg > (tuningRef.current.sensitivity ?? DEFAULT_SILENCE_THRESHOLD) && avg > floor + OVER_FLOOR) {
+          // Two bars. Opening one has to clear the user's setting outright; holding one only has
+          // to clear half of it, so the dips inside a sentence don't read as the end of it.
+          const startBar = tuningRef.current.sensitivity ?? DEFAULT_SILENCE_THRESHOLD
+          const loudEnough = speechStarted
+            ? avg > startBar * CONTINUE_RATIO && avg > floor + OVER_FLOOR * CONTINUE_RATIO
+            : avg > startBar && avg > floor + OVER_FLOOR
+          if (loudEnough) {
             if (!speechStarted && now - startTime > MIN_SPEECH_MS) speechStarted = true
             lastLoudTime = now
           }
+          if (avg > peak) peak = avg
+          levelSum += avg
+          levelCount += 1
 
           const silentFor = now - lastLoudTime
           const elapsed = now - startTime
@@ -349,11 +438,30 @@ export function useMicRecorder(tuning: MicTuning = {}) {
           // The cap still applies: it's what stops a pocketed phone streaming indefinitely.
           const silenceMs = tuningRef.current.silenceMs ?? DEFAULT_SILENCE_TIMEOUT_MS
           const endedBySilence = !tuningRef.current.pushToTalk && speechStarted && silentFor > silenceMs
+          // Deepgram's verdict counts the same as our own, and usually arrives first.
+          const endedByVoice = !tuningRef.current.pushToTalk && speechStarted && endedByTranscriber
           // Nobody ever started: end early rather than streaming silence to a metered API. Not
           // gated on pushToTalk — holding the button and saying nothing is still nothing to
           // transcribe, and voice mode simply falls back to watching locally.
           const nobodySpoke = !speechStarted && elapsed > NO_SPEECH_TIMEOUT_MS
-          if (endedBySilence || nobodySpoke || elapsed > MAX_RECORDING_MS) {
+          if (endedBySilence || endedByVoice || nobodySpoke || elapsed > MAX_RECORDING_MS) {
+            debugRef.current = {
+              reason: endedByVoice
+                ? 'transcriber'
+                : endedBySilence
+                  ? 'silence'
+                  : nobodySpoke
+                    ? 'nobody-spoke'
+                    : 'max-length',
+              ms: elapsed,
+              peak: Math.round(peak),
+              mean: levelCount ? Math.round(levelSum / levelCount) : 0,
+              floor: Math.round(floor),
+              startBar: tuningRef.current.sensitivity ?? DEFAULT_SILENCE_THRESHOLD,
+              silenceMs,
+              chunks,
+              msSinceAudio: now - lastChunkAt,
+            }
             clearInterval(intervalId)
             finish().then(resolve)
           }
@@ -372,5 +480,5 @@ export function useMicRecorder(tuning: MicTuning = {}) {
     [start, stop, floorFor],
   )
 
-  return { stop, getAnalyser, listenUntilSilence, watchForSpeech }
+  return { stop, getAnalyser, listenUntilSilence, watchForSpeech, debugRef }
 }

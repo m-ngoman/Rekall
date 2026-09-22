@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -41,6 +41,21 @@ class TutorSession(UUIDPKMixin, TimestampMixin, Base):
     )
     custom_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     voice_id: Mapped[str | None] = mapped_column(String, nullable=True)  # Cartesia voice id; None = default
+
+    # Compaction. A long conversation is re-sent in full on every turn, so past a point it is
+    # cheaper to carry a summary of the opening than the opening itself. See
+    # services/conversation_compaction.py for when this is written and why it is written rarely.
+    #
+    # `summary` stands in for every message at or before `summarized_through`; those rows are NOT
+    # deleted — memory extraction still reads them, and a resumed transcript is still built from
+    # them. Only what the model is sent changes.
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summarized_through: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # `prompt_tokens` off the last reply, which is what decides when to compact. Measured rather
+    # than estimated from a message count: eighty terse spoken turns and eighty long typed ones
+    # full of LaTeX are wildly different amounts of context, and only the provider knows which
+    # this is.
+    last_prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="tutor_sessions")
     deck: Mapped["Deck"] = relationship()

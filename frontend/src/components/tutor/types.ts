@@ -15,6 +15,12 @@ export interface Message {
    * as its own message would stop the reveal dead. The typewriter spreads `{ ...last }`, so a
    * field added here survives every tick. */
   plots?: PlotSpec[]
+  /** A resumed turn where the student had attached a photo. The image itself was never stored,
+   * so all that survives is the fact that there was one. */
+  photoDropped?: boolean
+  /** Graphs from a resumed turn, as the one-sentence traces the backend left in the transcript.
+   * `plots` can't be rebuilt from those, so they render as muted captions instead. */
+  captions?: string[]
 }
 
 /** A calendar entry the tutor has offered to add. `added` keeps the card in place afterwards so

@@ -37,6 +37,7 @@ export default function FocusStage({
   litCount,
   liveTranscript,
   revealedTranscript,
+  micDebug,
   examOffer,
   onDismissOffer,
   onAddOffer,
@@ -56,6 +57,8 @@ export default function FocusStage({
   litCount: number
   liveTranscript: string
   revealedTranscript: string
+  /** Why the last listening turn ended, when ?mic=debug is on the URL; null otherwise. */
+  micDebug: string | null
   examOffer: ExamOffer | null
   onDismissOffer: () => void
   onAddOffer: () => void
@@ -118,6 +121,11 @@ export default function FocusStage({
                 ) : null,
             )}
 
+            {micDebug && (
+              <div className="pointer-events-none absolute inset-x-0 top-3 z-10 px-4 text-center font-mono text-[0.6875rem] leading-snug text-white/70">
+                {micDebug}
+              </div>
+            )}
             {orbState === 'listening' && liveTranscript && (
               <p className="max-w-[88%] self-end text-right text-white">{revealedTranscript}</p>
             )}

@@ -19,12 +19,12 @@ def test_a_new_session_starts_from_the_saved_defaults(client) -> None:
     client.patch("/api/settings", json={"tutor_personality": "custom", "tutor_custom_prompt": "Be brief.", "tutor_voice_id": "Ashley"})
     res = client.post("/api/tutor/sessions", json={})
     assert res.status_code == 200
-    body = res.json()
+    body = res.json()["session"]
     assert (body["personality"], body["custom_prompt"], body["voice_id"], body["deck_id"]) == ("custom", "Be brief.", "Ashley", None)
 
 
 def test_changing_a_session_also_changes_the_default(client) -> None:
-    session = client.post("/api/tutor/sessions", json={}).json()
+    session = client.post("/api/tutor/sessions", json={}).json()["session"]
     out = client.patch(f"/api/tutor/sessions/{session['id']}", json={"personality": "terse", "voice_id": "Brian"}).json()
     assert (out["personality"], out["voice_id"]) == ("terse", "Brian")
     prefs = client.get("/api/settings").json()
@@ -72,7 +72,7 @@ def test_a_session_on_someone_elses_deck_is_not_found(client) -> None:
 
 
 def test_a_session_edit_cleans_its_text_like_settings_does(client) -> None:
-    session = client.post("/api/tutor/sessions", json={}).json()
+    session = client.post("/api/tutor/sessions", json={}).json()["session"]
     out = client.patch(f"/api/tutor/sessions/{session['id']}", json={"custom_prompt": "   ", "voice_id": " Ashley "}).json()
     assert out["custom_prompt"] is None and out["voice_id"] == "Ashley"
     with SessionLocal() as db:

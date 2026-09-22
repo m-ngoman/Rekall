@@ -1,5 +1,5 @@
 import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { PaymentRequired, createMemoryNote, createTutorSession, deleteMemoryNote, listBugs, listMemoryNotes, listTutorVoices, reportBug, resolveBug, sendTextTurn, sendVoiceTurnText, updateTutorSession } from '../api'
+import { PaymentRequired, createMemoryNote, deleteMemoryNote, deleteProfileLine, getStudentProfile, listBugs, listMemoryNotes, listTutorVoices, reportBug, resolveBug, sendTextTurn, sendVoiceTurnText, startTutorSession, updateTutorSession } from '../api'
 import type { PlotSpec } from '../lib/plot'
 import Notice from '../components/Notice'
 import type { OrbState } from '../components/VoiceOrb'
@@ -10,8 +10,10 @@ import FocusStage, { OVERLAY_FADE_MS } from '../components/tutor/FocusStage'
 import LatestPill from '../components/tutor/LatestPill'
 import PhotoAttach, { PendingPhoto } from '../components/tutor/PhotoAttach'
 import TutorLog from '../components/tutor/TutorLog'
+import { hydrate } from '../components/tutor/hydrate'
 import type { ExamOffer, Message, Popover } from '../components/tutor/types'
 import { createExam, listExams } from '../api'
+import { formatDayLong, toISODate } from '../lib/dates'
 import { upcomingExams } from '../lib/exams'
 import { useCachedResource } from '../hooks/useCachedResource'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
@@ -22,7 +24,7 @@ import { useRevealText } from '../hooks/useRevealText'
 import { useTypewriter } from '../hooks/useTypewriter'
 import { findListedBug, renderBugs } from '../lib/bugCommands'
 import { wordStarts } from '../lib/wordTimings'
-import type { BugReport, Exam, MemoryCategory, MemoryNote, Settings, TutorPersonality, TutorSession, TutorVoice, WordTiming } from '../types'
+import type { BugReport, Exam, MemoryCategory, MemoryNote, Settings, StudentProfile, TutorPersonality, TutorSession, TutorVoice, WordTiming } from '../types'
 
 const STATUS_LABEL: Record<OrbState, string> = {
   idle: '',
@@ -77,6 +79,10 @@ interface Props {
   onOpenPricing: () => void
 }
 
+/** Turn-by-turn detector readout, for diagnosing a turn that ends at the wrong moment on a
+ * device with no usable console. Off unless ?mic=debug is on the URL. */
+const MIC_DEBUG = new URLSearchParams(window.location.search).get('mic') === 'debug'
+
 export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props) {
   const [session, setSession] = useState<TutorSession | null>(null)
   // The last error was a 402, so the message carries a link to plans.
@@ -89,11 +95,24 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
   const [voiceModeActive, setVoiceModeActive] = useState(false)
   const [orbMounted, setOrbMounted] = useState(false) // in the DOM at all
   const [messages, setMessages] = useState<Message[]>([])
+  /** When the resumed conversation started, ISO. Null for one begun in this visit — the log only
+   * dates itself when you're picking something up, and only then when it wasn't today. */
+  const [resumedAt, setResumedAt] = useState<string | null>(null)
+  /** Index of the first turn the tutor still holds verbatim; -1 when it holds all of them. */
+  const [condensedBefore, setCondensedBefore] = useState(-1)
+  /** "Tue, Sep 16" above a conversation carried over from another day, or null when it started
+   * today. Without it a transcript from last night reads as though it just happened. */
+  const resumedDay = useMemo(() => {
+    if (!resumedAt) return null
+    const day = toISODate(new Date(resumedAt))
+    return day === toISODate(new Date()) ? null : formatDayLong(day)
+  }, [resumedAt])
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   /** Neutral status message. Separate from `error` because falling back to text is expected
    * behaviour, and styling it red would tell the user something broke when nothing did. */
   const [notice, setNotice] = useState<string | null>(null)
+  const [micDebug, setMicDebug] = useState<string | null>(null)
   /** A typed turn is waiting for its first token. Drives the thinking dots in the log: the
    * reply's placeholder is an empty line until then, and an empty line looks like a hang. */
   const [replyPending, setReplyPending] = useState(false)
@@ -104,6 +123,10 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
   const [openPopover, setOpenPopover] = useState<Popover | null>(null)
   const [voices, setVoices] = useState<TutorVoice[] | null>(null)
   const [memoryNotes, setMemoryNotes] = useState<MemoryNote[] | null>(null)
+  /** The tutor's own reading of the student, kept apart from the notes they wrote. Loaded
+   * once at mount: a pass only runs every few turns and writes on a background thread, so
+   * polling it would spend requests to almost always see the same thing. */
+  const [profile, setProfile] = useState<StudentProfile | null>(null)
   /** A calendar entry the tutor has offered to add. Held until the student taps Add — the tutor
    * proposes, the student writes. `added` keeps the card in place afterwards so the confirmation
    * is visible rather than the row just vanishing. */
@@ -214,8 +237,21 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
   }, [])
 
   useEffect(() => {
-    createTutorSession()
-      .then(setSession)
+    // Still once per mount — it just no longer means "once per conversation". The server decides
+    // whether this is the one you were last in or a new one, so a refresh or a trip to another
+    // tab comes back to what you were saying instead of throwing it away.
+    startTutorSession()
+      .then((start) => {
+        setSession(start.session)
+        if (start.messages.length) {
+          setMessages(hydrate(start.messages))
+          setResumedAt(start.messages[0].created_at)
+          // Index of the first turn the tutor still has word for word. Resolved here rather than
+          // at render so the log doesn't re-compare timestamps on every keystroke.
+          const cut = start.summarized_through
+          setCondensedBefore(cut ? start.messages.findIndex((m) => m.created_at > cut) : -1)
+        }
+      })
       .catch((e) => {
         setPaywall(e instanceof PaymentRequired)
         setError(e instanceof PaymentRequired ? e.message : 'Could not start a tutor session.')
@@ -226,6 +262,9 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     listMemoryNotes()
       .then(setMemoryNotes)
       .catch(() => setMemoryNotes([]))
+    getStudentProfile()
+      .then(setProfile)
+      .catch(() => setProfile(null))
   }, [])
 
   const { away, pinToLatest, rejoin } = useFollowLatest(logRef, bottomRef, composerRef, messages)
@@ -418,6 +457,14 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     setMemoryNotes((prev) => prev?.filter((n) => n.id !== id) ?? null)
   }
 
+  /** Removing one of the tutor's own observations. The server also records that it was rejected,
+   * so the next pass can't re-derive it from the same conversations — without that, deleting is
+   * theatre and the line comes straight back. */
+  const handleDeleteProfileLine = async (text: string) => {
+    await deleteProfileLine(text)
+    setProfile((prev) => (prev ? { ...prev, lines: prev.lines.filter((l) => l.text !== text) } : prev))
+  }
+
   const { typeInto, stopTypewriter } = useTypewriter(setMessages)
 
   // --- Owner-only bug inbox -------------------------------------------------------------------
@@ -501,6 +548,46 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
       return [...prev.slice(0, -1), { ...last, plots: [...(last.plots ?? []), plot] }]
     })
 
+  /** Deliberately start again, rather than carrying on what the idle window would have resumed.
+   *
+   * The old conversation is left in the database — this is "start a new one", not "delete that
+   * one". It also ends the session for memory purposes, which is the other half of why it exists:
+   * it is the only way to say "that was a separate thing" inside the idle window.
+   *
+   * Tears down everything the unmount cleanup does, because none of it is scoped to the
+   * conversation: voice mode holding the mic open, a reply still streaming, a half-typed
+   * typewriter, and the exam offer hanging off a turn that is about to disappear.
+   */
+  const handleNewConversation = async () => {
+    voiceModeRef.current = false
+    setVoiceModeActive(false)
+    cancelWaitRef.current?.()
+    cancelListenRef.current?.()
+    voiceTurnAbortRef.current?.abort()
+    voiceTurnAbortRef.current = null
+    mic.stop()
+    player.stop()
+    stopTypewriter()
+
+    setMessages([])
+    setResumedAt(null)
+    setCondensedBefore(-1)
+    setDraft('')
+    setPendingImage(null)
+    setExamOffer(null)
+    addedExamsRef.current.clear()
+    setError(null)
+    setOpenPopover(null)
+
+    try {
+      const start = await startTutorSession(undefined, true)
+      setSession(start.session)
+    } catch (e) {
+      setPaywall(e instanceof PaymentRequired)
+      setError(e instanceof PaymentRequired ? e.message : 'Could not start a new conversation.')
+    }
+  }
+
   const handleSendText = async () => {
     const text = draft.trim()
     const image = pendingImage
@@ -563,6 +650,35 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     e.target.value = ''
     if (file) setPendingImage(file)
   }
+
+  /** Paste a screenshot straight into the composer.
+   *
+   * Bound to the window rather than to the textarea, because the reflex is to hit paste the moment
+   * the screenshot is taken — which is usually before clicking into the box. Nothing else on this
+   * screen wants an image paste, and text pastes are left alone: the handler only claims the event
+   * once the clipboard actually carries an image.
+   *
+   * It does preventDefault in that case. A screenshot is image-only so there is nothing to
+   * suppress, but an image copied from a web page arrives with HTML and text alongside it, and
+   * without this the alt text or source URL lands in the draft next to the attachment.
+   *
+   * Replaces rather than queues, matching the file picker — `pendingImage` holds one photo, and
+   * the backend's text-turn endpoint takes a single `image`.
+   */
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      // Voice mode hides the composer, so an attachment would have nowhere to show and no send
+      // button to leave by.
+      if (voiceModeActive) return
+      const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.type.startsWith('image/'))
+      const file = item?.getAsFile()
+      if (!file) return
+      e.preventDefault()
+      setPendingImage(file)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [voiceModeActive])
 
   /** Kills the tutor's current turn immediately — a pause-button tap or a barge-in. Aborts the
    * in-flight reply request (so no further sentence audio gets enqueued after this point) and
@@ -726,6 +842,20 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
       // Capture is over; the turn below is free to run and the next cycle free to start.
       listeningRef.current = false
       setLiveTranscript('')
+      // Why the turn ended, on screen, when ?mic=debug is on the URL — a phone has no console
+      // worth reading and a turn that cuts off early is otherwise only guessable from outside.
+      if (MIC_DEBUG) {
+        const d = mic.debugRef.current
+        // Into the voice stage, not setNotice: notices render in the chat log, which the voice
+        // overlay sits on top of, so the readout would be drawn underneath the orb.
+        if (d) {
+          setMicDebug(
+            `${d.reason} after ${(d.ms / 1000).toFixed(1)}s · audio ${d.chunks} chunks, ` +
+              `last ${d.msSinceAudio}ms ago · peak ${d.peak} · mean ${d.mean} · floor ${d.floor} · ` +
+              `bar ${d.startBar} · silence ${d.silenceMs}ms`,
+          )
+        }
+      }
       if (!voiceModeRef.current) return // toggled off while we were listening
       if (!text.trim()) {
         // Nobody spoke. Restarting the transcription cycle here is what used to stream 30-second
@@ -817,7 +947,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
         {messages.length === 0 ? (
           <EmptyState nextExam={nextExam} onPick={setDraft} />
         ) : (
-          <TutorLog messages={messages} replyPending={replyPending} />
+          <TutorLog messages={messages} replyPending={replyPending} resumedDay={resumedDay} condensedBefore={condensedBefore} />
         )}
         {examOffer && (
           <ExamOfferRow
@@ -927,12 +1057,15 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
             voices={voices}
             voiceName={voiceName}
             memoryNotes={memoryNotes}
+            profile={profile}
             open={openPopover}
             onToggle={(which) => setOpenPopover((p) => (p === which ? null : which))}
             onPersonalityChange={handlePersonalityChange}
             onVoiceChange={handleVoiceChange}
             onAddMemory={handleAddMemory}
             onDeleteMemory={handleDeleteMemory}
+            onDeleteProfileLine={handleDeleteProfileLine}
+            onNewConversation={messages.length > 0 ? handleNewConversation : null}
           />
         </div>
       </div>
@@ -951,6 +1084,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
           litCount={litCount}
           liveTranscript={liveTranscript}
           revealedTranscript={revealedTranscript}
+          micDebug={MIC_DEBUG ? micDebug : null}
           examOffer={examOffer}
           onDismissOffer={() => setExamOffer(null)}
           onAddOffer={() => examOffer && commitExam({ name: examOffer.name, date: examOffer.date })}

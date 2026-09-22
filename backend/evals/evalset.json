@@ -1,0 +1,844 @@
+{
+  "cards": [
+    {
+      "id": "biology-01",
+      "subject": "Biology \u2014 membranes and transport",
+      "question": "Define osmosis.",
+      "reference": "The movement of water from a dilute solution to a more concentrated solution through a partially permeable membrane.",
+      "submitted": "when water moves across a semi permeable membrane down the water potential gradient, so from high water potential to low",
+      "archetype": "exact_paraphrase",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes the prompt's \"a paraphrase IS right\" rule \u2014 the student shares zero content words with the reference (water potential gradient vs dilute/concentrated) but states exactly the same fact, so any deduction is a wording penalty the rubric forbids.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "biology-02",
+      "subject": "Human physiology \u2014 synaptic transmission",
+      "question": "Which ion flows into the presynaptic knob and triggers the vesicles to release neurotransmitter?",
+      "reference": "Calcium ions.",
+      "submitted": "calcium",
+      "archetype": "single_word_complete",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes \"if the question asks what/which/who/where/when, naming the right thing IS the complete answer \u2014 a single word can be a 5\"; there is nothing else the question asked for, so a one-word answer is complete.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "biology-03",
+      "subject": "Human physiology \u2014 nerve impulses",
+      "question": "What is the resting potential of a neurone?",
+      "reference": "About -70 mV. The sodium-potassium pump moves 3 Na+ out for every 2 K+ in, and the membrane is far more permeable to K+, which keeps the inside negative.",
+      "submitted": "about -70mv",
+      "archetype": "reference_detail_not_asked",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes \"THE QUESTION SETS THE BAR, NOT THE REFERENCE ANSWER'S LENGTH\" \u2014 the reference volunteers the pump stoichiometry and permeability mechanism that a bare \"what is\" question never asked for, so omitting all of it must not cost a mark.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "biology-04",
+      "subject": "Human physiology \u2014 oxygen transport",
+      "question": "What happens to haemoglobin's affinity for oxygen when the blood's carbon dioxide concentration rises?",
+      "reference": "Affinity falls \u2014 the dissociation curve shifts right and haemoglobin releases oxygen more readily. This is the Bohr effect.",
+      "submitted": "i think it lets go of the oxygen more easily? blood gets more acidic. bohr effect i think",
+      "archetype": "hedged_correct",
+      "is_math": false,
+      "intended_score": 4,
+      "rationale": "Probes the hedging rule \u2014 \"i think\" is not \"I don't know\" and must not be routed to a 1, and balanced should land 4-5; the 4 rather than 5 comes from answering in terms of oxygen release rather than affinity, which is genuine minor imprecision, and strict mode should drop this to 3 for the hedged wording.",
+      "gold": 5,
+      "author_intent": 4,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": true,
+      "author_agrees": false
+    },
+    {
+      "id": "biology-05",
+      "subject": "Human physiology \u2014 ventilation",
+      "question": "How does the diaphragm contracting cause air to move into the lungs?",
+      "reference": "It flattens, increasing the volume of the thorax, which lowers the pressure inside the lungs below atmospheric pressure, so air flows down that pressure gradient into the lungs.",
+      "submitted": "the diaphragm flattens out so the chest cavity gets bigger and theres more space for air",
+      "archetype": "partial_missing_half",
+      "is_math": false,
+      "intended_score": 3,
+      "rationale": "Probes score 3 \u2014 \"part of what the question asked is missing\": a \"how\" question demands the causal chain, and the student supplies the volume half but stops before pressure falling below atmospheric and air flowing down the gradient, replacing it with the naive \"more space for air\".",
+      "gold": 3,
+      "author_intent": 3,
+      "judge_scores": [
+        3,
+        3,
+        3
+      ],
+      "contested": true,
+      "author_agrees": true
+    },
+    {
+      "id": "biology-06",
+      "subject": "Human physiology \u2014 kidney and osmoregulation",
+      "question": "Which hormone from the posterior pituitary increases water reabsorption in the kidney's collecting ducts?",
+      "reference": "ADH (antidiuretic hormone) \u2014 it makes the collecting duct walls more permeable to water.",
+      "submitted": "aldosterone",
+      "archetype": "right_category_wrong_fact",
+      "is_math": false,
+      "intended_score": 2,
+      "rationale": "The Sydney-for-Canberra case in physiology dress \u2014 right category (a hormone acting on the nephron to retain fluid) but the wrong specific item, and from the wrong gland entirely; balanced scores 2, and the strict clause's explicit override should pull it to 1.",
+      "gold": 2,
+      "author_intent": 2,
+      "judge_scores": [
+        2,
+        2,
+        2
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "biology-07",
+      "subject": "Biology \u2014 respiration",
+      "question": "Where in the cell does glycolysis take place?",
+      "reference": "In the cytoplasm.",
+      "submitted": "in the mitochondria, in the matrix - its the first stage of aerobic respiration so it all has to happen inside the mitochondria",
+      "archetype": "confidently_wrong",
+      "is_math": false,
+      "intended_score": 1,
+      "rationale": "Probes that fluency and supplied reasoning earn nothing when the fact is wrong \u2014 the answer names the wrong compartment and argues for it confidently, which is a 1 (\"a specific incorrect fact is still wrong, not partial credit\"), not a 2, because the reasoning adds no correct content.",
+      "gold": 2,
+      "author_intent": 1,
+      "judge_scores": [
+        2,
+        2,
+        2
+      ],
+      "contested": true,
+      "author_agrees": false
+    },
+    {
+      "id": "chemistry-01",
+      "subject": "chemistry",
+      "question": "Which gas is given off when magnesium ribbon is dropped into dilute hydrochloric acid?",
+      "reference": "Hydrogen (H2).",
+      "submitted": "hydrogen",
+      "archetype": "single_word_complete",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes the \"a single word can be a 5\" rule: the question asks *which*, so naming the right gas with no explanation is the complete answer and brevity must not be deducted.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "chemistry-02",
+      "subject": "chemistry",
+      "question": "What is the organic product when ethene reacts with bromine?",
+      "reference": "1,2-dibromoethane. It forms by electrophilic addition - the pi electrons induce a dipole in the Br-Br bond, a carbocation forms, and the bromide ion then attacks it.",
+      "submitted": "1,2 dibromoethane",
+      "archetype": "reference_detail_not_asked",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes \"the question sets the bar, not the reference\": the reference volunteers a whole mechanism the \"what\" question never asked for, so answering only the product (with a missing hyphen) is still full marks.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "chemistry-03",
+      "subject": "chemistry",
+      "question": "Why does water have a much higher boiling point than hydrogen sulfide?",
+      "reference": "Water molecules hydrogen bond to each other, and hydrogen bonds are stronger than the intermolecular forces between H2S molecules, so more energy is needed to separate them.",
+      "submitted": "i think its cos water molecules hydrogen bond to each other and h2s only has weaker forces between them, so water needs more energy to break the bonds when it boils? pretty sure thats it",
+      "archetype": "hedged_correct",
+      "is_math": false,
+      "intended_score": 4,
+      "rationale": "Probes the rule that hedging is style, not error: the causal chain is complete and correct, so the only legitimate deduction is the loose \"break the bonds\" phrasing (4 on balanced, 3 under strict - a grader that drops it to 3 on balanced is punishing the hedge).",
+      "gold": 5,
+      "author_intent": 4,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": false
+    },
+    {
+      "id": "chemistry-04",
+      "subject": "chemistry",
+      "question": "Why does an SN1 reaction on a chiral halogenoalkane produce a racemic mixture?",
+      "reference": "The carbocation intermediate is trigonal planar, so the nucleophile is equally likely to attack either face, giving both enantiomers in roughly equal amounts.",
+      "submitted": "because it goes through a carbocation intermediate first, its not like sn2 where the nucleophile has to attack from the opposite side to the leaving group",
+      "archetype": "partial_missing_half",
+      "is_math": false,
+      "intended_score": 3,
+      "rationale": "Probes the 3 boundary on a \"why\" question: the intermediate and the contrast with SN2 backside attack are right, but the planar geometry and equal attack from both faces - the part that actually explains the 50:50 mixture - is missing, so part of what was asked is absent.",
+      "gold": 3,
+      "author_intent": 3,
+      "judge_scores": [
+        3,
+        3,
+        3
+      ],
+      "contested": true,
+      "author_agrees": true
+    },
+    {
+      "id": "chemistry-05",
+      "subject": "chemistry",
+      "question": "Why does adding a catalyst increase the rate of a reaction?",
+      "reference": "It provides an alternative reaction pathway with a lower activation energy, so a bigger proportion of the colliding molecules have enough energy to react.",
+      "submitted": "it gives the reaction a different route with a lower activation energy so more of the collisions have enough energy to work. it also shifts the equilibrium towards the products which is why the yield goes up",
+      "archetype": "correct_plus_wrong_addition",
+      "is_math": false,
+      "intended_score": 3,
+      "rationale": "Probes how a correct core plus a volunteered false claim is scored - the asked-for reasoning is fully right but the equilibrium-shift claim is a flat misconception, which is more than the \"minor imprecision\" 4 allows; expect judges to split 3 vs 4 here.",
+      "gold": 4,
+      "author_intent": 3,
+      "judge_scores": [
+        3,
+        4,
+        4
+      ],
+      "contested": true,
+      "author_agrees": false
+    },
+    {
+      "id": "chemistry-06",
+      "subject": "chemistry",
+      "question": "Which catalyst is used in the Haber process?",
+      "reference": "Iron (finely divided, with a potassium promoter).",
+      "submitted": "vanadium oxide, v2o5",
+      "archetype": "right_category_wrong_fact",
+      "is_math": false,
+      "intended_score": 2,
+      "rationale": "The Sydney-for-Canberra case: right category (a named industrial catalyst) but the wrong specific one - V2O5 is the Contact process - which is the definition of a 2 on balanced and a 1 under strict, and it also tests the rubric's competing \"a specific incorrect fact is still wrong\" clause.",
+      "gold": 2,
+      "author_intent": 2,
+      "judge_scores": [
+        2,
+        2,
+        2
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "chemistry-07",
+      "subject": "chemistry",
+      "question": "Why does ice float on water?",
+      "reference": "Hydrogen bonds hold the molecules in an open hexagonal arrangement in ice, so ice is less dense than liquid water.",
+      "submitted": "ice floats because when water freezes it traps loads of tiny air bubbles inside the solid, and the trapped air makes the ice lighter than the water around it. thats why ice cubes go cloudy in the middle",
+      "archetype": "confidently_wrong",
+      "is_math": false,
+      "intended_score": 1,
+      "rationale": "Probes that fluency and confidence earn nothing: the explanation is assured, well-formed and entirely false - no part of the hydrogen-bonded open lattice is present - so it is a 1, not a 2, since nothing correct and relevant is named.",
+      "gold": 2,
+      "author_intent": 1,
+      "judge_scores": [
+        2,
+        2,
+        2
+      ],
+      "contested": true,
+      "author_agrees": false
+    },
+    {
+      "id": "compsci-01",
+      "subject": "Computer science \u2014 sorting algorithms",
+      "question": "What does it mean for a sorting algorithm to be stable?",
+      "reference": "A stable sort preserves the original relative order of records that compare equal.",
+      "submitted": "when two items tie, the one that was first in the list is still first afterwards - it doesnt shuffle equal stuff around",
+      "archetype": "exact_paraphrase",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes the prompt's \"a paraphrase IS right / never deduct for not matching the reference's wording\" rule: zero lexical overlap with the reference but identical meaning, so it must be a 5.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "compsci-02",
+      "subject": "Computer science \u2014 networking",
+      "question": "Which OSI layer does an IP router operate at?",
+      "reference": "The network layer (layer 3).",
+      "submitted": "network",
+      "archetype": "single_word_complete",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes \"if the question asks what/which/who/where/when, naming the right thing IS the complete answer - a single word can be a 5\"; a grader that wants a full sentence will under-score this.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "compsci-03",
+      "subject": "Computer science \u2014 concurrency",
+      "question": "What is a race condition?",
+      "reference": "When two threads touch the same shared data at the same time and the result depends on which one gets there first. You prevent it with a lock or an atomic operation.",
+      "submitted": "two threads poke the same variable at the same time and what you end up with depends on which one got there first",
+      "archetype": "reference_detail_not_asked",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes \"the question sets the bar, not the reference answer's length\": the question asks only \"what is\", while the reference volunteers the fix (locks/atomics), so omitting the fix must not cost a mark.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "compsci-04",
+      "subject": "Computer science \u2014 data structures and complexity",
+      "question": "What is the worst-case time complexity of searching a balanced binary search tree?",
+      "reference": "O(log n), because the height of a balanced tree grows with the log of the number of nodes.",
+      "submitted": "i think its log n - coz the number of nodes is logarithmic in the height",
+      "archetype": "hedged_correct",
+      "is_math": false,
+      "intended_score": 4,
+      "rationale": "Probes hedging plus minor imprecision: the asked-for complexity is right so it cannot fall below 4, but the aside inverts the height/node relationship, which is the \"minor imprecision\" that makes it 4 rather than 5; strict mode's \"vague or hedged wording drops the score by one\" should take it to 3.",
+      "gold": 4,
+      "author_intent": 4,
+      "judge_scores": [
+        4,
+        4,
+        4
+      ],
+      "contested": true,
+      "author_agrees": true
+    },
+    {
+      "id": "compsci-05",
+      "subject": "Computer science \u2014 amortised complexity",
+      "question": "Explain why appending to a dynamic array is O(1) amortised, even though it sometimes has to copy the whole array.",
+      "reference": "The array doubles its capacity when it fills, so copying n elements only happens after n cheap appends - spreading that cost over those appends averages out to constant time.",
+      "submitted": "because most of the time it just sticks the new item in the next free slot, its only every now and then that it has to copy the whole array somewhere bigger",
+      "archetype": "partial_missing_half",
+      "is_math": false,
+      "intended_score": 3,
+      "rationale": "Probes the 3 band on a question that genuinely does ask for mechanism (\"explain why\"): the student has the cheap-append half but omits geometric growth and the cost-spreading argument, which is the half that actually explains the amortisation.",
+      "gold": 3,
+      "author_intent": 3,
+      "judge_scores": [
+        3,
+        3,
+        3
+      ],
+      "contested": true,
+      "author_agrees": true
+    },
+    {
+      "id": "compsci-06",
+      "subject": "Computer science \u2014 sorting algorithms",
+      "question": "Which sorting algorithm does Python's built-in sort() use?",
+      "reference": "Timsort, a hybrid of merge sort and insertion sort.",
+      "submitted": "quicksort",
+      "archetype": "right_category_wrong_fact",
+      "is_math": false,
+      "intended_score": 2,
+      "rationale": "The documented Sydney-for-Canberra case: right category (a named sorting algorithm), wrong specific item, so balanced must give 2 while strict mode's explicit override should force 1 - and both map to Forgot under _ALWAYS_FORGOT.",
+      "gold": 2,
+      "author_intent": 2,
+      "judge_scores": [
+        2,
+        2,
+        2
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "compsci-07",
+      "subject": "Computer science \u2014 networking",
+      "question": "What does UDP guarantee about packet delivery?",
+      "reference": "Nothing - UDP is best-effort, so packets can be lost, duplicated, or arrive out of order.",
+      "submitted": "UDP guarantees that every packet arrives and that they arrive in the order you sent them, thats the whole point of using it. Its TCP that drops packets when the network gets busy.",
+      "archetype": "confidently_wrong",
+      "is_math": false,
+      "intended_score": 1,
+      "rationale": "Probes whether fluent, assured, full-sentence prose can buy partial credit: the rubric's 1 covers \"wrong... a specific incorrect fact/value is still wrong, not partial credit\", and this inverts UDP and TCP entirely.",
+      "gold": 1,
+      "author_intent": 1,
+      "judge_scores": [
+        2,
+        1,
+        1
+      ],
+      "contested": true,
+      "author_agrees": true
+    },
+    {
+      "id": "history-geography-01",
+      "subject": "History and geography",
+      "question": "Which river flows through Baghdad?",
+      "reference": "The Tigris flows through Baghdad. The Euphrates is the other great Mesopotamian river, running further west.",
+      "submitted": "tigris",
+      "archetype": "single_word_complete",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes the prompt's claim that for a which/what question naming the right thing is the complete answer and a single word can be a 5 - the reference is a full two-sentence card back, so any grader that scores by overlap with the reference will under-mark this.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "history-geography-02",
+      "subject": "History and geography",
+      "question": "What was the Marshall Plan?",
+      "reference": "The US programme of economic aid that rebuilt Western Europe after WWII. The money went out as grants rather than loans, so recipient countries could buy American goods without piling up debt, and Washington partly intended it to stop communist parties gaining ground.",
+      "submitted": "america giving money to western europe to help rebuild after ww2",
+      "archetype": "reference_detail_not_asked",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes \"the question sets the bar, not the reference answer's length\": the question asks only \"what\", the reference volunteers mechanism (grants vs loans) and motive (containment) that was never asked for, and the student answers the \"what\" correctly - deducting for the missing mechanism is the failure mode.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": true,
+      "author_agrees": true
+    },
+    {
+      "id": "history-geography-03",
+      "subject": "History and geography",
+      "question": "In which year did the Berlin Wall come down?",
+      "reference": "1989 - the border was opened on 9 November 1989.",
+      "submitted": "i think maybe 1989? or was it 1990... going with 89",
+      "archetype": "hedged_correct",
+      "is_math": false,
+      "intended_score": 4,
+      "rationale": "Probes the hedging rule: on balanced a hedged-but-correct answer stays in the 4-5 band (the wavering is minor imprecision, not a wrong fact), and only strict mode's \"vague or hedged wording drops the score by one\" clause should push it to 3 - a grader that treats the floated 1990 as a wrong answer and scores 2 has misread the scale.",
+      "gold": 5,
+      "author_intent": 4,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": true,
+      "author_agrees": false
+    },
+    {
+      "id": "history-geography-04",
+      "subject": "History and geography",
+      "question": "Why did Ireland's population fall by around a fifth between 1841 and 1851?",
+      "reference": "Potato blight destroyed the crop most of the country lived on. About a million people died of starvation and disease, and over a million more emigrated, mostly to Britain and America - the deaths and the emigration together account for the drop.",
+      "submitted": "the potato crop failed from blight and about a million people starved to death",
+      "archetype": "partial_missing_half",
+      "is_math": false,
+      "intended_score": 3,
+      "rationale": "Probes the 3 band on a \"why\" question: the student gives one of the two halves the question explicitly asks about (the fall in population) - blight leading to deaths - and omits emigration entirely, so part of what was asked is genuinely missing and the correct-as-far-as-it-goes half must not earn a 5.",
+      "gold": 3,
+      "author_intent": 3,
+      "judge_scores": [
+        3,
+        3,
+        3
+      ],
+      "contested": true,
+      "author_agrees": true
+    },
+    {
+      "id": "history-geography-05",
+      "subject": "History and geography",
+      "question": "Which treaty formally ended the First World War between Germany and the Allies?",
+      "reference": "The Treaty of Versailles, signed in June 1919.",
+      "submitted": "treaty of versailles. signed in 1918 straight after the armistice",
+      "archetype": "correct_plus_wrong_addition",
+      "is_math": false,
+      "intended_score": 4,
+      "rationale": "Probes what a false volunteered extra costs when it is not what the question asked: the treaty named is right, so nothing the question asked for is missing (ruling out 3 by the scale's own wording), but the unrequested 1918 date is flatly wrong (Versailles was signed 28 June 1919, seven months after the armistice), which blocks a clean 5 - expect judges to split 3/4/5 here, and that disagreement is the point of including it.",
+      "gold": 4,
+      "author_intent": 4,
+      "judge_scores": [
+        4,
+        4,
+        4
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "history-geography-06",
+      "subject": "History and geography",
+      "question": "What is the capital of Brazil?",
+      "reference": "Brasilia - purpose-built inland and made the capital in 1960.",
+      "submitted": "rio de janeiro",
+      "archetype": "right_category_wrong_fact",
+      "is_math": false,
+      "intended_score": 2,
+      "rationale": "The documented Sydney-for-Canberra case in a fresh instance: a Brazilian city, and the former capital, so it is squarely in the right category but the specific fact asked for is wrong - balanced must score 2 and strict must apply its explicit override to 1, and both map to Forgot so the card is never scheduled as nearly-known.",
+      "gold": 2,
+      "author_intent": 2,
+      "judge_scores": [
+        2,
+        2,
+        2
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "history-geography-07",
+      "subject": "History and geography",
+      "question": "What did the Treaty of Tordesillas do?",
+      "reference": "In 1494 it divided newly discovered lands outside Europe between Spain and Portugal along a north-south line in the Atlantic: Portugal took everything east of it, Spain everything west. That is why Brazil ended up Portuguese-speaking.",
+      "submitted": "thats the one where spain and england carved up the caribbean after the armada, england agreed to leave the sugar islands alone and spain stopped raiding english shipping",
+      "archetype": "confidently_wrong",
+      "is_math": false,
+      "intended_score": 1,
+      "rationale": "Probes the 1 band against fluency: the answer is assured, detailed and well-formed but wrong in every particular (wrong pair of countries, wrong subject matter, wrong century - the Armada was 1588, the treaty 1494), so length and confidence must earn no partial credit.",
+      "gold": 1,
+      "author_intent": 1,
+      "judge_scores": [
+        1,
+        1,
+        1
+      ],
+      "contested": true,
+      "author_agrees": true
+    },
+    {
+      "id": "language-literature-01",
+      "subject": "Literary terms",
+      "question": "What does the literary term \"in medias res\" mean?",
+      "reference": "Starting a story in the middle of the action rather than at the beginning, and filling in the earlier events later.",
+      "submitted": "when the story just dumps u into the middle of stuff thats already happening and you get told the earlier bits afterwards",
+      "archetype": "exact_paraphrase",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes the \"never deduct for not matching the reference's wording\" rule: zero lexical overlap with the reference (no \"middle of the action\", no \"beginning\") but the meaning is complete and correct, so wording-similarity graders should be caught scoring this below 5.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "language-literature-02",
+      "subject": "Literary terms",
+      "question": "What is the term for a word that imitates the sound it describes, like \"buzz\" or \"clang\"?",
+      "reference": "Onomatopoeia.",
+      "submitted": "onomatopoeia",
+      "archetype": "single_word_complete",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes the explicit \"if the question asks what/which/who/where/when, naming the right thing IS the complete answer \u2014 a single word can be a 5\" rule; a grader that wants a definition attached will under-score it.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "language-literature-03",
+      "subject": "Literary terms",
+      "question": "In poetry, what is enjambment?",
+      "reference": "When a line of poetry runs on into the next line without stopping at the line break. Poets use it to push the reader forward and set the sentence's rhythm against the line's, which builds tension.",
+      "submitted": "its when the sentence carries on over the line break instead of ending at the end of the line",
+      "archetype": "reference_detail_not_asked",
+      "is_math": false,
+      "intended_score": 5,
+      "rationale": "Probes \"the question sets the bar, not the reference answer's length\": the question asks only \"what\", while the reference volunteers the poetic effect and mechanism that was never asked for, so omitting it must not cost a point.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "language-literature-04",
+      "subject": "Vocabulary",
+      "question": "What does the word \"laconic\" mean?",
+      "reference": "Using very few words \u2014 terse to the point of sounding blunt.",
+      "submitted": "i think maybe it means using barely any words? like really short and a bit blunt when u talk. not 100% sure tho",
+      "archetype": "hedged_correct",
+      "is_math": false,
+      "intended_score": 4,
+      "rationale": "Probes whether hedging is penalised as imprecision: the content is fully correct so balanced should sit at 4-5 (4 for the wobble), and this is the item that must visibly drop a point only under the strict clause's \"vague or hedged wording drops the score by one\".",
+      "gold": 5,
+      "author_intent": 4,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": true,
+      "author_agrees": false
+    },
+    {
+      "id": "language-literature-05",
+      "subject": "History of English",
+      "question": "Why do English words for farm animals come from Old English while the words for their meat come from French?",
+      "reference": "After the Norman Conquest the English-speaking peasants raised the animals (cow, pig, sheep) while the French-speaking nobility ate the meat at the table (beef, pork, mutton), so each side's vocabulary stuck to its own part of the process.",
+      "submitted": "bc of the norman conquest, the french took over england so loads of french words got into english",
+      "archetype": "partial_missing_half",
+      "is_math": false,
+      "intended_score": 3,
+      "rationale": "Probes the 3 (\"part of what the question asked is missing\") on a genuine \"why\": the student has the French-contact half but not the who-raised-it-versus-who-ate-it split, which is the half that actually explains why the *pairs* divide, so it must not be rescued to a 4.",
+      "gold": 3,
+      "author_intent": 3,
+      "judge_scores": [
+        3,
+        3,
+        3
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "language-literature-06",
+      "subject": "English literature",
+      "question": "Which Shakespeare play is the line \"Brevity is the soul of wit\" from?",
+      "reference": "Hamlet \u2014 Polonius says it in Act 2, ironically, right before rambling on at length.",
+      "submitted": "macbeth",
+      "archetype": "right_category_wrong_fact",
+      "is_math": false,
+      "intended_score": 2,
+      "rationale": "The Sydney-for-Canberra case in literary form: right category (a Shakespeare tragedy), wrong specific item, so balanced must give 2 while the strict clause's explicit override of the 2 must pull it to 1 \u2014 the single best discriminator between strictness clauses.",
+      "gold": 2,
+      "author_intent": 2,
+      "judge_scores": [
+        2,
+        2,
+        2
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "language-literature-07",
+      "subject": "Vocabulary",
+      "question": "What does the word \"penultimate\" mean?",
+      "reference": "Second to last \u2014 the one just before the final one.",
+      "submitted": "the very last one in a series, ultimate but with extra emphasis. so the penultimate episode is the finale",
+      "archetype": "confidently_wrong",
+      "is_math": false,
+      "intended_score": 1,
+      "rationale": "Probes the \"a specific incorrect fact/value is still wrong, not partial credit\" tail of the 1: fluent, assertive, and states the opposite of the correct meaning, so any score of 2-3 here means the grader is rewarding confident tone.",
+      "gold": 2,
+      "author_intent": 1,
+      "judge_scores": [
+        2,
+        2,
+        2
+      ],
+      "contested": true,
+      "author_agrees": false
+    },
+    {
+      "id": "mathematics-01",
+      "subject": "Mathematics",
+      "question": "What is the formula for the sum of the first n positive integers?",
+      "reference": "n(n+1)/2. You can see why by pairing the first term with the last and the second with the second-last: every pair adds to n+1, and there are n/2 pairs.",
+      "submitted": "n(n+1)/2",
+      "archetype": "reference_detail_not_asked",
+      "is_math": true,
+      "intended_score": 5,
+      "rationale": "Probes \"THE QUESTION SETS THE BAR, NOT THE REFERENCE ANSWER'S LENGTH\" - the question asks only what the formula is, the reference volunteers the pairing derivation, so omitting the mechanism must not cost a point.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "mathematics-02",
+      "subject": "Mathematics",
+      "question": "What are the solutions of x^2 - 2 = 0?",
+      "reference": "x = \u00b1\u221a2 - both the positive and the negative root.",
+      "submitted": "x = +/- sqrt(2)",
+      "archetype": "notation_variant",
+      "is_math": true,
+      "intended_score": 5,
+      "rationale": "Probes the math notation clause (\"never mark an answer down for how it was typed\"): \"+/- sqrt(2)\" is phone-keyboard for \u00b1\u221a2 and is mathematically identical, including keeping both roots.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "mathematics-03",
+      "subject": "Mathematics",
+      "question": "What is the name for a whole number greater than 1 whose only divisors are 1 and itself?",
+      "reference": "A prime number - 2, 3, 5, 7, 11 and so on.",
+      "submitted": "prime",
+      "archetype": "single_word_complete",
+      "is_math": true,
+      "intended_score": 5,
+      "rationale": "Probes \"naming the right thing IS the complete answer - a single word can be a 5\" on a what-question; the reference's example list was never requested.",
+      "gold": 5,
+      "author_intent": 5,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "mathematics-04",
+      "subject": "Mathematics",
+      "question": "What does the sign of the discriminant b^2 - 4ac tell you about the roots of a quadratic?",
+      "reference": "Positive means two distinct real roots, zero means one repeated real root, and negative means no real roots (two complex ones).",
+      "submitted": "i think if its positive u get 2 real roots, and if its 0 theres just the one repeated root? negative means no real solutions i think",
+      "archetype": "hedged_correct",
+      "is_math": true,
+      "intended_score": 4,
+      "rationale": "Probes hedging plus phone notation - all three cases are correct, so balanced should land 4-5 (4 here, treating the uncertainty as minor imprecision), lenient should push it to 5, and strict's \"vague or hedged wording drops the score by one\" should pull it to 3.",
+      "gold": 5,
+      "author_intent": 4,
+      "judge_scores": [
+        5,
+        5,
+        5
+      ],
+      "contested": true,
+      "author_agrees": false
+    },
+    {
+      "id": "mathematics-05",
+      "subject": "Mathematics",
+      "question": "Using the limit definition, why is the derivative of x^2 equal to 2x?",
+      "reference": "You form ((x+h)^2 - x^2)/h, which simplifies to (2xh + h^2)/h = 2x + h, then let h -> 0, which leaves 2x.",
+      "submitted": "u put (x+h)^2 - x^2 over h and expand the top so u get 2xh + h^2 over h",
+      "archetype": "partial_missing_half",
+      "is_math": true,
+      "intended_score": 3,
+      "rationale": "Probes the 3 band on a \"why\" question that genuinely asks for mechanism: the setup and expansion are right, but the cancel-h-and-take-the-limit half - the part that actually produces 2x - is missing, so this is partial rather than brief-but-complete.",
+      "gold": 3,
+      "author_intent": 3,
+      "judge_scores": [
+        3,
+        3,
+        3
+      ],
+      "contested": false,
+      "author_agrees": true
+    },
+    {
+      "id": "mathematics-06",
+      "subject": "Mathematics",
+      "question": "Which ancient Greek mathematician is credited with the first proof that there are infinitely many prime numbers?",
+      "reference": "Euclid - the proof appears in Book IX of the Elements.",
+      "submitted": "euler",
+      "archetype": "right_category_wrong_fact",
+      "is_math": true,
+      "intended_score": 2,
+      "rationale": "The documented Sydney-for-Canberra case: a real, famous mathematician (right category) but the wrong one, so 2 on balanced and 1 once strict's \"being in the right category is not partial credit\" override applies - and either way it must map to Forgot.",
+      "gold": 2,
+      "author_intent": 2,
+      "judge_scores": [
+        2,
+        2,
+        2
+      ],
+      "contested": true,
+      "author_agrees": true
+    },
+    {
+      "id": "mathematics-07",
+      "subject": "Mathematics",
+      "question": "Is the set of real numbers countable?",
+      "reference": "No - the reals are uncountable. Cantor's diagonal argument builds a real number that is missing from any proposed list.",
+      "submitted": "yes theyre countable, you just walk along the number line in order the same way you count the integers so every real ends up with a position in the list",
+      "archetype": "confidently_wrong",
+      "is_math": true,
+      "intended_score": 1,
+      "rationale": "Probes the 1 band for a fluent, assured answer that is flatly wrong, and checks that a confident well-phrased \"yes\" on a yes/no card earns no credit for its reasoning-shaped padding.",
+      "gold": 1,
+      "author_intent": 1,
+      "judge_scores": [
+        1,
+        1,
+        1
+      ],
+      "contested": true,
+      "author_agrees": true
+    }
+  ]
+}

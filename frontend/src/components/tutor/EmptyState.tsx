@@ -33,7 +33,7 @@ export default function EmptyState({ nextExam, onPick }: { nextExam: Exam | null
       <div className="flex flex-1 flex-col justify-center">
       <div className="text-[1.5rem] font-bold leading-snug tracking-[-0.02em] lg:text-[1.75rem]">What are we working on?</div>
       <p className="mt-2 max-w-[320px] text-[0.9375rem] leading-[1.55] text-[var(--text-muted)] lg:max-w-[440px]">
-        Type, attach a photo of your notes, or tap the mic and talk. It keeps listening until you tap again.
+        Type, attach or paste a photo of your notes, or tap the mic and talk. It keeps listening until you tap again.
       </p>
       </div>
       {/* Starters as rows, not chips: they are the three things this tutor is actually good at. */}

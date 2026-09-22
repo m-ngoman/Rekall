@@ -45,3 +45,7 @@ frontend/public/sitemap.xml
 design/design-system/.render/
 design/incoming/
 frontend/_plotcheck.html
+
+# Grading-eval run output. The harness, the gold-labelled set and the pinned baseline prompt
+# are kept; what a run produced is regenerable and changes every time.
+backend/evals/results/

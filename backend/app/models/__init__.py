@@ -5,7 +5,14 @@ from app.models.card import Card, CardState
 from app.models.deck import Deck
 from app.models.exam import Exam
 from app.models.feedback import Feedback, FeedbackCategory
-from app.models.memory import MemoryCategory, MemorySource, StudentMemoryNote
+from app.models.memory import (
+    MemoryCategory,
+    MemorySource,
+    StudentMemoryNote,
+    StudentProfile,
+    StudentProfileSuppression,
+    StudentSignal,
+)
 from app.models.note import Note, NoteFileType
 from app.models.page_ledger import TOPUP_PAGES, PageLedger, PageReason
 from app.models.review_log import InputMode, ReviewLog
@@ -35,6 +42,9 @@ __all__ = [
     "TutorPersonality",
     "TutorMessageRole",
     "StudentMemoryNote",
+    "StudentProfile",
+    "StudentProfileSuppression",
+    "StudentSignal",
     "MemoryCategory",
     "MemorySource",
     "StudyListEntry",

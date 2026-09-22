@@ -13,7 +13,19 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Card, CardState, Deck, Exam, MemorySource, StudentMemoryNote, StudyListEntry, TutorPersonality
+from app.config import settings
+from app.models import (
+    Card,
+    CardState,
+    Deck,
+    Exam,
+    MemorySource,
+    StudentMemoryNote,
+    StudentProfile,
+    StudyListEntry,
+    TutorPersonality,
+)
+from app.services import student_profile
 from app.services.exam_status import today_utc
 
 _BASE_PROMPT = """You are a friendly study tutor inside Rekall, a flashcard app. You only discuss the \
@@ -230,16 +242,33 @@ def _exam_context(db: Session, user_id) -> str:
 
 
 def _memory_context(db: Session, user_id) -> str:
-    """Manual and auto notes are listed separately and weighted differently on purpose: the
-    student wrote one set deliberately, the other is a model's inference from a transcript. A
-    tutor that treats a wrong guess as established fact ("you always struggle with X") is worse
-    than one that quietly checks."""
-    notes = db.query(StudentMemoryNote).filter(StudentMemoryNote.user_id == user_id).all()
-    if not notes:
-        return ""
+    """What the student told us, and what the tutor inferred, kept apart and weighted differently.
 
+    The asymmetry is the point and survives the move from notes to a profile: the student wrote
+    one set deliberately, the other is a model's reading of a transcript. A tutor that treats a
+    wrong guess as established fact ("you always struggle with X") is worse than one that quietly
+    checks.
+
+    Two details here are load-bearing and should not be tidied:
+
+    * **The auto block's wording stays hedged.** Framing the same content as things you *noticed*
+      rather than things you *know* measurably reduces how much a model simply agrees with the
+      person it is describing. "What you know about this student" is the tempting rewrite and the
+      wrong one.
+    * **The relevance line.** A profile is not relevant to most turns, and a model handed one
+      tends to reach for it. Saying so costs a sentence.
+
+    Stale lines are filtered out here rather than deleted — see `student_profile.for_prompt`.
+    """
+    notes = db.query(StudentMemoryNote).filter(StudentMemoryNote.user_id == user_id).all()
     manual = [n for n in notes if n.source != MemorySource.auto]
-    auto = [n for n in notes if n.source == MemorySource.auto]
+
+    row = db.query(StudentProfile).filter(StudentProfile.user_id == user_id).one_or_none()
+    profile = (
+        student_profile.for_prompt(row.body, date.today(), settings.profile_stale_days)
+        if row
+        else ""
+    )
 
     blocks = []
     if manual:
@@ -248,12 +277,11 @@ def _memory_context(db: Session, user_id) -> str:
             "reliable, use them to personalize naturally:\n"
             + "\n".join(f"- ({n.category.value}) {n.content}" for n in manual)
         )
-    if auto:
+    if profile:
         blocks.append(
             "\n\nThings you noticed in earlier sessions. These are your own impressions, not facts "
             "the student confirmed — let them shape how you teach, but never state them back as "
-            "certainties or recite them:\n"
-            + "\n".join(f"- ({n.category.value}) {n.content}" for n in auto)
+            "certainties or recite them. This is not relevant to most turns:\n" + profile
         )
     return "".join(blocks)
 

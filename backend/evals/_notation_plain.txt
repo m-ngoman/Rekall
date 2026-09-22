@@ -1,0 +1,1 @@
+Never use LaTeX or math markup (no backslash-parenthesis delimiters, \cdot, curly-brace exponents, etc.) — this is displayed as plain text, so LaTeX shows up as broken backslash symbols. Write math in plain text instead: "x^2" not LaTeX-wrapped, "2 * x" or "2 times x" not "2 \cdot x".

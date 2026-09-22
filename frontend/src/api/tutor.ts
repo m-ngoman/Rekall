@@ -1,11 +1,33 @@
 /** The tutor: sessions, voices, the three kinds of turn, and the tutor's memory notes. */
 
 import type { PlotSpec } from '../lib/plot'
-import type { MemoryCategory, MemoryNote, TutorPersonality, TutorSession, TutorTurnResult, TutorVoice, WordTiming } from '../types'
+import type {
+  MemoryCategory,
+  MemoryNote,
+  StudentProfile,
+  TutorPersonality,
+  TutorSession,
+  TutorSessionStart,
+  TutorTurnResult,
+  TutorVoice,
+  WordTiming,
+} from '../types'
 import { request, streamResult, streamSSE } from './client'
 
-export function createTutorSession(deckId?: string): Promise<TutorSession> {
-  return request('/tutor/sessions', { method: 'POST', body: JSON.stringify({ deck_id: deckId ?? null }) })
+/** Open the tutor: resumes the last conversation if it is still live, otherwise starts one.
+ *
+ * The server decides, not the client — it owns the idle window, and the same window defines a
+ * session for the tutor's memory. Pass `fresh` to skip the lookup and deliberately begin again;
+ * the old conversation is left alone, not deleted. */
+export function startTutorSession(deckId?: string, fresh = false): Promise<TutorSessionStart> {
+  return request('/tutor/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ deck_id: deckId ?? null, fresh }),
+  })
+}
+
+export function deleteTutorSession(sessionId: string): Promise<void> {
+  return request(`/tutor/sessions/${sessionId}`, { method: 'DELETE' })
 }
 
 export function updateTutorSession(
@@ -84,6 +106,17 @@ export function listMemoryNotes(): Promise<MemoryNote[]> {
 
 export function createMemoryNote(category: MemoryCategory, content: string): Promise<MemoryNote> {
   return request('/tutor/memory', { method: 'POST', body: JSON.stringify({ category, content }) })
+}
+
+/** What the tutor has worked out on its own, as opposed to the notes you wrote it. */
+export function getStudentProfile(): Promise<StudentProfile> {
+  return request('/tutor/memory/profile')
+}
+
+/** Removes a line and records that you rejected it, so the next pass cannot re-derive it from the
+ * same evidence. A POST because the line is identified by its text. */
+export function deleteProfileLine(text: string): Promise<void> {
+  return request('/tutor/memory/profile/delete', { method: 'POST', body: JSON.stringify({ text }) })
 }
 
 export function deleteMemoryNote(id: string): Promise<void> {

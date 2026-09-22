@@ -82,6 +82,28 @@ export interface TutorSession {
   voice_id: string | null
 }
 
+/** One stored turn, as the server hands it back when a conversation is resumed.
+ *
+ * Narrower than the screen's own `Message`: attached photos were never persisted, and a graph
+ * survives only as the prose trace the backend appended in its place. */
+export interface TutorMessageOut {
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
+/** What opening the tutor returns — the session plus whatever was already said in it. */
+export interface TutorSessionStart {
+  session: TutorSession
+  messages: TutorMessageOut[]
+  /** False for a brand-new conversation; the screen shows its starters instead of a transcript. */
+  resumed: boolean
+  /** Where compaction has reached, or null if this conversation was never compacted. Turns at
+   * or before it are still shown in full — the tutor just holds them as a summary rather than
+   * word for word. */
+  summarized_through: string | null
+}
+
 export interface TutorVoice {
   id: string
   name: string
@@ -109,6 +131,26 @@ export interface MemoryNote {
   category: MemoryCategory
   content: string
   source: 'manual' | 'auto'
+}
+
+/** One line of the tutor's own profile of you — a recurring pattern, not a fact about one
+ * week's material. Deleted by text rather than id: a line has no stable identity across a
+ * rewrite, and the text is what gets recorded so it cannot be re-derived. */
+export interface ProfileLine {
+  section: string
+  text: string
+  sessions: number
+  /** `YYYY-MM-DD` of the most recent thing that supported this. Parse with parseISODate. */
+  latest: string
+  /** Gone quiet, so it is no longer sent to the tutor. Still kept — if the pattern comes back the
+   * next pass re-dates it and it returns on its own. */
+  stale: boolean
+}
+
+export interface StudentProfile {
+  lines: ProfileLine[]
+  chars: number
+  max_chars: number
 }
 
 export interface GeneratedCard {

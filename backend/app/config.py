@@ -147,9 +147,47 @@ class Settings(BaseSettings):
     # call; 4 keeps a conversation's memory cost near a single grading call while still noticing
     # context early enough to be useful in the same session.
     memory_every_n_turns: int = 4
-    # Ceiling on auto-written notes per user. Every note is injected into every tutor system
-    # prompt, so an unbounded memory file would quietly inflate the cost of every turn forever.
-    memory_auto_max: int = 25
+    # How long a conversation can sit idle before the next visit starts a new one. This single
+    # number does two jobs on purpose, so they cannot drift apart:
+    #   1. whether opening the tutor resumes what you were last saying, or starts fresh;
+    #   2. what counts as one "session" for memory extraction — both the turn counter above, and
+    #      the ≥2-distinct-sessions bar an observation must clear before it is treated as a
+    #      recurring pattern rather than a one-off.
+    # 6 hours puts a morning revision block and an evening one in separate sessions, while a
+    # refresh, a tab switch, lunch and dinner are all the same one. That works out at roughly one
+    # session per study day, which makes the recurrence bar a two-day bar. Shorter (2h) and a
+    # single afternoon could clear it, which is exactly the inflation the bar exists to prevent.
+    tutor_session_idle_hours: int = 6
+
+    # Compaction. A conversation is re-sent in full on every turn, so its cost per turn grows with
+    # its length — and now that a conversation survives a refresh, they get long. Past this many
+    # measured prompt tokens the opening is replaced by a summary of it.
+    #
+    # Measured, not estimated: `prompt_tokens` off the last reply, which is the only number that
+    # knows whether these were terse spoken turns or long typed ones full of LaTeX. 8000 is about
+    # where the prefix stops being cheap to carry and the saving covers the summarising call
+    # several times over on the turns that follow.
+    tutor_compact_at_tokens: int = 8000
+    # Turns kept verbatim after the summary. Enough that the thread of the current exchange is
+    # never summarised out from under a follow-up question like "why?" or "do that again with 12".
+    tutor_compact_keep: int = 16
+    # The auto profile is one document, injected whole into every tutor system prompt, so its size
+    # is a per-turn cost forever. This cap is also the forcing function that produces patterns
+    # instead of a list of incidents: three sections of five lines cannot all be kept, so
+    # something has to merge. ~1500 chars is ~375 tokens.
+    profile_max_chars: int = 1500
+    # Every Nth pass ignores the existing document and rewrites it from the signal log. Summarising
+    # a summary loses nuance monotonically, so reconciling against the evidence periodically caps
+    # how far the document can drift from what actually happened, instead of letting it compound.
+    profile_rebuild_every: int = 25
+    # Signals are evidence, not memory. They are never shown to the tutor and only the most recent
+    # handful reach the extractor, so they cost nothing at rest — but they should not accumulate
+    # forever either. Long enough that a rebuild still sees a whole term.
+    signal_retention_days: int = 180
+    # A profile line whose most recent supporting signal is older than this stops being injected.
+    # Models are measurably bad at noticing that something stopped being true, so staleness is
+    # handled structurally rather than asked for in the prompt.
+    profile_stale_days: int = 60
 
     # "local": a general instruct model doing grading + teaching-quality explanation in one
     # streamed call. Prometheus is a rubric *critic*, not a tutor — it explains wrong answers with

@@ -7,12 +7,15 @@ and what arrives with it (typed text and a photo, uploaded audio, or text transc
 
 import uuid
 from collections.abc import Generator
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
+from app.config import settings
 from app.core.auth import current_user_or_none, get_current_user
 from app.core.entitlements import charge_voice, credits_for_stt, require_text_ai, require_voice
 from app.core.fields import clean_optional
@@ -21,12 +24,20 @@ from app.core.settings_store import get_settings_row, require_ai
 from app.core.sse import sse_event, sse_response
 from app.core.usage import record
 from app.db import SessionLocal, get_db
-from app.models import CreditReason, TutorSession, UsageEventType, User
-from app.schemas import TutorSessionCreate, TutorSessionOut, TutorSessionUpdate, TutorVoiceOut, VoiceTurnTextRequest
+from app.models import CreditReason, TutorMessage, TutorSession, UsageEventType, User
+from app.schemas import (
+    TutorMessageOut,
+    TutorSessionCreate,
+    TutorSessionOut,
+    TutorSessionStart,
+    TutorSessionUpdate,
+    TutorVoiceOut,
+    VoiceTurnTextRequest,
+)
 from app.services.live_stt import relay as relay_live_stt
 from app.services.stt import transcribe
 from app.services.tts import list_voices
-from app.services.tutor_reply import REPLY_FAILED, stream_reply
+from app.services.tutor_reply import REPLY_FAILED, history_window, stream_reply
 
 router = APIRouter(prefix="/api/tutor", tags=["tutor"])
 
@@ -61,14 +72,98 @@ def _require_voice_tutor(db: Session, user: User) -> None:
     require_voice(db, user)
 
 
-@router.post("/sessions", response_model=TutorSessionOut)
-def create_session(request: Request, payload: TutorSessionCreate, db: Session = Depends(get_db)) -> TutorSessionOut:
-    """A new conversation starts from the user's saved tutor defaults, so the voice and personality
-    you last chose are the ones you get — on whatever device you open next.
+def _resumable(
+    candidates: list[tuple[uuid.UUID, datetime]], cutoff: datetime
+) -> uuid.UUID | None:
+    """Pick the conversation to carry on with, or None to start a new one.
 
-    The values are still copied onto the session rather than read through it at inference time: a
-    conversation should keep the personality it was actually held in, even if the default changes
-    afterwards. Changing the default shouldn't retroactively rewrite old transcripts' character.
+    Pure, and separated from the query for that reason: this is the only real decision in the
+    resume path, it governs both what the student sees and what counts as a session for memory
+    extraction, and it is worth testing without a database.
+
+    `candidates` is (session_id, last_activity), last_activity being the most recent message or,
+    for a session nobody has spoken in yet, the session's own creation time.
+    """
+    live = [(sid, seen) for sid, seen in candidates if seen >= cutoff]
+    if not live:
+        return None
+    return max(live, key=lambda pair: pair[1])[0]
+
+
+def _session_candidates(db: Session, user_id: uuid.UUID, deck_id: uuid.UUID | None) -> list[tuple[uuid.UUID, datetime]]:
+    """(session_id, last_activity) for this user's conversations.
+
+    `TutorSession.updated_at` looks like the obvious column and is the wrong one: its
+    `onupdate=func.now()` fires on an UPDATE of the session row, and writing a message doesn't
+    touch that row. It therefore equals `created_at` for the whole life of a normal conversation.
+    The honest key is the newest message, falling back to the session's own creation time so a
+    session nobody has spoken in yet is still resumable — which is what stops a fresh visit
+    minting a second empty row next to the one it just made.
+    """
+    newest = func.max(TutorMessage.created_at)
+    rows = (
+        db.query(TutorSession.id, func.coalesce(newest, TutorSession.created_at))
+        .outerjoin(TutorMessage, TutorMessage.session_id == TutorSession.id)
+        .filter(TutorSession.user_id == user_id, TutorSession.deck_id == deck_id)
+        .group_by(TutorSession.id)
+        .all()
+    )
+    return [(sid, seen) for sid, seen in rows]
+
+
+def _purge_empty_sessions(db: Session, user_id: uuid.UUID, cutoff: datetime) -> None:
+    """Drop this user's conversations that were opened and never spoken in.
+
+    Until sessions were resumable the frontend minted one on every mount, so a row accumulated per
+    page visit forever. Cleaning up on the way in keeps that from coming back without adding a
+    scheduler to an app that has none.
+
+    Bounded on `created_at` rather than deleting every empty session: a second tab that opened
+    ten seconds ago also has no messages, and deleting it out from under itself would be a
+    genuinely confusing bug. Nothing with a message in it is ever touched.
+    """
+    empty = (
+        db.query(TutorSession.id)
+        .outerjoin(TutorMessage, TutorMessage.session_id == TutorSession.id)
+        .filter(TutorSession.user_id == user_id, TutorSession.created_at < cutoff)
+        .group_by(TutorSession.id)
+        .having(func.count(TutorMessage.id) == 0)
+        .all()
+    )
+    ids = [row[0] for row in empty]
+    if ids:
+        db.query(TutorSession).filter(TutorSession.id.in_(ids)).delete(synchronize_session=False)
+
+
+def _transcript(history: list[TutorMessage]) -> list[TutorMessageOut]:
+    """The stored turns, trimmed to exactly what the model is given.
+
+    Deliberately routed through `history_window` rather than a display cap of its own. Past
+    `HISTORY_MAX` messages the tutor only sees the last stretch of the conversation, and showing the student
+    more than that would let them point at something on screen that the tutor provably cannot
+    read. One function, so the two can never disagree.
+    """
+    return [
+        TutorMessageOut(role=m.role, content=m.content, created_at=m.created_at)
+        for m in history_window(history)
+    ]
+
+
+@router.post("/sessions", response_model=TutorSessionStart)
+def start_session(request: Request, payload: TutorSessionCreate, db: Session = Depends(get_db)) -> TutorSessionStart:
+    """Open the tutor: carry on the last conversation if it is still live, otherwise start one.
+
+    "Still live" is `settings.tutor_session_idle_hours` since the last thing anyone said. The same
+    window defines a session for memory extraction, so a refresh or a tab switch no longer resets
+    the turn counter — which it did on every page visit, meaning short visits triggered no memory
+    pass at all.
+
+    A new conversation starts from the user's saved tutor defaults, so the voice and personality
+    you last chose are the ones you get — on whatever device you open next. The values are copied
+    onto the session rather than read through it at inference time: a conversation should keep the
+    personality it was actually held in, even if the default changes afterwards. Resuming honours
+    that literally, so changing the default in Settings only takes effect on the next
+    conversation; the composer's own picker is the way to change it mid-conversation.
     """
     user = get_current_user(request, db)
     require_ai(db, user.id, "tutor")
@@ -77,6 +172,23 @@ def create_session(request: Request, payload: TutorSessionCreate, db: Session = 
     # and someone else's deck was accepted, grounding the conversation in cards that aren't yours.
     if payload.deck_id is not None:
         get_owned_deck(db, payload.deck_id, user.id)
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=settings.tutor_session_idle_hours)
+    _purge_empty_sessions(db, user.id, cutoff)
+
+    resumed_id = None if payload.fresh else _resumable(_session_candidates(db, user.id, payload.deck_id), cutoff)
+    if resumed_id is not None:
+        session = _get_session(db, resumed_id, user.id)
+        db.commit()  # the purge above
+        history = list(session.messages)
+        return TutorSessionStart(
+            session=_session_out(session),
+            messages=_transcript(history),
+            resumed=bool(history),
+            summarized_through=session.summarized_through if session.summary else None,
+        )
+
     prefs = get_settings_row(db, user.id)
     session = TutorSession(
         user_id=user.id,
@@ -88,7 +200,21 @@ def create_session(request: Request, payload: TutorSessionCreate, db: Session = 
     db.add(session)
     db.commit()
     db.refresh(session)
-    return _session_out(session)
+    return TutorSessionStart(session=_session_out(session), messages=[], resumed=False)
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+def delete_session(request: Request, session_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
+    """Delete a conversation and everything said in it.
+
+    Until this existed the privacy policy's "kept until you delete it" was not true of tutor
+    conversations — there was no way to delete one. Messages go with it via the
+    `cascade="all, delete-orphan"` on `TutorSession.messages`.
+    """
+    user = get_current_user(request, db)
+    session = _get_session(db, session_id, user.id)
+    db.delete(session)
+    db.commit()
 
 
 @router.patch("/sessions/{session_id}", response_model=TutorSessionOut)

@@ -423,7 +423,9 @@ def _run_turn(monkeypatch, reply: str, synth: bool) -> str:
     for name in ("record", "schedule_if_due", "compact_if_due", "charge_voice"):
         monkeypatch.setattr(tutor, name, noop, raising=False)
 
-    session = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), voice_id=None, last_prompt_tokens=None)
+    session = SimpleNamespace(
+        id=uuid.uuid4(), user_id=uuid.uuid4(), voice_id=None, last_prompt_tokens=None, summary=None, summarized_through=None
+    )
     list(tutor.stream_reply(Database(), session, "Show me x squared.", synth=synth))
     [message] = [row for row in stored if row.role == TutorMessageRole.assistant]
     return message.content

@@ -1,0 +1,1 @@
+This card is rendered as maths, so write any notation as LaTeX between single dollar signs: "the derivative is $2x$". Keep the prose around it plain. The student is typing on a phone keyboard and may write "sqrt(2)", "x^2", or unicode like √ and π — treat those as equivalent to the same maths properly written, and never mark an answer down for how it was typed.

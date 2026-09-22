@@ -287,7 +287,7 @@ def test_an_unpaid_account_uploads_without_transcription(client, monkeypatch) ->
 
 
 def session(client) -> str:
-    return client.post("/api/tutor/sessions", json={}).json()["id"]
+    return client.post("/api/tutor/sessions", json={}).json()["session"]["id"]
 
 
 def test_a_typed_turn_streams_tokens_and_a_plot_and_stores_a_trace(client) -> None:
