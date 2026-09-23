@@ -153,6 +153,15 @@ def main() -> None:
     key = load_key(env)
     variants = [v.strip() for v in args.variants.split(",") if v.strip()]
 
+    # Every setting that changes what the model is asked, recorded in the file itself. Results that
+    # don't say which budget or reasoning switch produced them can't be checked later — the first
+    # batch of these was named for a plan ("shipped") that the numbers inside went on to overturn.
+    header = {
+        "model": model,
+        "strictness": args.strictness,
+        "reasoning_field_sent": "enabled:false" if args.no_reasoning else "none (provider default)",
+        "max_tokens": args.max_tokens,
+    }
     results = []
     out = HERE / out_name
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -171,12 +180,9 @@ def main() -> None:
             errs = sum(1 for r in block if r.get("error"))
             print(f"  {time.monotonic()-t0:.1f}s | prompt_tokens {ptok} | cached {cached} "
                   f"| cache-hit calls {hits}/{len(block)} | errors {errs}", flush=True)
-            out.write_text(json.dumps({"model": model, "strictness": args.strictness,
-                                       "reasoning": not args.no_reasoning,
-                                       "results": results}, indent=2))
+            out.write_text(json.dumps({**header, "results": results}, indent=2))
 
-    out.write_text(json.dumps({"model": model, "strictness": args.strictness,
-                               "reasoning": not args.no_reasoning, "results": results}, indent=2))
+    out.write_text(json.dumps({**header, "results": results}, indent=2))
     print(f"\nwrote {out}")
 
 
