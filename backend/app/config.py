@@ -137,6 +137,27 @@ class Settings(BaseSettings):
     # OpenRouter's `reasoning` field, which it maps to each provider's own switch; note that
     # `reasoning.max_tokens: 0` is NOT an off switch (tested: it still thought).
     tutor_reasoning: bool = False
+    # How hard the tutor thinks, when set: "minimal", "low", "medium" or "high", sent as OpenRouter's
+    # `reasoning.effort` with the thinking itself kept out of the stream. Empty leaves
+    # `tutor_reasoning` in charge — what production runs. Measured 2026-09-23 on GPT-6 Luna: with
+    # reasoning off it repeated its whole reply, marker and all, on ~8% of exam offers, sometimes
+    # with scraps of its own output format between the copies; any effort took that to 0 in over a
+    # thousand replies and got more graphs onto the screen (84% -> 94%). The price is the wait:
+    # "minimal" put the first word about where Sonnet 5's is (typed ~1.7-2.2s, first spoken
+    # sentence ~2.1s) against ~1.0s with it off.
+    tutor_reasoning_effort: str = ""
+
+    @field_validator("tutor_reasoning_effort", mode="before")
+    @classmethod
+    def _known_effort(cls, value):
+        # Blank, "none" and "off" mean unset. Anything else unknown fails at startup: a typo here
+        # would otherwise reach the provider on every turn and be refused there, one reply at a time.
+        text = "" if value is None else str(value).strip().lower()
+        if text in {"", "none", "off"}:
+            return ""
+        if text not in {"minimal", "low", "medium", "high"}:
+            raise ValueError(f"TUTOR_REASONING_EFFORT must be minimal, low, medium or high, not {value!r}")
+        return text
     ollama_tutor_model: str = "qwen2.5:7b"  # only used when tutor_provider == "ollama"
 
     # Automatic tutor memory — see app/services/memory_extraction.py. Deliberately a cheaper model

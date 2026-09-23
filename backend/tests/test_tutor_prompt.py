@@ -160,3 +160,13 @@ def test_the_table_crosses_new_year_in_the_right_year() -> None:
     rows = _table(date(2026, 12, 30))
     assert ("Friday", "2027-01-01", "this week") in [(d, iso, tag) for _, d, iso, tag in rows]
     assert ("Monday", "2027-01-04", "next week") in [(d, iso, tag) for _, d, iso, tag in rows]
+
+
+def test_the_longer_typed_explanations_stay_off_voice_turns() -> None:
+    """Typed turns may take three to six sentences and must give the reason; a voice turn keeps its
+    one or two, because every extra sentence is time the student spends listening. Measured with the
+    typed wording in place: spoken replies unchanged, a nine-word opener and about 29 words."""
+    from app.services.tutor_prompt import _SPOKEN_PROMPT, _TYPED_PROMPT
+
+    assert "three to six" in _TYPED_PROMPT and "give the reason too" in _TYPED_PROMPT
+    assert "three to six" not in _SPOKEN_PROMPT and "give the reason too" not in _SPOKEN_PROMPT

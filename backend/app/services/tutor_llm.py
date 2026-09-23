@@ -78,6 +78,20 @@ def _stream_ollama(messages: list[dict]) -> Iterator[str]:
     )
 
 
+def _reasoning() -> dict:
+    """The request's `reasoning` field. See config.tutor_reasoning and tutor_reasoning_effort for
+    the measurements behind each.
+
+    An effort, when set, wins, and its thinking is excluded from the stream: the student gets the
+    answer, never the working-out. Otherwise thinking is switched off outright, or — when
+    `tutor_reasoning` is on — the field is omitted rather than sent as `enabled: true`, so the
+    provider's own default applies and nothing here has to know what that is.
+    """
+    if settings.tutor_reasoning_effort:
+        return {"reasoning": {"effort": settings.tutor_reasoning_effort, "exclude": True}}
+    return {} if settings.tutor_reasoning else {"reasoning": {"enabled": False}}
+
+
 def _stream_openrouter(messages: list[dict], on_usage: Callable[[dict], None] | None = None) -> Iterator[str]:
     model = settings.openrouter_model
     return stream_openrouter(
@@ -88,10 +102,8 @@ def _stream_openrouter(messages: list[dict], on_usage: Callable[[dict], None] | 
             # Cache hits and writes come back on the final chunk; without this the usage block is
             # omitted from a stream entirely and there is no way to tell whether caching worked.
             "stream_options": {"include_usage": True},
-            # Thinking is the wait before the first word — see config.tutor_reasoning for the
-            # measurement. Omitted rather than sent as `enabled: true` when it is on, so the
-            # provider's own default applies and nothing here has to know what that is.
-            **({} if settings.tutor_reasoning else {"reasoning": {"enabled": False}}),
+            # Thinking is the wait before the first word — see `_reasoning`.
+            **_reasoning(),
         },
         headers=bearer(settings.openrouter_api_key),
         timeout=60.0,
