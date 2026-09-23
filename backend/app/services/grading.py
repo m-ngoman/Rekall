@@ -315,6 +315,54 @@ Output format exactly, nothing else — the feedback text, then the score on its
 <feedback text>
 ###SCORE: <1-5>"""
 
+# What CloudGrader sends. Byte-for-byte the `E_slim` variant from backend/evals/prompts.py, which
+# is what the accuracy figures in CloudGrader's docstring were measured against — so it is not a
+# prompt to tidy. Any edit, however sensible, is an unmeasured prompt: re-run the evals against
+# the new text before shipping it, then update the hash pinned in test_grading_prompts.py.
+#
+# LocalLLMGrader keeps `_LOCAL_PROMPT` untouched. Its Good/Bad scaffolding and slot markers were
+# written to hold a 7B local model to a house style, nothing here measured whether that model
+# still needs them, and the local path is not what production runs.
+_CLOUD_PROMPT = r"""You are grading a flashcard answer for a spaced-repetition study app.
+
+Write TO the student, as "you" — never "the student", "the response" or "the submission", and
+never narrate what the answer did. Talk to the person who wrote it.
+
+FIRST decide whether the answer is right. A paraphrase IS right: if it means the same thing in
+different words, or is a shorter way of saying it, that is full marks. Only once you have decided
+it is genuinely wrong may you correct anything. When it is right, confirm and stop — never hunt
+for something to correct.
+
+THE QUESTION SETS THE BAR, NOT THE REFERENCE ANSWER'S LENGTH. The reference is one good way to
+answer and often carries more detail than the question asked for.
+- If the question asks what/which/who/where/when, naming the right thing IS the complete answer. A single word can be a 5.
+- Only require mechanism or reasoning when the question asks for it — "why", "how", "explain", "describe".
+- Never deduct for brevity, for omitting detail the question didn't request, or for wording that differs from the reference.
+
+Grade on a 1-5 scale:
+5 = answers what the question asked, correctly
+4 = answers it correctly with only minor imprecision
+3 = partially answers it — part of what the question asked is missing or unclear
+2 = names something related, but what the question asked for is factually wrong
+1 = wrong, blank, unrelated, or saying they don't know — a specific incorrect fact is wrong, not partial credit
+
+If the grade is 4-5: ONE short sentence of confirmation.
+If the grade is 1-3: 2-3 short sentences that actually teach — explain the correct reasoning, not
+just that the answer was "incomplete". Name what they wrote, then correct it.
+
+Output format exactly, nothing else — the feedback text, then the score on its own line:
+<feedback text>
+###SCORE: <1-5>
+
+--- THE CARD TO GRADE ---
+{notation}{strictness}
+
+Question: {question}
+Reference answer: {reference}
+Student's answer: {submitted}
+
+Reply with the feedback text, then "###SCORE: <1-5>" on its own line. Nothing else."""
+
 # Saying you don't know still gets taught, it just doesn't get graded by a model.
 #
 # The grade stays a code decision for the reason recorded at _DONT_KNOW: the model repeatedly
@@ -448,6 +496,11 @@ class _RubricGrader:
     prompt, the holdback and the score mapping are defined once, here, for both.
     """
 
+    #: The rubric template. Each transport's grader names its own: the local model keeps the
+    #: scaffolded `_LOCAL_PROMPT`, the hosted one sends the measured `_CLOUD_PROMPT`. Both end in
+    #: the same output contract, which is the part this class parses.
+    _prompt: str = _LOCAL_PROMPT
+
     def _tokens(self, prompt: str, *, temperature: float, max_tokens: int) -> Iterator[str]:
         raise NotImplementedError
 
@@ -460,7 +513,7 @@ class _RubricGrader:
             yield from _explain_only(teach, question, reference_answer, math)
             return
 
-        prompt = _LOCAL_PROMPT.format(
+        prompt = self._prompt.format(
             question=question,
             reference=reference_answer.strip(),
             submitted=submitted,
@@ -517,14 +570,38 @@ class LocalLLMGrader(_RubricGrader):
 
 
 class CloudGrader(_RubricGrader):
-    """The same rubric, run on a hosted model via OpenRouter.
+    """The same scale and rules as LocalLLMGrader, on a hosted model via OpenRouter — but no longer
+    the same prompt.
 
-    Deliberately shares `_LOCAL_PROMPT` rather than owning a copy. That prompt carries a lot of
-    hard-won scaffolding — the scope rule, the grade-banded voice examples, the slot markers — and
-    two divergent copies would mean fixing every future grading bug twice. The scaffolding is
-    heavier than a hosted model strictly needs, which costs a few hundred cached input tokens and
-    buys one definition of what grading means.
+    It used to share `_LOCAL_PROMPT` on purpose. The reasoning was that the scaffolding in it — the
+    grade-banded voice examples, the slot markers — was merely heavier than a hosted model needed,
+    costing "a few hundred cached input tokens" in exchange for one definition of what grading
+    means. Measured against 42 gold-labelled cards (backend/evals/), both halves of that were
+    wrong:
+
+    - The tokens were never cached. The old prompt interpolates the card about 480 tokens in, under
+      the provider's minimum, and hit the cache on 0 of 24 calls; even variants long enough to cache
+      hit only 4.2% through OpenRouter. The scaffolding was paid at full price on every grade.
+    - The scaffolding is not neutral. Written to hold a small local model to a house style, it tips
+      a hosted model into leniency: on answers that give half of what the question asked, it
+      over-scored by more than a full grade on average (+1.17 to +1.50 across three runs) — "yes,
+      you've got it" for half a causal chain — and FSRS then scheduled the card on a grade it had
+      not earned.
+
+    `_CLOUD_PROMPT` is the variant that fixed it. The robust result is that last one: the
+    half-answer error fell to +0.33 in all three runs. Headline agreement moved too, less steadily —
+    86-88% exact against 76-83% — on 39% fewer input tokens. It keeps the paraphrase rule, the
+    question-sets-the-bar rule, the scale, the feedback banding and the output contract, and drops
+    the style scaffolding. Two things it does not carry over: "list three" is gone from the
+    question words that demand detail, and it was only ever measured at balanced strictness — the
+    evals have no gold labels for strict or lenient.
+
+    The price of two copies is the one the old docstring named: a change to what grading *means*
+    now has to be made in both. The part that cannot drift is the output contract, because both are
+    parsed by the same `_LOCAL_RESULT_RE` — test_grading_prompts.py pins it in both.
     """
+
+    _prompt = _CLOUD_PROMPT
 
     def __init__(self, api_key: str, model: str):
         self._api_key = api_key
