@@ -89,16 +89,27 @@ def stream_openrouter(
     headers: dict[str, str],
     timeout: float,
     on_usage: Callable[[dict], None] | None = None,
+    on_finish: Callable[[str | None], None] | None = None,
 ) -> Iterator[str]:
     """A streamed chat completion, as its text pieces. `on_usage` is handed the usage block, which
-    a stream only carries when the body asks for it with `stream_options.include_usage`."""
+    a stream only carries when the body asks for it with `stream_options.include_usage`.
+
+    `on_finish` is handed the last finish reason the stream carried, or None if it carried none,
+    once the stream has been read to the end. "length" is the one callers act on: the reply was
+    cut off by `max_tokens`, which from the text alone looks like a reply that simply stopped.
+    """
+    finish_reason: str | None = None
     with httpx.stream("POST", OPENROUTER_CHAT_URL, headers=headers, json=body, timeout=timeout) as response:
         response.raise_for_status()
         for chunk in sse_data(response.iter_lines()):
             if on_usage and (usage := chunk.get("usage")):
                 on_usage(usage)
+            if choices := chunk.get("choices"):
+                finish_reason = choices[0].get("finish_reason") or finish_reason
             if piece := _delta_text(chunk):
                 yield piece
+    if on_finish:
+        on_finish(finish_reason)
 
 
 def post_openrouter(body: dict, *, headers: dict[str, str], timeout: float) -> dict:

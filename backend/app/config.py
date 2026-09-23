@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +33,35 @@ class Settings(BaseSettings):
     # 0.47-4.01s across three runs — a four-second worst case is disqualifying for something that
     # sits between answering a card and seeing the result.
     cloud_grading_model: str = "google/gemini-2.5-flash"
+    # Whether a hosted grader thinks before answering. `None` — the default — sends nothing and
+    # leaves it to the provider at a 250-token budget, which is exactly what production already sent
+    # and what was measured: on Gemini 2.5 Flash, forcing thinking off never beat it and giving it
+    # more room only made it slower (see CloudGrader._body).
+    #
+    # SET THIS before pointing `cloud_grading_model` at a model that thinks by default. `False`
+    # switches thinking off; `True` forces it on and gives it room of its own (unmeasured — run
+    # backend/evals first). Left unset, such a model spends the answer's budget thinking and
+    # truncates the score marker, which grades the card 3. Measured on GPT-6 Luna, which thinking
+    # also took from ~1.1s to ~2.3s median (Gemini is ~0.8s), on a screen where the student waits.
+    #
+    # Blank, "none", "null", "default" and "auto" all mean unset — see the validator below.
+    grading_reasoning: bool | None = None
+
+    @field_validator("grading_reasoning", mode="before")
+    @classmethod
+    def _unset_means_default(cls, value):
+        """Every natural way of writing "leave it to the provider" means exactly that.
+
+        This is the one three-state setting where the *unset* state is the one you most want back,
+        and without this the only way to get it is to delete the line. Writing it blank, or as
+        `none`, fails bool parsing in `Settings()` at import — and production's unit restarts on
+        failure, so a well-meant edit would crash-loop the site rather than restore the default.
+        """
+        if value is None:
+            return None
+        if isinstance(value, str) and value.strip().lower() in {"", "none", "null", "default", "auto"}:
+            return None
+        return value
     ollama_base_url: str = "http://127.0.0.1:11434"
 
     # STT: Deepgram (cloud, real-time websocket, nova-3) is the default as of the live-

@@ -182,6 +182,13 @@ _RESULT_RE = re.compile(r"\[RESULT\]\s*\(?(\d)\)?")
 # genuine content. About twice the marker's length, so it is held however the chunks fall.
 _HOLDBACK_CHARS = 24
 
+# Room a hosted grader gets on top of its answer budget when thinking is forced on — see
+# CloudGrader._body. Sized from GPT-6 Luna at default effort, the heaviest thinker measured: its
+# completion tokens peaked at 445 across 84 gradings, so the answer's 250 plus this leaves well
+# over twice what was seen. Not added by default: on Gemini it bought no accuracy and every run
+# was slower.
+_REASONING_HEADROOM_TOKENS = 1000
+
 
 class PrometheusGrader:
     """Judges with Prometheus 2 (prometheus-eval/prometheus-7b-v2.0-GGUF), then restyles the
@@ -501,6 +508,11 @@ class _RubricGrader:
     #: the same output contract, which is the part this class parses.
     _prompt: str = _LOCAL_PROMPT
 
+    #: How the transport's last reply ended, when it says: "length" means `max_tokens` cut it off.
+    #: Only the hosted grader's transport reports one; Ollama's leaves it None.
+    _finish_reason: str | None = None
+    _model: str = ""
+
     def _tokens(self, prompt: str, *, temperature: float, max_tokens: int) -> Iterator[str]:
         raise NotImplementedError
 
@@ -511,6 +523,9 @@ class _RubricGrader:
         if _is_dont_know(submitted):
             teach = partial(self._tokens, temperature=0.3, max_tokens=220)
             yield from _explain_only(teach, question, reference_answer, math)
+            if self._finish_reason == "length":
+                # The student sees an explanation that stops mid-sentence; nothing else would say why.
+                logger.warning("don't-know explanation hit its token budget (model=%s)", self._model)
             return
 
         prompt = self._prompt.format(
@@ -540,6 +555,18 @@ class _RubricGrader:
         if explanation_end > sent_len:
             yield cleaned[sent_len:explanation_end]
 
+        if match is None:
+            # Still a 3 for the student — a grade has to come back — but no longer a silent one.
+            # A missing marker means the reply was truncated (finish_reason "length": the budget
+            # ran out, usually on reasoning) or the model ignored the output contract, and either
+            # way every card it touches is graded "Hard" regardless of the answer. That is invisible
+            # from the review screen and from the scores, so the log is the only place it can show.
+            logger.warning(
+                "grading reply had no ###SCORE marker, scored it 3 (model=%s, finish_reason=%s, %d chars)",
+                self._model,
+                self._finish_reason,
+                len(cleaned),
+            )
         score = min(5, max(1, int(match.group(1)))) if match else 3
         explanation = cleaned[:explanation_end].strip()
         yield GradeResult(grade=_strictness_mapping(strictness)[score], explanation=explanation, score=score)
@@ -607,18 +634,55 @@ class CloudGrader(_RubricGrader):
         self._api_key = api_key
         self._model = model
 
+    def _body(self, prompt: str, *, answer_tokens: int, temperature: float) -> dict:
+        """The request, with the token budget and the reasoning switch decided in one place.
+
+        The failure this guards against: a reasoning model draws its thinking from the same
+        `max_tokens` as its answer, and the score marker is the answer's last line. Give it a budget
+        sized for the answer alone and the thinking spends it, the marker is the first thing cut,
+        and the parser scores the card 3 without a word. Measured on GPT-6 Luna at its default
+        effort with a 250 cap, 5 of 84 replies lost their marker to truncation and 3 of those came
+        back with no visible text at all; a run with a 900 cap showed 12 of 84 had needed more than
+        250.
+
+        Two obvious-looking fixes were measured on Gemini 2.5 Flash with the shipped prompt, and
+        neither earned its place:
+
+        - Forcing thinking off (`reasoning.enabled: false`) never beat the default: 83.3-85.7% exact
+          across four runs, where the default has scored 85.7-88.1%.
+        - Always adding headroom for thinking bought no accuracy, and every one of four runs was
+          slower (median 0.76s to 0.88s). Why is not established.
+
+        So the default is exactly what production already sent and what was measured: nothing about
+        reasoning, 250 tokens, the provider's own behaviour. `grading_reasoning` is the override for
+        a model where that is the wrong trade — `False` switches thinking off, `True` forces it on
+        and gives it room of its own (unmeasured; evaluate before relying on it). Moving grading to
+        a model that thinks by default without setting one is guarded twice more: the truncation is
+        logged in grade_stream, and backend/evals reports it as `fmt` before a model reaches
+        production — which is how it was found.
+        """
+        body: dict = {
+            "model": self._model,
+            "stream": True,
+            "max_tokens": answer_tokens + (_REASONING_HEADROOM_TOKENS if settings.grading_reasoning else 0),
+            "temperature": temperature,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if settings.grading_reasoning is not None:
+            body["reasoning"] = {"enabled": settings.grading_reasoning}
+        return body
+
     def _tokens(self, prompt: str, *, temperature: float, max_tokens: int) -> Iterator[str]:
+        self._finish_reason = None
         return stream_openrouter(
-            {
-                "model": self._model,
-                "stream": True,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "messages": [{"role": "user", "content": prompt}],
-            },
+            self._body(prompt, answer_tokens=max_tokens, temperature=temperature),
             headers={**bearer(self._api_key), "Content-Type": "application/json"},
             timeout=60.0,
+            on_finish=self._record_finish,
         )
+
+    def _record_finish(self, reason: str | None) -> None:
+        self._finish_reason = reason
 
 
 def get_grader(prefer_cloud: bool | None = None) -> Grader:

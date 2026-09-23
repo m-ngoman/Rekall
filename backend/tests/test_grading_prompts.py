@@ -17,13 +17,15 @@ import re
 
 import pytest
 
-from app.services import grading, llm_http
+from app.config import Settings, settings
+from app.services import llm_http
 from app.services.grading import (
     _CLOUD_PROMPT,
     _LOCAL_PROMPT,
     _LOCAL_RESULT_RE,
     _NOTATION_MATH,
     _NOTATION_PLAIN,
+    _REASONING_HEADROOM_TOKENS,
     _STRICTNESS_CLAUSES,
     CloudGrader,
     LocalLLMGrader,
@@ -153,6 +155,31 @@ def test_the_prompt_renders_every_field_for_every_setting(strictness: str, math:
     assert _STRICTNESS_CLAUSES[strictness] in rendered
 
 
+# ---- the setting ---------------------------------------------------------------------------
+
+
+def test_the_shipped_default_leaves_reasoning_to_the_provider() -> None:
+    """Read from the class, not from the monkeypatched instance every other test uses — so this is
+    the one that fails if someone "tidies" the default to False. Measured: that was never better on
+    Gemini, and it is not what production sent before this change."""
+    assert Settings.model_fields["grading_reasoning"].default is None
+
+
+@pytest.mark.parametrize("value", ["", "  ", "none", "None", "NULL", "default", "auto"])
+def test_every_way_of_writing_unset_means_unset(monkeypatch, value) -> None:
+    """Without the validator each of these fails bool parsing when Settings() is built at import,
+    and production's unit restarts on failure — so writing the natural thing to mean "default"
+    would crash-loop the site instead of restoring it."""
+    monkeypatch.setenv("GRADING_REASONING", value)
+    assert Settings(_env_file=None).grading_reasoning is None
+
+
+@pytest.mark.parametrize("value,expected", [("true", True), ("false", False), ("1", True), ("off", False)])
+def test_real_values_still_parse(monkeypatch, value, expected) -> None:
+    monkeypatch.setenv("GRADING_REASONING", value)
+    assert Settings(_env_file=None).grading_reasoning is expected
+
+
 # ---- the request ---------------------------------------------------------------------------
 
 
@@ -162,6 +189,7 @@ def test_the_default_request_is_exactly_what_was_measured(sent, monkeypatch, str
     """The whole body, compared as a whole — so a dropped "stream", a changed temperature, a
     hard-coded model or an extra key all fail here. Only the prompt text changed from what
     production sent before; everything else is byte-for-byte the old request."""
+    monkeypatch.setattr(settings, "grading_reasoning", None)
     _grade(_grader(), "  What is 2+2? ", " 4 ", "  four  ", strictness=strictness, math=math)
 
     assert sent.bodies == [
@@ -173,6 +201,62 @@ def test_the_default_request_is_exactly_what_was_measured(sent, monkeypatch, str
             "messages": [{"role": "user", "content": _rendered("  What is 2+2? ", " 4 ", "  four  ", strictness, math)}],
         }
     ]
+
+
+def test_the_default_explanation_request_is_unchanged(sent, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "grading_reasoning", None)
+    sent.reply["lines"] = _sse("Mitochondria make ATP, which is why they're called the powerhouse.")
+    _grade(_grader(), "What makes ATP?", "mitochondria", "i don't know")
+
+    body = sent.bodies[0]
+    assert set(body) == {"model", "stream", "max_tokens", "temperature", "messages"}
+    assert body["max_tokens"] == 220
+    assert body["temperature"] == 0.3
+    assert body["stream"] is True
+
+
+@pytest.mark.parametrize("switch", [None, False])
+def test_without_forced_thinking_the_budget_is_what_was_measured(sent, monkeypatch, switch) -> None:
+    """250, exactly as measured. Headroom looked like free insurance and wasn't: on Gemini it
+    bought no accuracy and every run got slower."""
+    monkeypatch.setattr(settings, "grading_reasoning", switch)
+    _grade(_grader(), "Q?", "ref", "answer")
+    assert sent.bodies[0]["max_tokens"] == 250
+
+
+def test_forced_thinking_gets_room_of_its_own(sent, monkeypatch) -> None:
+    """The measured failure: GPT-6 Luna at its default effort with a 250 cap lost the score marker
+    on 5 of 84 replies, 3 of them empty. Its heaviest reply used 445 tokens, so a budget that
+    allows thinking has to clear that with room to spare."""
+    monkeypatch.setattr(settings, "grading_reasoning", True)
+    _grade(_grader(), "Q?", "ref", "answer")
+
+    body = sent.bodies[0]
+    assert body["max_tokens"] == 250 + _REASONING_HEADROOM_TOKENS
+    assert body["max_tokens"] >= 2 * 445
+
+
+@pytest.mark.parametrize("switch", [True, False])
+def test_an_explicit_switch_is_sent_as_given(sent, monkeypatch, switch) -> None:
+    monkeypatch.setattr(settings, "grading_reasoning", switch)
+    _grade(_grader(), "Q?", "ref", "answer")
+    assert sent.bodies[0]["reasoning"] == {"enabled": switch}
+
+
+def test_the_dont_know_explanation_gets_the_same_switch_and_is_used(sent, monkeypatch) -> None:
+    """A separate call with its own budget and the same trap: an explanation whose tokens all went
+    on thinking arrives empty, and the student is shown the bare reference instead. So this also
+    checks the model's explanation is the one that came back, not that fallback."""
+    monkeypatch.setattr(settings, "grading_reasoning", False)
+    sent.reply["lines"] = _sse("Mitochondria make ATP, which is why they're called the powerhouse.")
+    result = _grade(_grader(), "What makes ATP?", "mitochondria", "i don't know")
+
+    body = sent.bodies[0]
+    assert body["reasoning"] == {"enabled": False}
+    assert body["max_tokens"] == 220
+    assert result.score == 1
+    assert result.explanation.startswith("Mitochondria make ATP")
+    assert not result.explanation.startswith(FALLBACK_OPENING)
 
 
 def test_the_local_grader_still_sends_its_scaffolded_prompt(monkeypatch) -> None:
@@ -207,3 +291,34 @@ def test_a_well_formed_reply_is_parsed_and_logs_nothing(sent, caplog) -> None:
     assert "no ###SCORE marker" not in caplog.text
 
 
+@pytest.mark.parametrize(
+    "text,finish_reason,trailing,expected_reason",
+    [
+        # Truncated mid-sentence: the reasoning-model failure, as measured.
+        ("You're right that most appends use a", "length", None, "length"),
+        # Truncated to nothing: three of the five measured truncations looked like this.
+        ("", "length", None, "length"),
+        # Finished normally but ignored the contract.
+        ("Great job!\nScore: 5", "stop", None, "stop"),
+        # A trailing frame with a null reason must not erase the one that mattered.
+        ("You're right that most", "length", [{"choices": [{"delta": {}, "finish_reason": None}]}], "length"),
+    ],
+    ids=["truncated", "empty", "ignored-contract", "trailing-null-frame"],
+)
+def test_a_reply_without_its_marker_is_graded_but_not_silently(sent, caplog, text, finish_reason, trailing, expected_reason) -> None:
+    """The student still gets a grade — one has to come back — and it is still a 3. What changed is
+    that the log now says so, and why."""
+    caplog.set_level(logging.WARNING, logger="app.services.grading")
+    sent.reply["lines"] = _sse(text, finish_reason=finish_reason, trailing=trailing)
+    result = _grade(_grader(), "Why is append amortised O(1)?", "doubling", "next free slot")
+
+    assert result.score == 3
+    assert "no ###SCORE marker" in caplog.text
+    assert f"finish_reason={expected_reason}" in caplog.text
+
+
+def test_a_truncated_explanation_is_logged(sent, caplog) -> None:
+    caplog.set_level(logging.WARNING, logger="app.services.grading")
+    sent.reply["lines"] = _sse("Mitochondria make", finish_reason="length")
+    _grade(_grader(), "What makes ATP?", "mitochondria", "i don't know")
+    assert "hit its token budget" in caplog.text
