@@ -1,15 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { PaymentRequired, serverDetail, generateDeck, generateDeckFromNotes, generateDeckFromTopic, listDecks, listNotes } from '../api'
 import ActionCard from '../components/ActionCard'
+import BackButton from '../components/BackButton'
+import { CameraIcon, PdfIcon, PhotoIcon } from '../components/icons'
 import { kindLabel, type NoteGroup, previewText, UNFILED } from '../lib/notes'
 import type { Deck, GenerationResult, Note } from '../types'
-
-const BACK_CHEVRON = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M15 18l-6-6 6-6" />
-  </svg>
-)
-const BACK_CLASS = '-ml-2 mb-3 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]'
 
 interface Props {
   onDone: () => void
@@ -18,28 +13,6 @@ interface Props {
    * if the plan is one tap away. */
   onOpenPricing: () => void
 }
-
-const CAMERA_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
-    <circle cx="12" cy="13.5" r="3.5" />
-  </svg>
-)
-
-const LIBRARY_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="5" width="18" height="15" rx="2.5" />
-    <path d="M3 16l5-5 4 4 3-3 6 6" />
-    <circle cx="8" cy="9.5" r="1.5" />
-  </svg>
-)
-
-const PDF_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M7 2.5h7l4 4V21a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" />
-    <path d="M14 2.5V7h4" />
-  </svg>
-)
 
 const NOTES_ICON = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -232,10 +205,7 @@ export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Prop
 
   return (
     <div>
-      <button onClick={onCancel} className={BACK_CLASS}>
-        {BACK_CHEVRON}
-        Back
-      </button>
+      <BackButton onClick={onCancel} className="mb-3">Back</BackButton>
       <p className="mb-5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
         {byTopic
           ? "Say what you're studying and the AI writes the cards, then checks each one is standard material for that level before adding it. Cards come from what the AI knows about the topic, so check them as you go — you can flag a bad one while reviewing."
@@ -278,9 +248,9 @@ export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Prop
 
       {/* The four sources are rows on one surface, same as the ways in on the Cards tab. */}
       <div className="mb-3 rounded-[var(--r-md)] bg-[var(--surface)] [&>*+*]:border-t [&>*+*]:border-[var(--rule)]">
-        <ActionCard onClick={() => cameraInputRef.current?.click()} disabled={busy || byTopic} title="Take a photo" description="Point the camera at a page of notes" icon={CAMERA_ICON} />
-        <ActionCard onClick={() => libraryInputRef.current?.click()} disabled={busy || byTopic} title="Choose photos" description="From your photo library" icon={LIBRARY_ICON} />
-        <ActionCard onClick={() => pdfInputRef.current?.click()} disabled={busy || byTopic} title="Choose a PDF" description="Lecture slides, a handout, a chapter" icon={PDF_ICON} />
+        <ActionCard onClick={() => cameraInputRef.current?.click()} disabled={busy || byTopic} title="Take a photo" description="Point the camera at a page of notes" icon={<CameraIcon />} />
+        <ActionCard onClick={() => libraryInputRef.current?.click()} disabled={busy || byTopic} title="Choose photos" description="From your photo library" icon={<PhotoIcon />} />
+        <ActionCard onClick={() => pdfInputRef.current?.click()} disabled={busy || byTopic} title="Choose a PDF" description="Lecture slides, a handout, a chapter" icon={<PdfIcon />} />
         <ActionCard
           onClick={() => {
             setByTopic((on) => !on)
@@ -437,10 +407,7 @@ function NotePicker({
 
   return (
     <div>
-      <button onClick={onCancel} className={BACK_CLASS}>
-        {BACK_CHEVRON}
-        Back
-      </button>
+      <BackButton onClick={onCancel} className="mb-3">Back</BackButton>
       <p className="mb-5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
         Pick the notes to build cards from. They stay in your library, nothing is uploaded again.
       </p>

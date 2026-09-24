@@ -1,16 +1,11 @@
 import { useEffect, useState } from 'react'
 import { getBillingStatus, getCatalogue, serverDetail, startCheckout } from '../api'
+import BackButton from '../components/BackButton'
 import type { BillingStatus, Catalogue, CatalogueProduct, ProductKind } from '../types'
 
 interface Props {
   onBack: () => void
 }
-
-const BACK_CHEVRON = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M15 18l-6-6 6-6" />
-  </svg>
-)
 
 /** Section order and headings are the only things this screen knows in advance. Which products
  * fall under each, and what they cost, arrive from the server — so the screen stays correct
@@ -60,10 +55,7 @@ export default function PricingScreen({ onBack }: Props) {
 
   return (
     <div>
-      <button onClick={onBack} className="-ml-2 mb-3 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]">
-        {BACK_CHEVRON}
-        Back
-      </button>
+      <BackButton onClick={onBack} className="mb-3">Back</BackButton>
 
       <div className="mb-1 text-[1.25rem] font-bold">Rekall AI</div>
       <p className="mb-6 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">

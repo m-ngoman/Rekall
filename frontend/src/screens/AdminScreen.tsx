@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getAdminStats } from '../api'
+import BackButton from '../components/BackButton'
 import Segmented from '../components/Segmented'
 import { useElementWidth } from '../hooks/useElementWidth'
 import { parseISODate } from '../lib/dates'
@@ -213,12 +214,7 @@ export default function AdminScreen({ onBack }: Props) {
 
 function BackLink({ onBack }: Props) {
   return (
-    <button onClick={onBack} className="-ml-2 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M15 18l-6-6 6-6" />
-      </svg>
-      Settings
-    </button>
+    <BackButton onClick={onBack}>Settings</BackButton>
   )
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createCard, createDeck, deleteCard, deleteDeck, listCards, listDecks, updateCard } from '../api'
 import type { Card, Deck } from '../types'
 import { useConfirm } from '../hooks/useConfirm'
+import BackButton from '../components/BackButton'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 interface Props {
@@ -175,12 +176,7 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
   return (
     <div>
       <ConfirmDialog confirmation={confirmation} onCancel={cancel} />
-      <button onClick={() => onDone(countsChanged)} className="-ml-2 mb-3 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M15 18l-6-6 6-6" />
-        </svg>
-        Back
-      </button>
+      <BackButton onClick={() => onDone(countsChanged)} className="mb-3">Back</BackButton>
       {locked ? (
         <div className="mb-5">
           <div className="text-[1.25rem] font-bold tracking-tight">

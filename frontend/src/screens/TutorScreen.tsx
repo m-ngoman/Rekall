@@ -2,7 +2,11 @@ import { type ChangeEvent, Suspense, lazy, useEffect, useLayoutEffect, useMemo, 
 import { PaymentRequired, createMemoryNote, createTutorSession, deleteMemoryNote, listBugs, listMemoryNotes, listTutorVoices, reportBug, resolveBug, sendTextTurn, sendVoiceTurnText, updateTutorSession } from '../api'
 import MemoryPicker from '../components/MemoryPicker'
 import PersonalityPicker, { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
-import PlainMath from '../components/PlainMath'
+// Typed replies carry LaTeX (the prompt asks for it — see tutor_prompt._TYPED_PROMPT), so every
+// assistant message goes through MaybeMath, which loads KaTeX the first time a reply renders.
+// Spoken replies are plain words by instruction, so they pass through unchanged.
+import MaybeMath from '../components/MaybeMath'
+import { CameraIcon, PhotoIcon } from '../components/icons'
 import type { PlotSpec } from '../lib/plot'
 import Notice from '../components/Notice'
 import VoiceOrb, { type OrbState } from '../components/VoiceOrb'
@@ -16,25 +20,9 @@ import { useMicRecorder } from '../hooks/useMicRecorder'
 import { useRevealText } from '../hooks/useRevealText'
 import type { BugReport, Exam, MemoryCategory, MemoryNote, Settings, TutorPersonality, TutorSession, TutorVoice, WordTiming } from '../types'
 
-/** Typed replies carry LaTeX (the prompt asks for it — see tutor_prompt._TYPED_PROMPT), so every
- * assistant message is rendered through KaTeX. Lazy for the same reason as on the study screen:
- * ~270kB that a conversation about history never needs, loaded the first time a reply renders.
- * Spoken replies are plain words by instruction, so they pass through unchanged. */
-const MathText = lazy(() => import('../components/MathText'))
-
 /** The plot renderer and its parser, as a third lazy chunk. A conversation about history never
  * downloads a maths evaluator. */
 const FunctionPlot = lazy(() => import('../components/FunctionPlot'))
-
-/** An assistant message, with its maths set. The fallback is the same text minus the delimiters,
- * so nothing flashes as markup while the chunk loads. */
-function TutorText({ text }: { text: string }) {
-  return (
-    <Suspense fallback={<PlainMath text={text} />}>
-      <MathText text={text} />
-    </Suspense>
-  )
-}
 
 interface Message {
   /** 'system' is local-only — the app talking, not the tutor. Used by the owner-only /bug
@@ -122,29 +110,6 @@ const SEND_ICON = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 19V5" />
     <path d="M6 11l6-6 6 6" />
-  </svg>
-)
-
-const PHOTO_ICON = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="5" width="18" height="15" rx="2.5" />
-    <path d="M3 16l5-5 4 4 3-3 6 6" />
-    <circle cx="8" cy="9.5" r="1.5" />
-  </svg>
-)
-
-const CAMERA_ICON = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
-    <circle cx="12" cy="13.5" r="3.5" />
-  </svg>
-)
-
-const LIBRARY_ICON = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="5" width="18" height="15" rx="2.5" />
-    <path d="M3 16l5-5 4 4 3-3 6 6" />
-    <circle cx="8" cy="9.5" r="1.5" />
   </svg>
 )
 
@@ -1227,7 +1192,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
                     •••
                   </span>
                 ) : (
-                  <TutorText text={m.text} />
+                  <MaybeMath text={m.text} />
                 )}
                 {/* Below the words, attached to the reply that drew it. No fallback: a graph has
                     no readable degraded form, and the sentence above already carries the answer. */}
@@ -1356,7 +1321,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
                   className="flex h-9 items-center justify-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
                   style={{ background: pendingImage || openPopover === 'photo' ? 'var(--bg)' : undefined }}
                 >
-                  {PHOTO_ICON}
+                  <PhotoIcon size={16} />
                   {pendingImage && <span className="inline">1 photo</span>}
                 </button>
                 {openPopover === 'photo' && (
@@ -1368,7 +1333,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
                       }}
                       className="flex items-center gap-2.5 rounded-[var(--r-sm)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
                     >
-                      {CAMERA_ICON}
+                      <CameraIcon size={16} />
                       Take Photo
                     </button>
                     <button
@@ -1378,7 +1343,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
                       }}
                       className="flex items-center gap-2.5 rounded-[var(--r-sm)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
                     >
-                      {LIBRARY_ICON}
+                      <PhotoIcon size={16} />
                       Choose from Library
                     </button>
                   </div>
@@ -1583,7 +1548,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
                               : 'rgb(255 255 255 / 0.42)',
                         }}
                       >
-                        {m.role === 'user' ? m.text : <TutorText text={m.text} />}
+                        {m.role === 'user' ? m.text : <MaybeMath text={m.text} />}
                       </p>
                     ) : null,
                 )}

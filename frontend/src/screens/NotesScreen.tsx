@@ -5,6 +5,8 @@ import { createDeck, createTextNote, deleteNote, getNote, listDecks, listNotes, 
 // never open a note, so it stays out of the main bundle until one does.
 const MarkdownEditor = lazy(() => import('../components/MarkdownEditor'))
 import { getCached, setCached, useCachedResource } from '../hooks/useCachedResource'
+import BackButton from '../components/BackButton'
+import { CameraIcon, PdfIcon, PhotoIcon } from '../components/icons'
 import Notice from '../components/Notice'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useConfirm } from '../hooks/useConfirm'
@@ -26,28 +28,6 @@ const SEARCH_ICON = (
   </svg>
 )
 
-const PDF_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M7 2.5h7l4 4V21a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" />
-    <path d="M14 2.5V7h4" />
-  </svg>
-)
-
-const CAMERA_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
-    <circle cx="12" cy="13.5" r="3.5" />
-  </svg>
-)
-
-const LIBRARY_ICON = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="5" width="18" height="15" rx="2.5" />
-    <path d="M3 16l5-5 4 4 3-3 6 6" />
-    <circle cx="8" cy="9.5" r="1.5" />
-  </svg>
-)
-
 const FOLDER_ICON = (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h7A1.5 1.5 0 0 1 19 10v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17.5z" />
@@ -59,13 +39,6 @@ const PENCIL_ICON = (
     <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" />
   </svg>
 )
-
-const BACK_CHEVRON = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M15 18l-6-6 6-6" />
-  </svg>
-)
-const BACK_CLASS = '-ml-2 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]'
 
 /** Unfiled isn't a deck, so it has no id — the empty string stands in for it as a drop target and
  * as a `<select>` value, and converts back to `null` at the API boundary. */
@@ -548,10 +521,9 @@ function AddNotesPanel({
 
   return (
     <div>
-      <button onClick={onCancel} disabled={busy} className={`${BACK_CLASS} mb-4`}>
-        {BACK_CHEVRON}
+      <BackButton onClick={onCancel} disabled={busy} className="mb-4" chevronSize={18}>
         Notes
-      </button>
+      </BackButton>
 
       <div className="mb-5">
         <div className="mb-2 text-[0.8125rem] font-semibold text-[var(--text-muted)]">File under</div>
@@ -602,9 +574,9 @@ function AddNotesPanel({
         <input ref={libraryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={addFiles} />
         <input ref={pdfInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={addFiles} />
 
-        <SourceButton disabled={busy} onClick={() => cameraInputRef.current?.click()} icon={CAMERA_ICON} label="Take a photo" />
-        <SourceButton disabled={busy} onClick={() => libraryInputRef.current?.click()} icon={LIBRARY_ICON} label="Choose photos" />
-        <SourceButton disabled={busy} onClick={() => pdfInputRef.current?.click()} icon={PDF_ICON} label="Choose a PDF" />
+        <SourceButton disabled={busy} onClick={() => cameraInputRef.current?.click()} icon={<CameraIcon />} label="Take a photo" />
+        <SourceButton disabled={busy} onClick={() => libraryInputRef.current?.click()} icon={<PhotoIcon />} label="Choose photos" />
+        <SourceButton disabled={busy} onClick={() => pdfInputRef.current?.click()} icon={<PdfIcon />} label="Choose a PDF" />
       </div>
 
       {files.length > 0 && (
@@ -1069,10 +1041,9 @@ function NoteEditorView({
     <div className="flex flex-col gap-5">
       <ConfirmDialog confirmation={confirmation} onCancel={cancel} />
       <div className="flex items-center justify-between">
-        <button onClick={handleBack} className={BACK_CLASS}>
-          {BACK_CHEVRON}
+        <BackButton onClick={handleBack} chevronSize={18}>
           Notes
-        </button>
+        </BackButton>
         <div className="flex items-center gap-4 text-[0.8125rem] font-semibold">
           {status === 'saving' && <span className="text-[var(--text-muted)]">Saving</span>}
           {status === 'saved' && <span className="text-[var(--text-muted)]">Saved</span>}

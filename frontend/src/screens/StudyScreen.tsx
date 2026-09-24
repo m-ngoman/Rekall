@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import PlainMath from '../components/PlainMath'
+import { useEffect, useRef, useState } from 'react'
+import BackButton from '../components/BackButton'
+import MaybeMath from '../components/MaybeMath'
 import Notice from '../components/Notice'
 import { NotSignedIn, PaymentRequired, TooManyRequests, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
 
@@ -70,11 +71,6 @@ function formatDue(iso: string): string {
   if (days === 1) return 'Back tomorrow'
   return `Back in ${days} days`
 }
-
-/** KaTeX is ~270kB of JS and its own stylesheet — far too much to put in front of every user for
- * a feature most decks never touch. Loaded the first time a maths card actually renders, the same
- * way the notes editor is. */
-const MathText = lazy(() => import('../components/MathText'))
 
 /** What a phone keyboard can't reach. Unicode rather than LaTeX: the student is writing an
  * answer, not authoring notation, and the grader is explicitly told to accept these as equal to
@@ -267,12 +263,9 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
   const header = (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <button onClick={onExit} className="-ml-2 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
+        <BackButton onClick={onExit}>
           <span className="truncate">{deckName || 'Back'}</span>
-        </button>
+        </BackButton>
         {/* Phone only: on a wide screen the count is the rail's headline instead, at four times
             this size, and having it in both places would say the same thing twice. */}
         {left > 0 && (
@@ -383,7 +376,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
             <div className="border-t border-[var(--rule)] pt-3">
               <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">Model answer</div>
               <p className="mt-1.5 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">
-                {current.is_math ? <Suspense fallback={<PlainMath text={modelAnswer} />}><MathText text={modelAnswer} /></Suspense> : modelAnswer}
+                <MaybeMath text={modelAnswer} math={current.is_math} />
               </p>
             </div>
           )}
@@ -418,7 +411,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
       <div>
         {current.subtopic && <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">{current.subtopic}</div>}
         <div className={`mt-2 font-bold leading-snug [text-wrap:pretty] ${graded ? 'text-[1.125rem]' : 'text-[1.5rem] lg:text-[2rem]'}`}>
-          {current.is_math ? <Suspense fallback={<PlainMath text={current.question} />}><MathText text={current.question} /></Suspense> : current.question}
+          <MaybeMath text={current.question} math={current.is_math} />
         </div>
       </div>
 
@@ -426,7 +419,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
         revealed !== null && (
           <div>
             <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">Answer</div>
-            <div className="mt-1.5 text-[0.9375rem] leading-relaxed">{current.is_math ? <Suspense fallback={<PlainMath text={revealed} />}><MathText text={revealed} /></Suspense> : revealed}</div>
+            <div className="mt-1.5 text-[0.9375rem] leading-relaxed"><MaybeMath text={revealed} math={current.is_math} /></div>
             {/* Confirms what actually got recorded — you chose it, but seeing it land is the
                 difference between "I tapped Hard" and "Hard was saved". */}
             {result && (
@@ -494,7 +487,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
             </>
           )}
           <p className={`text-[0.9375rem] leading-relaxed ${graded ? 'mt-4' : ''}`}>
-            {current.is_math ? <Suspense fallback={<PlainMath text={streamedExplanation} />}><MathText text={streamedExplanation} /></Suspense> : streamedExplanation}
+            <MaybeMath text={streamedExplanation} math={current.is_math} />
             {phase === 'grading' && <span className="ml-0.5 inline-block h-[18px] w-[2px] align-text-bottom bg-[var(--accent)]" />}
           </p>
           <div className="mt-5 border-t border-[var(--rule)] pt-3 lg:hidden">

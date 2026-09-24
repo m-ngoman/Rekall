@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { importDeck } from '../api'
+import BackButton from '../components/BackButton'
 
 interface Props {
   onDone: () => void
@@ -40,12 +41,7 @@ export default function ImportScreen({ onDone, onCancel }: Props) {
 
   return (
     <div>
-      <button onClick={onCancel} className="-ml-2 mb-3 flex h-11 items-center gap-1.5 rounded-[var(--r-sm)] px-2 text-[0.9375rem] font-semibold text-[var(--text-muted)]">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M15 18l-6-6 6-6" />
-        </svg>
-        Back
-      </button>
+      <BackButton onClick={onCancel} className="mb-3">Back</BackButton>
       <p className="mb-5 text-[0.9375rem] text-[var(--text-muted)]">
         One card per line, with a header row: <span className="font-semibold text-[var(--text)]">DeckName,Subtopic,Front,Back</span>
       </p>
