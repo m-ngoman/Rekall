@@ -25,7 +25,9 @@ const TAILNET_IP = '100.69.45.24'
 // only places in the frontend that touch the Node environment (vitest.config.ts does the same).
 declare const process: { env: Record<string, string | undefined> }
 
-const reach = process.env.PIPCARDS_TAILNET  // 'direct' | 'serve' | undefined
+// PIPCARDS_TAILNET is the name from before the rename, still read so an existing shell alias or
+// script keeps working.
+const reach = process.env.REKALL_TAILNET ?? process.env.PIPCARDS_TAILNET  // 'direct' | 'serve' | undefined
 
 /** `ws: true` needed for /api/tutor/live-transcribe (the Deepgram STT proxy) — Vite's plain
  * string shorthand doesn't upgrade WebSocket connections on its own. */

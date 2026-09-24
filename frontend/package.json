@@ -1,13 +1,13 @@
 {
-  "name": "pipcards-frontend",
+  "name": "rekall-frontend",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:fixture": "vite --config vite.fixture.config.ts",
-    "dev:tailnet": "PIPCARDS_TAILNET=direct vite",
-    "dev:tailnet-tls": "PIPCARDS_TAILNET=serve vite",
+    "dev:tailnet": "REKALL_TAILNET=direct vite",
+    "dev:tailnet-tls": "REKALL_TAILNET=serve vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",

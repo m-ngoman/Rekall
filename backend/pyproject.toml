@@ -1,7 +1,7 @@
 [project]
-name = "pipcards-backend"
+name = "rekall-backend"
 version = "0.1.0"
-description = "PipCards API"
+description = "Rekall API"
 requires-python = ">=3.12"
 dependencies = [
     # 0.118 is where a yield dependency's cleanup moved back to after the response is sent. From
