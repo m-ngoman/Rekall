@@ -8,7 +8,7 @@ interface Props {
   size?: number
 }
 
-// Ported from the planning doc's original orb prototype (docs/reference-adjacent voice-orb.html):
+// Ported from the orb prototype that went with the planning doc (a voice-orb.html never checked in):
 // multi-band jagged rings reacting per frequency band, not a single averaged pulse, plus a scope-
 // style tick ring around the outside. Tuned for a ~140-200px render size rather than the
 // prototype's 520px canvas — its exact pixel constants would be too fine/cluttered this small.

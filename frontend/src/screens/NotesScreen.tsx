@@ -471,6 +471,10 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
   )
 }
 
+/** Sentinel `<select>` value for "a category I'm about to name". Distinct from the empty string,
+ * which already means Unfiled. */
+const NEW_CATEGORY = '__new_category__'
+
 /** Writing is the first option and the only accent on the page; uploading is the rest of it.
  * Both file under the same category choice, made once at the top.
  *
@@ -478,10 +482,6 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
  * so a mis-tap would otherwise burn a request and leave a junk note to clean up; staging also
  * means the deck choice no longer has to be made *before* picking.
  */
-/** Sentinel `<select>` value for "a category I'm about to name". Distinct from the empty string,
- * which already means Unfiled. */
-const NEW_CATEGORY = '__new_category__'
-
 function AddNotesPanel({
   decks,
   onWrite,
@@ -777,8 +777,8 @@ function NoteTile({
   onGrab: (e: React.PointerEvent) => void
 }) {
   return (
-    // A button, not a div with an onClick: note tiles were the one list in the app that a
-    // keyboard could not reach at all. Deck tiles already did this; this copies them.
+    // Keyboard-reachable like a button — role, tab stop, Enter and Space — though it is a div:
+    // note tiles were the one list in the app that a keyboard could not reach at all.
     // No surface fill either — only a deck is a card. The preview is a bordered block and the
     // title sits on the page underneath it.
     <div
@@ -796,7 +796,6 @@ function NoteTile({
     >
       {/* The preview is the tile. A photo shows itself; a PDF shows the text read from it, small
           and cropped, so either kind is recognised by what's on it rather than by its name. */}
-      {/* The preview is a bordered block, not the top half of a card. */}
       {note.file_type === 'image' ? (
         <img src={noteFileUrl(note.id)} alt="" draggable={false} className="aspect-[4/3] w-full rounded-[var(--r-sm)] border border-[var(--rule)] object-cover" style={{ background: 'var(--bg)' }} />
       ) : (

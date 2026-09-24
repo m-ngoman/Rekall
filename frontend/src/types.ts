@@ -7,7 +7,8 @@ export interface Deck {
   learned: number
   /** All linked exams are in the past: off the daily to-do, still studiable from the library. */
   exam_paused: boolean
-  /** Soonest upcoming linked exam, for the countdown badge. Null = none upcoming. */
+  /** Soonest upcoming linked exam, exam day included. Null = none upcoming. Nothing on screen
+   * reads it at the moment. */
   next_exam: { name: string; date: string } | null
 }
 

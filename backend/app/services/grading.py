@@ -154,7 +154,7 @@ Feedback to rewrite: {raw}
 Rewritten:"""
 
 # Prometheus's 5-point rubric score -> FSRS's 4-point rating (again/hard/good/easy). Used by
-# PrometheusGrader, which has no strictness support; LocalLLMGrader uses the table below instead.
+# PrometheusGrader, which has no strictness support; the rubric graders use the table below.
 _SCORE_TO_GRADE = {1: 1, 2: 2, 3: 3, 4: 3, 5: 4}
 
 # Strictness shifts this mapping as well as the prompt, and the mapping is the half that actually
@@ -197,9 +197,9 @@ def _strictness_mapping(strictness: str) -> dict[int, int]:
 
 _RESULT_RE = re.compile(r"\[RESULT\]\s*\(?(\d)\)?")
 
-# How many trailing characters of a streamed completion to always hold back from the client, so a
-# trailing marker ("[RESULT] N" / "###SCORE: N") never gets flushed as visible text before we know
-# it's the marker and not genuine content.
+# How many trailing characters of a streamed completion to always hold back from the client, so the
+# trailing "###SCORE: N" never gets flushed as visible text before we know it's the marker and not
+# genuine content. About twice the marker's length, so it is held however the chunks fall.
 _HOLDBACK_CHARS = 24
 
 
@@ -694,8 +694,8 @@ class CloudGrader:
 def get_grader(prefer_cloud: bool | None = None) -> Grader:
     """`prefer_cloud` overrides the configured default for one call.
 
-    It exists so a per-user decision — a tier entitlement, once billing exists — can be made at the
-    call site without this function needing to know what a tier is. Nothing passes it yet.
+    It exists so a per-user decision — a tier entitlement, say — can be made at the call site
+    without this function needing to know what a tier is. Nothing passes it yet.
     """
     use_cloud = settings.grader == "cloud" if prefer_cloud is None else prefer_cloud
     if use_cloud and settings.openrouter_api_key:

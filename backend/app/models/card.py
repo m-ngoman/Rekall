@@ -31,9 +31,10 @@ class Card(UUIDPKMixin, TimestampMixin, Base):
     )
     subtopic: Mapped[str | None] = mapped_column(String, nullable=True)
     # Whether `question` and `answer` may contain LaTeX, and should be rendered as maths rather
-    # than printed as text. Set by the generator's own classification, not inferred at render
+    # than printed as text. Set once, when a card is generated — from the model's flag or the
+    # LaTeX actually in the text (deck_generation.looks_like_latex) — not inferred at render
     # time: "$" appears in plenty of non-maths cards, and guessing per-render would mangle one
-    # about currency the first time somebody wrote one.
+    # about currency the first time somebody wrote one. Written and imported cards never set it.
     #
     # It also changes how the card is *graded* — a maths card's explanation is allowed the
     # notation, where every other card has it stripped — so it has to be a property of the card

@@ -1,8 +1,10 @@
-"""Turns photos or a PDF of notes into flashcards: one vision/text call drafts cards, then a
-second call re-checks each draft card against the same source material and drops/fixes anything
-unsupported. A second AI pass instead of a manual review screen was Adam's explicit call — it
-mirrors how FSRS grading already trusts the AI's output with no human veto, rather than adding a
-new "AI drafts, human confirms" gate like the memory notes feature uses.
+"""Turns study material into flashcards — photos or PDFs of notes, notes already in the library,
+or a topic (the second half of this file): one call drafts cards, then a second call re-checks
+each draft card against the same source material and drops/fixes anything unsupported. A second
+AI pass instead of a manual review screen was Adam's explicit call — it mirrors how FSRS grading
+already trusts the AI's output with no human veto, rather than adding a new "AI drafts, human
+confirms" gate. The same model also transcribes uploaded notes for the library
+(`transcribe_notes`).
 """
 
 from __future__ import annotations

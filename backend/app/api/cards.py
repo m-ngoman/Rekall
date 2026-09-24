@@ -263,8 +263,8 @@ def report_card(request: Request, card_id: uuid.UUID, db: Session = Depends(get_
 
     Suspends it as well as recording it. A report that only filed a note would leave the student
     being shown the same wrong card on an optimal forgetting schedule until they had learned it,
-    which is the exact harm the button exists to stop. Suspending is also reversible and the card
-    is kept, because the student may be the one who is wrong.
+    which is the exact harm the button exists to stop. The card is kept rather than deleted,
+    because the student may be the one who is wrong — though nothing in the app unsuspends it.
 
     This is the whole safeguard for cards generated from a topic rather than from a student's own
     notes: there is no review screen before those enter the deck, by design, so the check happens

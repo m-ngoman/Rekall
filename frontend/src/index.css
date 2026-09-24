@@ -97,8 +97,9 @@ body {
   line-height: normal;
 }
 
-/* Numerals that carry the app: days to the exam, cards due, cards left, retention. Applied by
-   the four places that are allowed to be loud and nowhere else. */
+/* Numerals that carry the app — days to the exam, cards due, cards left, a score — in the display
+   face. For a count that is the point of what it sits in, not for every number on the page: the
+   plot's tick labels, say, are plain tabular text. */
 .numeral {
   font-family: var(--font-display);
   font-weight: 600;
@@ -171,7 +172,7 @@ a,
 }
 
 /* The nav's selection pill travels between options. Kept: it tells you which way you went, which
-   a cut cannot. This and the load-bar drain are the only two things in the app that move. */
+   a cut cannot. */
 .sliding-pill {
   transition:
     translate var(--pill-move-ms, 400ms) var(--pill-move-ease, cubic-bezier(0.33, 1.16, 0.45, 1)),
@@ -186,8 +187,8 @@ a,
 /* Load bars in the calendar. A vertical tick beside the day number on phones, a gauge on the
    right edge of each day tile on desktop; height and brightness both encode count, and a key
    above the grid names the scale. A bar drains (to zero height) when the cards it stood for have
-   been reviewed or the exam has passed — the one moment of motion in the app. Appearing or
-   growing is instant. Width comes from the markup, since the two layouts differ. */
+   been reviewed or the exam has passed. Appearing or growing is instant. Width comes from the
+   markup, since the two layouts differ. */
 .load-bar {
   transform-origin: center bottom;
 }
@@ -214,7 +215,7 @@ a,
   }
 }
 
-/* Word-by-word karaoke in the voice focus view (Tutor). Untouched by this pass. */
+/* Word-by-word karaoke in the voice focus view (Tutor). */
 .focus-word,
 .focus-word-idle {
   display: inline-block;

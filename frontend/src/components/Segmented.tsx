@@ -2,9 +2,9 @@ import { useSlidingPill } from '../hooks/useSlidingPill'
 
 /** A row of mutually exclusive options with a selection pill that travels between them.
  *
- * Shared by Settings and onboarding. The motion is the same one the tab bar uses — see
- * useSlidingPill — because these are the controls people tap repeatedly to compare options, and
- * an instant swap reads as dead in both places.
+ * Shared by Settings, onboarding and the usage dashboard. The motion is the same one the tab bar
+ * uses — see useSlidingPill — because these are the controls people tap repeatedly to compare
+ * options, and an instant swap reads as dead in both places.
  */
 export default function Segmented<T extends string | number>({
   options,

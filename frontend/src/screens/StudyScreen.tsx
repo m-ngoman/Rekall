@@ -70,14 +70,14 @@ function formatDue(iso: string): string {
   return `Back in ${days} days`
 }
 
-/** What a phone keyboard can't reach. Unicode rather than LaTeX: the student is writing an
- * answer, not authoring notation, and the grader is explicitly told to accept these as equal to
- * the properly-typeset form. Ordered by how often a school-level answer needs them. */
 /** KaTeX is ~270kB of JS and its own stylesheet — far too much to put in front of every user for
  * a feature most decks never touch. Loaded the first time a maths card actually renders, the same
  * way the notes editor is. */
 const MathText = lazy(() => import('../components/MathText'))
 
+/** What a phone keyboard can't reach. Unicode rather than LaTeX: the student is writing an
+ * answer, not authoring notation, and the grader is explicitly told to accept these as equal to
+ * the properly-typeset form. Ordered by how often a school-level answer needs them. */
 const MATH_SYMBOLS = ['√', 'π', '²', '³', '^', '≤', '≥', '≠', '±', '×', '÷', '∫', 'θ', 'Δ', '∞', '°']
 
 export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpenPricing }: Props) {

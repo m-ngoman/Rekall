@@ -158,6 +158,7 @@ def logout(request: Request) -> dict:
 
 @router.get("/status")
 def status() -> dict:
-    """Lets the frontend show a sign-in button only when the server can actually honour it,
-    rather than offering a button that 503s."""
+    """Whether Google sign-in is configured on this server. Nothing in the frontend calls it: the
+    app shows its sign-in screen when /me fails, and without OAuth /me always answers as the dev
+    user."""
     return {"configured": _configured()}

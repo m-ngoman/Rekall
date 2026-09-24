@@ -24,7 +24,7 @@ const THEMES: { value: Theme; label: string }[] = [
 const STEPS = 4
 
 /**
- * First run. Three steps, each doing real work — no feature tour.
+ * First run. A welcome, then three steps that each do real work — no feature tour.
  *
  * The shape is deliberate: an empty study app can't demonstrate itself, and the usual first-run
  * failure is asking someone to supply content before they've seen why they'd bother. So the last
@@ -187,7 +187,7 @@ export default function OnboardingScreen({ settings, onChange, onFinish }: Props
           </>
         )}
 
-        {/* Progress, not navigation — three dots is enough to say "this is short" without
+        {/* Progress, not navigation — four dots is enough to say "this is short" without
             inviting anyone to jump around a flow whose steps depend on each other. */}
         <div className="mt-9 flex justify-center gap-1.5">
           {Array.from({ length: STEPS }, (_, i) => i).map((i) => (

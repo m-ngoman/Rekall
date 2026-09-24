@@ -289,10 +289,11 @@ def _stream_reply(
     image_bytes: bytes | None = None,
     image_mime: str | None = None,
 ) -> Generator[str, None, None]:
-    """Shared by voice-turn and text-turn: persists the user message, streams the chat reply
+    """Shared by the voice and text turns: persists the user message, streams the chat reply
     (as `token` events when not synthesizing, `sentence` events with audio when synthesizing —
-    see PrometheusGrader-adjacent reasoning in grading.py for why sentence-level chunking beats
-    waiting for the whole reply), persists the assistant message, and emits `done`.
+    a sentence is spoken as soon as it is complete rather than after the whole reply, so the
+    first words play while the rest is still being written), persists the assistant message,
+    and emits `done`.
 
     An attached photo (of notes, a textbook page, etc.) is only ever used for this one turn's LLM
     call, not stored — the DB's `content` column is plain text, and re-sending the image on every
@@ -546,8 +547,8 @@ async def live_transcribe(websocket: WebSocket, sample_rate: int = Query(16000, 
 
 @router.post("/sessions/{session_id}/voice-turn-text")
 def voice_turn_text(request: Request, session_id: uuid.UUID, payload: VoiceTurnTextRequest, db: Session = Depends(get_db)) -> StreamingResponse:
-    """Like /voice-turn, but the client already transcribed the utterance live (via Speechmatics
-    streaming) — skips straight to the reply instead of uploading audio for server-side STT.
+    """Like /voice-turn, but the client already transcribed the utterance live (Deepgram, through
+    /live-transcribe) — skips straight to the reply instead of uploading audio for server-side STT.
     """
     user = get_current_user(request, db)
     require_ai(db, user.id, "tutor")  # see /voice-turn — voice carries the tutor, it isn't separate

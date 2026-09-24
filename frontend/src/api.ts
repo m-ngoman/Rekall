@@ -372,8 +372,8 @@ export async function generateDeck(
  * is preserved end to end — the backend hands the pages to the model in this order, so a
  * multi-page topic reads in sequence rather than however the database returned the rows.
  *
- * Note the Content-Type: unlike generateDeck this posts JSON, so request()'s default header is
- * exactly right and must NOT be cleared the way the multipart calls clear it.
+ * Note the Content-Type: unlike generateDeck this posts JSON, so it sets the header itself —
+ * streamSSE, unlike request(), adds none.
  */
 export async function generateDeckFromNotes(
   noteIds: string[],
@@ -501,8 +501,9 @@ export function reportCard(cardId: string): Promise<void> {
   return request(`/cards/${cardId}/report`, { method: 'POST' })
 }
 
-/** `q` runs Postgres full-text search over each note's stored transcription (stemmed, so
- * "chloroplast" matches "chloroplasts"); empty means list everything, newest first.
+/** `q` runs Postgres full-text search over each note's stored transcription, matching word
+ * prefixes (so "chloro" finds "chloroplasts"), and matches titles too; empty means list
+ * everything, newest first.
  */
 export function listNotes(q = ''): Promise<Note[]> {
   return request(`/notes${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`)

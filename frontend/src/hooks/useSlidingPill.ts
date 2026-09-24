@@ -48,7 +48,7 @@ interface Box {
 /**
  * A selection indicator that travels between options instead of blinking on and off.
  *
- * Shared by the tab bar and the segmented controls in Settings. Both had the same requirement and
+ * Shared by the tab bar and the segmented controls. Both had the same requirement and
  * the logic is fiddly enough — measuring, re-measuring on resize and webfont load, suppressing the
  * transition on first paint — that a second copy would drift out of step with the first.
  *

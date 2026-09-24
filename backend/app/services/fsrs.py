@@ -2,7 +2,12 @@
 
 Same weights, same formulas as docs/reference/pipcards-prototype.html (function reviewCard) —
 kept identical on purpose so scheduling behavior doesn't drift between the old prototype and
-the rebuild. Grade convention: 1=forgot(again) 2=hard 3=good 4=easy.
+the rebuild; tests/test_fsrs.py checks the two agree. Grade convention: 1=forgot(again) 2=hard
+3=good 4=easy.
+
+W has nineteen weights, as the prototype's does, and three of them are never read: W[7]
+(difficulty's mean reversion) and W[17]/W[18] (FSRS-5's same-day terms). The prototype's
+reviewCard doesn't use them either, so neither does this.
 """
 
 from __future__ import annotations

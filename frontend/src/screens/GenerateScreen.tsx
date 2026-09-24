@@ -47,9 +47,6 @@ const NOTES_ICON = (
   </svg>
 )
 
-/** Sentinel `<select>` value for "new deck, but I'll name it". Not a real deck id, and not the
- * empty string either — the empty string already means "new deck, let the AI name it", and the two
- * have to stay distinguishable. */
 const TOPIC_ICON = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
@@ -59,6 +56,9 @@ const TOPIC_ICON = (
 
 const FIELD_CLASS = 'h-11 w-full rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[0.9375rem] outline-none placeholder:text-[var(--text-muted)]'
 
+/** Sentinel `<select>` value for "new deck, but I'll name it". Not a real deck id, and not the
+ * empty string either — the empty string already means "new deck, let the AI name it", and the two
+ * have to stay distinguishable. */
 const NAME_IT = '__name_it__'
 
 export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Props) {

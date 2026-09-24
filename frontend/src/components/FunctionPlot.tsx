@@ -173,8 +173,8 @@ export default function FunctionPlot({ spec }: { spec: PlotSpec }) {
         )}
 
         {/* Tick labels wear text tokens, never the data colour. `tabular-nums` because a column
-            of numbers has to line up; deliberately NOT `.numeral`, which index.css reserves for
-            the four places allowed to be loud. */}
+            of numbers has to line up; deliberately NOT `.numeral`, whose display face is for a
+            count that is the point of what it sits in. */}
         {xTicks.map((t) => (
           <text key={`tx${t}`} x={sx(t)} y={PAD_TOP + plotH + 14} textAnchor="middle" className="tabular-nums" fontSize={10} fill="var(--text-muted)">
             {formatTick(t, xStep)}

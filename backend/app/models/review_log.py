@@ -23,8 +23,9 @@ class InputMode(str, enum.Enum):
 
 
 class ReviewLog(UUIDPKMixin, Base):
-    """One row per graded answer. Append-only history — also the source of the 'recent again ratings'
-    signal that tutor mode reads to ground itself in a user's weak cards.
+    """One row per graded answer. Append-only history, read for the dashboard's count of today's
+    reviews and its streak. The tutor's weak-card context does not come from here: it reads each
+    card's own lapses and stability.
     """
 
     __tablename__ = "review_logs"

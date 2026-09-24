@@ -1,6 +1,8 @@
 """Builds the tutor's system prompt: a non-overridable base layer (scope), a delivery layer
-(spoken-word rules for voice turns, LaTeX rules for typed ones), a personality layer, and RAG
-grounding from the student's actual weak cards.
+(spoken-word rules for voice turns, LaTeX and graph rules for typed ones), a personality layer,
+and then what the tutor knows about this student — the cards they asked to go over and the ones
+they keep forgetting, their upcoming exams, their memory notes — and when to offer a calendar
+entry.
 The base layer is never replaced by `custom_prompt` even under the `custom` personality — it's
 layered underneath, per the planning doc's guardrail requirement.
 """

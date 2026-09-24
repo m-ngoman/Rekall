@@ -87,9 +87,9 @@ def _is_app_route(path: str) -> bool:
     unknown path would turn a mistyped asset or a dead blog link into a page that looks
     deliberate, which hides the mistake from whoever has to find it later.
 
-    Study is the only route carrying a parameter. The id is not validated here — the app checks
-    it anyway, and a wrong one should reach the app's own "deck not found" rather than a bare 404
-    from the file server.
+    Study is the only route carrying a parameter. The id is not validated here: the app treats
+    only a UUID-shaped one as a study route, says "Couldn't load this deck" when there is no such
+    deck, and sends anything else Home. Either is better than a bare 404 from the file server.
     """
     head, _, rest = path.partition("/")
     if head == "study":

@@ -7,8 +7,7 @@ later read by memory extraction.
 
 That is harder than it looks because a marker arrives a few characters at a time like everything
 else. `_split_safe` is what holds text back until it is known not to be the start of one, and
-until now it had no tests at all. These pin the behaviour as it shipped, so generalising the
-machinery to more than one marker type can't quietly change it.
+these pin what it does, for each kind of marker.
 
 `replay` below is the point of the file: it drives the real functions the way `_stream_reply`
 does, one chunk at a time, so a marker split across any boundary is exercised rather than

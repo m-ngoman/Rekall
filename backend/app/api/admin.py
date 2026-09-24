@@ -29,8 +29,8 @@ from app.schemas import (
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
-# Order is the order they appear in the dashboard: the study loop first, then the three AI
-# features the app is actually judged on.
+# Order is the order they appear in the dashboard: the study loop first, then the AI features the
+# app is actually judged on, then the meters that say what they cost.
 FEATURE_LABELS: list[tuple[UsageEventType, str]] = [
     (UsageEventType.card_review, "Cards reviewed"),
     (UsageEventType.cards_generated, "Card generation"),

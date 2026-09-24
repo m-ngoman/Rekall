@@ -1,8 +1,12 @@
-"""Speech-to-text. Groq (whisper-large-v3-turbo, cloud) is the default — tested directly against
-local faster-whisper on technical-vocabulary audio and found dramatically more accurate at the
-same latency (~0.5s); see config.py for the full comparison. Local faster-whisper (CPU/int8, no
-GPU path available on this hardware — CTranslate2 doesn't support this AMD GPU) stays available
-as a fallback that needs no API key/network.
+"""Batch speech-to-text, for a recording uploaded whole (/voice-turn). Live transcription is a
+different path — Deepgram's websocket, in live_stt.py — and is what the app uses.
+
+Groq (whisper-large-v3-turbo, cloud) runs here unless `stt_provider` is "local"; the default,
+"deepgram", names the live provider and so also means Groq here. Groq was tested directly
+against local faster-whisper on technical-vocabulary audio and found dramatically more accurate
+at the same latency (~0.5s). Local faster-whisper (CPU/int8, no GPU path available on this
+hardware — CTranslate2 doesn't support this AMD GPU) stays available as a fallback that needs no
+API key/network.
 """
 
 from __future__ import annotations

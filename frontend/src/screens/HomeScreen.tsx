@@ -67,13 +67,10 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props)
   }
 
   return (
-    // Two columns from lg, the way the design lays Home out: the countdown and the exam rows on
-    // the left, the deck list as a rail beside it rather than a band underneath. The `contents`
-    // wrapper keeps the phone a single flex column with the same gap-8 rhythm.
     // Desktop is its own composition, not the phone column with a rail bolted on. The countdown
     // and the button take the left; the exam rows sit in a 320px column aligned to the bottom of
     // the countdown; the decks run full width underneath as a four-up grid. The phone stays a
-    // single stacked column.
+    // single stacked column, with the same gap-8 rhythm.
     <div className="flex flex-col gap-8 pt-2 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end lg:gap-x-14 lg:gap-y-8">
       {/* `contents` at every width, so the countdown block and the exam rows are each a grid
           item of the parent rather than two things inside one. On a phone that means they flow

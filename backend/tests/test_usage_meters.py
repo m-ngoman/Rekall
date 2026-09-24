@@ -1,6 +1,6 @@
 """The arithmetic behind the billing meters.
 
-These are the numbers a bill would be built from, so they get a test even though they are small.
+These are the numbers a bill is built from, so they get a test even though they are small.
 A dashboard that is off by 10% is untidy; a meter that is off by 10% overcharges people.
 """
 

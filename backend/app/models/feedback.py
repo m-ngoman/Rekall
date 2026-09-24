@@ -21,8 +21,10 @@ class FeedbackCategory(str, enum.Enum):
 
 
 class Feedback(UUIDPKMixin, TimestampMixin, Base):
-    """Auto-captures context rather than relying on friend-written descriptions — context should be
-    populated with card id, raw model output, timestamp, etc. at write time by the app, not by the user.
+    """Context captured by the app at write time rather than described by the user. The one
+    writer today is a card report (always `bad_card`), which records the card's text, deck and
+    review count, since the card itself can change or go later. `raw_model_output` and the other
+    categories are not written by anything yet.
     """
 
     __tablename__ = "feedback"

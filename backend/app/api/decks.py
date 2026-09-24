@@ -254,8 +254,8 @@ def _export_json(decks: list[Deck]) -> dict:
     """A real backup rather than just the text: this carries FSRS scheduling state, so a restore
     could put you back where you were instead of resetting every card to new.
 
-    Note the asymmetry — the CSV import path only reads question/answer, so nothing currently
-    reads this state back. It is exported anyway because the alternative is finding out after a
+    Note the asymmetry — the CSV import reads only each card's deck, subtopic and text, so
+    nothing currently reads this state back. It is exported anyway because the alternative is finding out after a
     data loss that the only backup you had threw your review history away.
     """
     return {
@@ -305,7 +305,8 @@ def _export_response(decks: list[Deck], fmt: str, stem: str) -> Response:
         buf = io.StringIO()
         csv.writer(buf).writerows(_export_rows(decks))
         # A BOM so Excel reads UTF-8 correctly instead of mangling accented characters in
-        # someone's notes. Python's csv reader tolerates it on the way back via utf-8-sig.
+        # someone's notes. Re-importing is unaffected: it sits on the header row, which the
+        # importer skips.
         body = "\ufeff" + buf.getvalue()
         media, name = "text/csv", _filename(stem, "csv")
     else:

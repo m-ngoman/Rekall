@@ -69,14 +69,14 @@ const STATUS_LABEL: Record<OrbState, string> = {
   speaking: 'Speaking…',
 }
 
-/** Tap-to-fill starters for the empty tutor screen. Deliberately phrased around what this tutor
- * can actually do given its grounding (it reads your weak cards — see tutor_prompt.py) rather
- * than generic "ask me anything" filler. */
 /** How far the reader may drift from the newest line and still count as following it. Wide
  * enough that a nudge of the wheel, or a phone's rubber-band bounce, doesn't let go; narrow
  * enough that a deliberate scroll up does. */
 const STICK_SLACK = 64
 
+/** Tap-to-fill starters for the empty tutor screen. Deliberately phrased around what this tutor
+ * can actually do given its grounding (it reads your weak cards — see tutor_prompt.py) rather
+ * than generic "ask me anything" filler. */
 const STARTER_PROMPTS = ['Quiz me on my weak cards', 'Explain a concept I keep missing', 'Help me study for an exam']
 
 /** The starters, with the third one naming the exam it would actually plan for. A starter that

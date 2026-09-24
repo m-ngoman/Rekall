@@ -255,7 +255,9 @@ class ReviewResponse(BaseModel):
 
 class DashboardOut(BaseModel):
     reviewed_today: int
-    goal_today: int  # reviewed_today + cards still due/new right now — self-adjusts as the day goes
+    # The ring's target: the daily goal, capped at reviewed_today plus what the study queues will
+    # still serve today — or that sum alone when no goal is set. Self-adjusts as the day goes.
+    goal_today: int
     streak_days: int
 
 
@@ -388,8 +390,8 @@ class FeatureUsageOut(BaseModel):
     # would make the newer ones look like features nobody uses.
     tracked_since: datetime | None
     # Uses per day, one entry per element of the top-level `daily` array and in the same order.
-    # Sent as a bare list rather than repeating the dates on every feature: five features over 90
-    # days would otherwise ship 450 copies of a date the client already has.
+    # Sent as a bare list rather than repeating the dates on every feature: every feature would
+    # otherwise ship its own copy of 90 dates the client already has.
     daily_uses: list[int]
 
 

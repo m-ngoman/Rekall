@@ -52,7 +52,6 @@ def get_dashboard(request: Request, db: Session = Depends(get_db)) -> DashboardO
         remaining += due_count + new_served
 
     # Distinct calendar dates with >=1 review, consecutive streak ending today or yesterday.
-    # Computed in Python (not func.date()) since Postgres has no built-in date() function.
     dates = {ts.date() for (ts,) in db.query(ReviewLog.reviewed_at).filter(ReviewLog.user_id == user.id).all()}
     streak = 0
     cursor = now.date()

@@ -131,9 +131,10 @@ class Settings(BaseSettings):
     grading_model: str = "hf.co/prometheus-eval/prometheus-7b-v2.0-GGUF"
     rewrite_model: str = "qwen2.5:7b"
 
-    # Deck generation (photos/PDFs of notes -> flashcards): always OpenRouter, decoupled from
-    # tutor_provider — switching the tutor to local Ollama shouldn't also break vision-based
-    # generation, since qwen2.5:7b isn't a vision model. See app/services/deck_generation.py.
+    # Card generation (from photos, PDFs, library notes or a topic) and notes transcription:
+    # always OpenRouter, decoupled from tutor_provider — switching the tutor to local Ollama
+    # shouldn't also break vision-based generation, since qwen2.5:7b isn't a vision model. See
+    # app/services/deck_generation.py.
     card_generation_model: str = "anthropic/claude-haiku-4.5"
     notes_storage_dir: str = "./data/notes"  # local disk; see Note.storage_path
 
@@ -154,9 +155,9 @@ class Settings(BaseSettings):
     # pages a day is the number that keeps a maximal user from costing more than they pay, and it
     # will want changing the moment the model or its price does.
     #
-    # Daily rather than monthly, for the reason the voice caps are daily: a month can be burned in
-    # three days and leave someone stuck, and unused daily allowance is forfeited, so real spend
-    # sits well below the cap while the advertised number stays honest.
+    # Daily rather than monthly: a month can be burned in three days and leave someone stuck, and
+    # unused daily allowance is forfeited, so real spend sits well below the cap while the
+    # advertised number stays honest.
     #
     # `ai_grades_per_day` is not a cost control. Grading is ~$0.00026 an answer, so 500 is roughly
     # thirteen cents and far past anything a person does in a day — it is there so an automated

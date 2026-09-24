@@ -471,9 +471,9 @@ function FeatureSection({
   return (
     <section>
       <SectionTitle>Feature usage</SectionTitle>
-      {/* Small multiples rather than five series on one chart: the features differ by two orders
-          of magnitude, so a shared plot would flatten four of them onto the axis, and five hues
-          would make colour carry an identity the labels already carry. */}
+      {/* Small multiples rather than every feature as a series on one chart: the features differ
+          by orders of magnitude, so a shared plot would flatten most of them onto the axis, and a
+          hue each would make colour carry an identity the labels already carry. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {features.map((f) => {
           const noun = ITEM_NOUNS[f.key]

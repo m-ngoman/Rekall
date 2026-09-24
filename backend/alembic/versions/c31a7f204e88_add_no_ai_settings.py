@@ -1,7 +1,7 @@
 """add no-ai feature toggles
 
 Revision ID: c31a7f204e88
-Revises: eadfee81025d
+Revises: be7c1213e67d
 Create Date: 2026-08-30 11:04:12.000000
 
 """

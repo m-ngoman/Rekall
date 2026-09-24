@@ -135,8 +135,8 @@ def _transcribe(upload: _Upload) -> str | None:
     """One note's markdown transcription, or None if it couldn't be produced.
 
     Failures are swallowed on purpose. A note with no text is still a note you can open and read —
-    it just won't turn up in search — whereas letting the exception escape /generate would roll
-    back a whole successful card generation over a searchability nicety.
+    it just won't turn up in search — whereas letting the exception escape would fail every file
+    in the upload over one note's searchability.
     """
     try:
         return transcribe_notes(upload.images, upload.text)[0] or None
@@ -433,8 +433,9 @@ def unfile_category(request: Request, payload: UnfileCategory, db: Session = Dep
     one goes too, rather than surviving as an empty tile in the Cards tab that "remove" visibly
     failed to remove.
 
-    Declared before the `/{note_id}` routes on purpose: FastAPI matches in registration order,
-    and "unfile" is not a note id.
+    Its place among the routes doesn't matter, though it sits after `/{note_id}`: those are GET,
+    PATCH and DELETE, and a path match whose method differs doesn't stop Starlette looking for one
+    whose method matches.
     """
     user = get_current_user(request, db)
     deck = db.query(Deck).filter(Deck.id == payload.deck_id, Deck.user_id == user.id).one_or_none()

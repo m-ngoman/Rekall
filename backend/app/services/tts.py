@@ -2,7 +2,7 @@
 server and confirmed dramatically faster (~0.9s vs ~9s for a full sentence; Chatterbox has a
 ~2.5-3s floor per call regardless of length). Chatterbox stays available as a fallback: it's the
 Turbo server already running as part of an existing "Hermes" assistant setup on this machine
-(not something PipCards installed), called as an external service — never using its `adam.wav`
+(not something Rekall installed), called as an external service — never using its `adam.wav`
 voice reference, that's personal to Hermes.
 """
 

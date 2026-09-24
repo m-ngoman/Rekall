@@ -591,8 +591,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-/** Label and control share a line when the control is compact; the hint sits under both. */
-/** `hint` is optional: a row whose hint only restates its own label is quieter without one, and
+/** Label and control share a line when the control is compact; the hint sits under both.
+ *
+ * `hint` is optional: a row whose hint only restates its own label is quieter without one, and
  * the design draws Settings as mostly bare label-and-control rows. Keep a hint where it carries
  * something the control can't say by itself. */
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
