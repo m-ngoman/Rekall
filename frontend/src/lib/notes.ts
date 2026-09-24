@@ -21,3 +21,21 @@ export function kindLabel(fileType: Note['file_type']): string {
 export function previewText(note: Pick<Note, 'file_type' | 'preview'>): string {
   return note.preview || (note.file_type === 'text' ? 'Nothing written yet.' : 'No text was read from this file.')
 }
+
+/** Unfiled isn't a deck, so it has no id — the empty string stands in for it as a drop target and
+ * as a `<select>` value, and converts back to `null` at the API boundary. */
+export const UNFILED_KEY = ''
+
+/** Where a note being written will be filed once there's something to save. `deckName` without a
+ * `deckId` is a category that doesn't exist yet — the create call makes it. */
+export interface NoteDraft {
+  deckId: string | null
+  deckName: string
+}
+
+/** When a note was added: day and month, and the year only when it isn't this one. */
+export function formatNoteDate(iso: string): string {
+  const d = new Date(iso)
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return d.toLocaleDateString(undefined, sameYear ? { day: 'numeric', month: 'short' } : { month: 'short', day: 'numeric', year: 'numeric' })
+}
