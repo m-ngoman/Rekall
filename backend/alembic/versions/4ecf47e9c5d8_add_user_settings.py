@@ -45,3 +45,6 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_user_settings_user_id'), table_name='user_settings')
     op.drop_table('user_settings')
     # ### end Alembic commands ###
+    # The table's enum outlives the table unless dropped by name, and the next upgrade then fails
+    # creating it ("type theme already exists"). Autogenerate never writes this line.
+    sa.Enum(name='theme').drop(op.get_bind(), checkfirst=True)

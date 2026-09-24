@@ -14,7 +14,6 @@ dependencies = [
     "alembic>=1.14",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
-    "python-jose[cryptography]>=3.3",
     "httpx>=0.27",
     "itsdangerous>=2.2",  # signs the session cookie via Starlette's SessionMiddleware
     "faster-whisper>=1.0",

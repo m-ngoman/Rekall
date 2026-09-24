@@ -34,7 +34,7 @@ class AudioRelayed:
 
 _DEEPGRAM_URL = (
     "wss://api.deepgram.com/v1/listen"
-    "?encoding=linear16&sample_rate={sample_rate}&model=nova-3&language=en"
+    "?encoding=linear16&sample_rate={sample_rate}&model={model}&language=en"
     "&interim_results=true&smart_format=true"
 )
 # Deliberately no `endpointing=false` here — that's from Deepgram's own continuous-radio-stream
@@ -52,7 +52,7 @@ async def relay(websocket: WebSocket, sample_rate: int) -> AudioRelayed:
     seconds with no container to parse and nothing to estimate. Counting here rather than in the
     route keeps it next to the only place the bytes actually pass through.
     """
-    url = _DEEPGRAM_URL.format(sample_rate=sample_rate)
+    url = _DEEPGRAM_URL.format(sample_rate=sample_rate, model=settings.deepgram_model)
     relayed = AudioRelayed(sample_rate=sample_rate)
     async with websockets.connect(url, additional_headers={"Authorization": f"Token {settings.deepgram_api_key}"}) as dg:
 

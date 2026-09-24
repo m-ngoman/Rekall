@@ -34,7 +34,7 @@ def _get_local_model() -> Any:
     if _model is None:
         from faster_whisper import WhisperModel
 
-        _model = WhisperModel("base", device="cpu", compute_type="int8")
+        _model = WhisperModel(settings.local_stt_model, device="cpu", compute_type="int8")
     return _model
 
 
@@ -48,7 +48,7 @@ def _transcribe_groq(audio_bytes: bytes) -> str:
         "https://api.groq.com/openai/v1/audio/transcriptions",
         headers={"Authorization": f"Bearer {settings.groq_api_key}"},
         files={"file": ("audio.webm", audio_bytes)},
-        data={"model": "whisper-large-v3-turbo", "language": "en"},
+        data={"model": settings.groq_stt_model, "language": "en"},
         timeout=30.0,
     )
     response.raise_for_status()

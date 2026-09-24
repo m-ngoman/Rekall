@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     stt_provider: str = "deepgram"  # "deepgram" | "groq" | "local"
     groq_api_key: str = ""
     deepgram_api_key: str = ""
+    # The models each speech-to-text path runs, here so moving to a provider's next one is a
+    # setting rather than an edit. The defaults are the ones the app was built and measured on.
+    deepgram_model: str = "nova-3"
+    groq_stt_model: str = "whisper-large-v3-turbo"
+    local_stt_model: str = "base"  # a faster-whisper model size
 
     # TTS: Cartesia (cloud, ~40ms time-to-first-audio) is the default — the local Chatterbox
     # server (from the Hermes assistant setup on this machine, still available as a fallback) has
@@ -58,6 +63,9 @@ class Settings(BaseSettings):
     tts_provider: str = "cartesia"  # "cartesia" | "inworld" | "chatterbox"
     cartesia_api_key: str = ""
     cartesia_voice_id: str = "db6b0ed5-d5d3-463d-ae85-518a07d3c2b4"  # "Skylar", a public Cartesia voice
+    cartesia_model: str = "sonic-3"
+    # Cartesia versions its API by date, sent as a header; a newer one can change responses.
+    cartesia_version: str = "2026-08-14"
     tts_base_url: str = "http://127.0.0.1:13231"  # Chatterbox, only used when tts_provider == "chatterbox"
 
     # Inworld. The reason it exists: TTS is the whole cost model for voice, and Cartesia is the

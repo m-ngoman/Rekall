@@ -51,7 +51,7 @@ def list_voices() -> list[dict]:
 def _list_voices_cartesia() -> list[dict]:
     response = httpx.get(
         "https://api.cartesia.ai/voices",
-        headers={"Authorization": f"Bearer {settings.cartesia_api_key}", "Cartesia-Version": "2026-08-14"},
+        headers={"Authorization": f"Bearer {settings.cartesia_api_key}", "Cartesia-Version": settings.cartesia_version},
         timeout=15.0,
     )
     response.raise_for_status()
@@ -64,34 +64,13 @@ def _list_voices_cartesia() -> list[dict]:
     ]
 
 
-def _synthesize_cartesia(text: str, voice_id: str | None) -> bytes:
-    response = httpx.post(
-        "https://api.cartesia.ai/tts/bytes",
-        headers={
-            "Authorization": f"Bearer {settings.cartesia_api_key}",
-            "Cartesia-Version": "2026-08-14",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model_id": "sonic-3",
-            "transcript": text,
-            "voice": {"mode": "id", "id": voice_id or settings.cartesia_voice_id},
-            "output_format": {"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100},
-            "language": "en",
-        },
-        timeout=30.0,
-    )
-    response.raise_for_status()
-    return response.content
-
-
 def _wav_header(pcm_bytes: int) -> bytes:
     """The 44-byte RIFF header for our fixed PCM format.
 
-    The timestamped path asks Cartesia for raw PCM rather than a WAV container: the SSE stream
-    delivers audio in chunks, and a container's header has to describe a length nothing knows
-    until the last chunk arrives. Building the header here once the audio is complete keeps the
-    bytes on the wire byte-identical to the /tts/bytes path, which the client's duration maths
+    Cartesia is asked for raw PCM rather than a WAV container: the SSE stream delivers audio in
+    chunks, and a container's header has to describe a length nothing knows until the last chunk
+    arrives. Building the header here once the audio is complete makes every reply the same
+    44-byte-header WAV, whichever provider spoke it, which the client's duration maths
     (`(size - 44) / 88200`) depends on.
     """
     byte_rate = _SAMPLE_RATE * _CHANNELS * _BITS // 8
@@ -121,11 +100,11 @@ def _synthesize_cartesia_timed(text: str, voice_id: str | None) -> tuple[bytes, 
         "https://api.cartesia.ai/tts/sse",
         headers={
             "Authorization": f"Bearer {settings.cartesia_api_key}",
-            "Cartesia-Version": "2026-08-14",
+            "Cartesia-Version": settings.cartesia_version,
             "Content-Type": "application/json",
         },
         json={
-            "model_id": "sonic-3",
+            "model_id": settings.cartesia_model,
             "transcript": text,
             "voice": {"mode": "id", "id": voice_id or settings.cartesia_voice_id},
             "output_format": {"container": "raw", "encoding": "pcm_s16le", "sample_rate": _SAMPLE_RATE},
@@ -231,16 +210,14 @@ def _inworld_voice(voice_id: str | None) -> str:
     return settings.inworld_voice_id
 
 
-def _inworld_body(text: str, voice_id: str | None, timestamps: bool) -> dict:
-    body: dict = {
+def _inworld_body(text: str, voice_id: str | None) -> dict:
+    return {
         "text": text,
         "voiceId": _inworld_voice(voice_id),
         "modelId": settings.inworld_model,
         "audioConfig": {"audioEncoding": "LINEAR16", "sampleRateHertz": _SAMPLE_RATE},
+        "timestampType": "WORD",
     }
-    if timestamps:
-        body["timestampType"] = "WORD"
-    return body
 
 
 def _inworld_pcm(audio_content: str) -> bytes:
@@ -280,15 +257,8 @@ def _inworld_words(timestamp_info: dict) -> list[dict]:
     return words
 
 
-def _synthesize_inworld(text: str, voice_id: str | None) -> bytes:
-    response = httpx.post(_INWORLD_URL, headers=_inworld_headers(), json=_inworld_body(text, voice_id, False), timeout=30.0)
-    response.raise_for_status()
-    pcm = _inworld_pcm(response.json()["audioContent"])
-    return _wav_header(len(pcm)) + pcm
-
-
 def _synthesize_inworld_timed(text: str, voice_id: str | None) -> tuple[bytes, list[dict]]:
-    response = httpx.post(_INWORLD_URL, headers=_inworld_headers(), json=_inworld_body(text, voice_id, True), timeout=30.0)
+    response = httpx.post(_INWORLD_URL, headers=_inworld_headers(), json=_inworld_body(text, voice_id), timeout=30.0)
     response.raise_for_status()
     payload = response.json()
     pcm = _inworld_pcm(payload["audioContent"])
@@ -301,16 +271,8 @@ def _synthesize_chatterbox(text: str) -> bytes:
     return response.content
 
 
-def synthesize(text: str, voice_id: str | None = None) -> bytes:
-    if settings.tts_provider == "chatterbox":
-        return _synthesize_chatterbox(text)
-    if settings.tts_provider == "inworld":
-        return _synthesize_inworld(text, voice_id)
-    return _synthesize_cartesia(text, voice_id)
-
-
 def synthesize_timed(text: str, voice_id: str | None = None) -> tuple[bytes, list[dict]]:
-    """Same audio as `synthesize`, plus word timings when the provider can supply them.
+    """A sentence spoken, as WAV bytes, plus word timings when the provider can supply them.
 
     Chatterbox returns no timings — an empty list, which the client reads as "estimate it", so
     switching providers degrades the highlight's accuracy rather than breaking it.
