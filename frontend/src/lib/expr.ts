@@ -217,8 +217,8 @@ export function parse(src: string): Node {
       if (t.value === 'x') return { kind: 'var' }
       // Own properties only, never `in`: `in` walks the prototype chain, so "constructor",
       // "toString" and "valueOf" would all read as known names and hand back an Object.prototype
-      // member where a number or a function belongs. Caught by the hostile-input cases in
-      // design/handoff/expr-cases.mjs, which is exactly what they are there for.
+      // member where a number or a function belongs. Caught by the "no code execution" cases in
+      // expr.test.ts, which is exactly what they are there for.
       if (own(CONSTANTS, t.value)) return { kind: 'num', value: CONSTANTS[t.value] }
       if (own(FUNCTIONS, t.value) || own(VARIADIC, t.value)) {
         if (!eat('(')) throw new ExprError(`${t.value} needs a bracket, like ${t.value}(x)`, at())

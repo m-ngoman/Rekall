@@ -21,8 +21,8 @@ const TAILNET_IP = '100.69.45.24'
  * so the HMR client has to be pointed there — left to its default it would try
  * `wss://<host>:5173`, which the tunnel doesn't expose, and hot reload would sit there failing.
  * Under 'direct' the defaults are already right, since the page's origin *is* the dev server. */
-// Declared locally rather than pulling in @types/node for one lookup — this file is the only
-// place in the frontend that touches the Node environment.
+// Declared locally rather than pulling in @types/node for one lookup — the build configs are the
+// only places in the frontend that touch the Node environment (vitest.config.ts does the same).
 declare const process: { env: Record<string, string | undefined> }
 
 const reach = process.env.PIPCARDS_TAILNET  // 'direct' | 'serve' | undefined

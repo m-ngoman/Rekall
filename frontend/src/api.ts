@@ -94,6 +94,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** Reads an SSE response body (from `fetch`, not `EventSource` — this app's streams are POST-based,
  * which EventSource can't do) and calls `onEvent` for each `event:`/`data:` pair as it arrives.
  */
+// Each caller knows the payload shape of the events it asked for; the parser can't.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function streamSSE(url: string, init: RequestInit, onEvent: (eventType: string, data: any) => void): Promise<void> {
   const res = await fetch(url, init)
   // Same 401 handling as request(): a session that expires mid-stream is being signed out, not a

@@ -5,14 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:fixture": "vite --config vite.fixture.config.ts",
     "dev:tailnet": "PIPCARDS_TAILNET=direct vite",
     "dev:tailnet-tls": "PIPCARDS_TAILNET=serve vite",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "test": "vitest run",
     "preview": "vite preview",
     "blog": "node scripts/build-blog.mjs",
     "prebuild": "npm run blog"
   },
   "dependencies": {
+    "@tiptap/core": "^3.31.0",
     "@tiptap/extension-highlight": "^3.31.0",
     "@tiptap/extension-placeholder": "^3.31.0",
     "@tiptap/extension-table": "^3.31.0",
@@ -21,7 +26,6 @@
     "@tiptap/pm": "^3.31.0",
     "@tiptap/react": "^3.31.0",
     "@tiptap/starter-kit": "^3.31.0",
-    "@types/katex": "^0.16.8",
     "katex": "^0.18.7",
     "markdown-it-mark": "^4.0.0",
     "react": "^18.3.1",
@@ -29,14 +33,22 @@
     "tiptap-markdown": "^0.9.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/katex": "^0.16.8",
+    "@types/markdown-it": "^14.2.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^17.12.0",
     "marked": "^18.0.12",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10"
+    "typescript-eslint": "^8.70.1",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.9"
   }
 }
