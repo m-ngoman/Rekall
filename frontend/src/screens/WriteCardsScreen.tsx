@@ -4,6 +4,7 @@ import type { Card, Deck } from '../types'
 import { useConfirm } from '../hooks/useConfirm'
 import BackButton from '../components/BackButton'
 import ConfirmDialog from '../components/ConfirmDialog'
+import MaybeMath from '../components/MaybeMath'
 
 interface Props {
   /** Opens straight into one deck and hides the picker — this is the "edit this deck" entry
@@ -330,8 +331,8 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
                 >
                   <div className="min-w-0 flex-1">
                     {card.subtopic && <div className="mb-0.5 text-[0.8125rem] font-semibold text-[var(--text-muted)]">{card.subtopic}</div>}
-                    <div className="text-[0.9375rem] font-bold">{card.question}</div>
-                    <div className="mt-0.5 text-sm text-[var(--text-muted)]">{card.answer}</div>
+                    <div className="text-[0.9375rem] font-bold"><MaybeMath text={card.question} math={card.is_math} /></div>
+                    <div className="mt-0.5 text-sm text-[var(--text-muted)]"><MaybeMath text={card.answer} math={card.is_math} /></div>
                   </div>
                   <div className="-mr-2 flex flex-shrink-0 items-center">
                     <IconButton label="Edit card" onClick={() => setEditingId(card.id)}>

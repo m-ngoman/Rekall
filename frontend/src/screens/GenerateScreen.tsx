@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PaymentRequired, serverDetail, generateDeck, generateDeckFromNotes, generateDeckFromTopic, listDecks } from '../api'
 import ActionCard from '../components/ActionCard'
 import BackButton from '../components/BackButton'
+import MaybeMath from '../components/MaybeMath'
 import { CameraIcon, PdfIcon, PhotoIcon } from '../components/icons'
 import NotePicker from '../components/generate/NotePicker'
 import type { Deck, GenerationResult, Note } from '../types'
@@ -168,8 +169,8 @@ export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Prop
           {result.cards_added.map((c) => (
             <div key={c.id} className="border-b border-[var(--rule)] py-3.5">
               {c.subtopic && <div className="mb-0.5 text-[0.8125rem] font-semibold text-[var(--text-muted)]">{c.subtopic}</div>}
-              <div className="text-[0.9375rem] font-bold">{c.question}</div>
-              <div className="mt-0.5 text-sm text-[var(--text-muted)]">{c.answer}</div>
+              <div className="text-[0.9375rem] font-bold"><MaybeMath text={c.question} math={c.is_math} /></div>
+              <div className="mt-0.5 text-sm text-[var(--text-muted)]"><MaybeMath text={c.answer} math={c.is_math} /></div>
             </div>
           ))}
         </div>

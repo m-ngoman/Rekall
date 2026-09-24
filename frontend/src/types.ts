@@ -29,6 +29,8 @@ export interface Card {
   answer: string
   state: 'new' | 'learning' | 'review'
   reviews: number
+  /** Question and answer may carry LaTeX, as on StudyCard. */
+  is_math: boolean
 }
 
 export interface StudyCard {
@@ -114,6 +116,8 @@ export interface GeneratedCard {
   subtopic: string | null
   question: string
   answer: string
+  /** Question and answer may carry LaTeX, as on StudyCard. */
+  is_math: boolean
 }
 
 export interface DroppedCard {

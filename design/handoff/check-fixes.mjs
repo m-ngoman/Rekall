@@ -2,6 +2,8 @@
 //
 //   - A card reported during study leaves the session, including the second showing it was
 //     queued for when it was missed first time.
+//   - A card flagged is_math shows its maths set, not its LaTeX source, in the card writer's list
+//     and in a generation run's results.
 //
 // Fixture setup as in check-notes-editor.mjs: the backend on :8011 with GRADER=stub against the
 // rekall_fixture database, `npm run dev:fixture` on :5199. It reseeds the fixture first.
@@ -72,6 +74,55 @@ page.on('pageerror', (e) => errs.push(e.message))
   await page.getByText('Done for today').waitFor()
   const suspended = (await get(`/api/decks/${deck.id}/study-queue`)).cards.every((c) => c.question !== reported)
   check('and the server left it out of the next session', suspended)
+}
+
+// --- Maths is set in card lists and generation results -------------------------------------------
+{
+  // KaTeX renders into .katex elements; the source it came from starts with "$\frac".
+  const setAsMaths = async (scope) => (await scope.locator('.katex').count()) > 0
+  const rawLatex = async (scope) => (await scope.innerText()).includes('\\frac')
+
+  const pharmacology = (await get('/api/decks')).find((d) => d.name === 'Pharmacology')
+  await page.goto(APP, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'Cards', exact: true }).first().click()
+  await page.getByRole('button', { name: /Write your own/ }).first().click()
+  // Under StrictMode the deck list is fetched twice in development, and each answer pre-selects
+  // the newest deck, so a choice made before the second one lands is overwritten. Choose until
+  // the choice holds.
+  const list = page.locator('main')
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await page.locator('select').first().selectOption(pharmacology.id)
+    const held = await list.getByText(`${pharmacology.total} cards`).waitFor({ timeout: 3000 }).then(() => true, () => false)
+    if (held) break
+  }
+  await list.getByText('By the product rule', { exact: false }).first().waitFor()
+  await list.locator('.katex').first().waitFor({ timeout: 10000 }).catch(() => {})
+  check('the card writer sets a maths card as maths', (await setAsMaths(list)) && !(await rawLatex(list)))
+
+  // A generation run's results, from a topic, with the model's answer stood in for.
+  const result = {
+    deck_id: pharmacology.id,
+    deck_name: 'Pharmacology',
+    cards_added: [
+      { id: 'c1', subtopic: null, question: 'What is $\\frac{d}{dx} e^{2x}$?', answer: '$2e^{2x}$', is_math: true },
+      { id: 'c2', subtopic: null, question: 'What does a beta blocker block?', answer: 'Beta-adrenergic receptors.', is_math: false },
+    ],
+    cards_dropped: [],
+  }
+  await page.route('**/api/notes/generate-from-topic', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/event-stream', body: `event: done\ndata: ${JSON.stringify(result)}\n\n` }),
+  )
+  await page.goto(APP, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'Cards', exact: true }).first().click()
+  await page.getByRole('button', { name: /Generate with AI/ }).first().click()
+  await page.getByRole('button', { name: /Describe a topic/ }).click()
+  await page.getByPlaceholder('Subject — Chemistry, History…').fill('Calculus')
+  await page.getByPlaceholder("Topic — what you're studying right now").fill('Derivatives')
+  await page.getByRole('button', { name: 'Generate flashcards' }).click()
+  await page.getByText('Added to Pharmacology').waitFor()
+  await list.locator('.katex').first().waitFor({ timeout: 10000 }).catch(() => {})
+  check('generation results set a maths card as maths', (await setAsMaths(list)) && !(await rawLatex(list)))
+  check('and leave an ordinary card as it was written', await list.getByText('Beta-adrenergic receptors.', { exact: true }).isVisible())
 }
 
 check('no page errors', errs.length === 0, errs.join(' | '))
