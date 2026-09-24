@@ -1,64 +1,31 @@
-import logging
+"""The notes library: listing and searching notes, uploading and writing them, editing, refiling,
+and deleting them. Generating cards from notes is its own router, api/generation.py, under the
+same prefix.
+"""
+
 import re
 import uuid
-from collections.abc import Callable, Generator
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from app.core.allowance import charge_pages, has_pages, pages_for, require_pages
+from app.core.allowance import charge_pages, has_pages
 from app.core.auth import get_current_user
-from app.core.entitlements import has_text_ai, require_text_ai
-from app.core.settings_store import get_settings_row, require_ai
-from app.core.sse import guard, sse_event
+from app.core.entitlements import has_text_ai
+from app.core.settings_store import get_settings_row
 from app.core.usage import record
 from app.db import get_db
-from app.models import Card, Deck, Note, NoteFileType, PageReason, UsageEventType
-from app.schemas import (
-    DroppedCardOut,
-    GeneratedCardOut,
-    GenerateFromNotes,
-    GenerateFromTopic,
-    GenerationResultOut,
-    NoteCreate,
-    NoteDetailOut,
-    NoteOut,
-    NoteUpdate,
-    UnfileCategory,
-    UnfileResult,
-)
-from app.services.deck_generation import (
-    extract_pdf,
-    generate_draft,
-    generate_topic_draft,
-    looks_like_latex,
-    transcribe_notes,
-    verify_cards,
-    verify_topic_cards,
-)
-from app.services.storage import save_note_file
-
-logger = logging.getLogger(__name__)
+from app.models import Deck, Note, NoteFileType, PageReason, UsageEventType
+from app.schemas import NoteCreate, NoteDetailOut, NoteOut, NoteUpdate, UnfileCategory, UnfileResult
+from app.services.note_files import decompose, page_cost, save_note, transcribe_all
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 
 PREVIEW_CHARS = 180
-
-# Transcriptions are independent per file, so a batch fans out instead of going one at a time.
-# The cap is there so uploading a stack of twenty photos doesn't open twenty simultaneous
-# connections to OpenRouter.
-TRANSCRIBE_WORKERS = 4
-
-# Generation is two long model round-trips, so there is plenty of time for one to fail after the
-# response has already committed to 200 and started streaming. Nothing is saved when it does —
-# the cards are written in one transaction that never reaches its commit.
-_GENERATION_FAILED = "Card generation failed partway through. Nothing was saved — try again."
 
 
 def _plain_preview(md: str) -> str:
@@ -96,74 +63,6 @@ def _note_out(note: Note, deck_name: str | None) -> NoteOut:
         preview=preview,
         created_at=note.created_at,
     )
-
-
-@dataclass
-class _Upload:
-    """One uploaded file broken down into what both endpoints need: the payload a model can read,
-    plus what's needed to store the original. Shared so /generate and the notes-tab upload agree
-    on what counts as a PDF and how each file is handed to the AI.
-    """
-
-    data: bytes
-    is_pdf: bool
-    ext: str
-    text: str | None  # a PDF's own text layer, when it has a real one
-    images: list[bytes]  # rendered pages, or the photo itself
-
-
-def _decompose(filename: str, content_type: str, data: bytes) -> _Upload:
-    """Classified per file rather than per batch: uploading two PDFs at once used to make the
-    whole batch fall through to the image path, handing raw PDF bytes to a vision model.
-    """
-    is_pdf = content_type == "application/pdf" or filename.lower().endswith(".pdf")
-    text, images = extract_pdf(data) if is_pdf else (None, [data])
-    ext = "pdf" if is_pdf else (filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg")
-    return _Upload(data=data, is_pdf=is_pdf, ext=ext, text=text, images=images)
-
-
-def _page_cost(uploads: list[_Upload]) -> int:
-    """What a batch costs in allowance pages. One definition, so the two generation entry points
-    and the notes upload cannot drift apart on what a page is."""
-    return pages_for(
-        sum(len(u.images) for u in uploads),
-        "\n\n".join(u.text for u in uploads if u.text) or None,
-    )
-
-
-def _transcribe(upload: _Upload) -> str | None:
-    """One note's markdown transcription, or None if it couldn't be produced.
-
-    Failures are swallowed on purpose. A note with no text is still a note you can open and read —
-    it just won't turn up in search — whereas letting the exception escape would fail every file
-    in the upload over one note's searchability.
-    """
-    try:
-        return transcribe_notes(upload.images, upload.text)[0] or None
-    except Exception:
-        logger.exception("Transcription failed for an uploaded note; saving it without text")
-        return None
-
-
-def _transcribe_all(uploads: list[_Upload]) -> list[str | None]:
-    if len(uploads) == 1:
-        return [_transcribe(uploads[0])]
-    with ThreadPoolExecutor(max_workers=min(TRANSCRIBE_WORKERS, len(uploads))) as pool:
-        return list(pool.map(_transcribe, uploads))
-
-
-def _save_note(
-    db: Session, user_id: uuid.UUID, deck_id: uuid.UUID | None, upload: _Upload, markdown: str | None
-) -> Note:
-    note = Note(
-        user_id=user_id,
-        deck_id=deck_id,
-        file_type=NoteFileType.pdf if upload.is_pdf else NoteFileType.image,
-        storage_path=save_note_file(user_id, upload.data, upload.ext),
-        ocr_text=markdown,
-    )
-    db.add(note)
-    return note
 
 
 def _resolve_deck(db: Session, user_id: uuid.UUID, deck_id: str) -> Deck | None:
@@ -284,7 +183,7 @@ async def upload_notes(
     # reads `user`. get_settings_row commits on a user's first ever request, which expires every
     # loaded row; reading an attribute off one from a worker thread would then refresh it from
     # there, touching this session from two places at once.
-    uploads = await run_in_threadpool(lambda: [_decompose(*r) for r in raw])
+    uploads = await run_in_threadpool(lambda: [decompose(*r) for r in raw])
 
     # Still not gated, and the route's rule is unchanged: turning AI off removes the *inference*,
     # not the feature. The note uploads, is stored, opens and can be read — it just isn't
@@ -296,7 +195,7 @@ async def upload_notes(
     # already had. Transcription is a vision call per page, so it shares the generation allowance —
     # which is why the meter is called pages_read and the refusal sentence says "pages" rather
     # than "card generation".
-    pages = _page_cost(uploads)
+    pages = page_cost(uploads)
     transcribe = ai_on and has_text_ai(user) and has_pages(db, user, pages)
     if transcribe:
         charge_pages(db, user, pages, PageReason.transcription)
@@ -307,13 +206,13 @@ async def upload_notes(
         # Resolved inside the worker so a newly created category is flushed in the same session
         # and transaction that writes the notes — and after the charge above, which commits.
         deck = _deck_for_upload(db, user_id, deck_id, deck_name)
-        # A text-layer PDF still gets its exact text with AI off — `_decompose` pulls that from the
+        # A text-layer PDF still gets its exact text with AI off — `decompose` pulls that from the
         # file with pymupdf and no model is involved, which is the same short-circuit
         # `transcribe_notes` takes anyway. Images and scanned PDFs save with no text: readable and
         # openable, just absent from search until AI is switched back on.
-        markdowns = _transcribe_all(uploads) if transcribe else [u.text for u in uploads]
+        markdowns = transcribe_all(uploads) if transcribe else [u.text for u in uploads]
         created = [
-            _save_note(db, user_id, deck.id if deck else None, upload, markdown)
+            save_note(db, user_id, deck.id if deck else None, upload, markdown)
             for upload, markdown in zip(uploads, markdowns, strict=True)
         ]
         # One event for the batch, counting the files: a stack of twenty photos dropped in at once
@@ -470,301 +369,3 @@ def delete_note(request: Request, note_id: uuid.UUID, db: Session = Depends(get_
 
     db.delete(note)
     db.commit()
-
-
-def _upload_from_note(note: Note) -> _Upload:
-    """Rebuilds the same _Upload the file arrived as, from what was written to disk. Going through
-    _decompose keeps stored notes and fresh uploads on one definition of how a PDF is split.
-
-    A typed note has no file: its body goes in as text, the same way a text-layer PDF's does.
-    """
-    if note.storage_path is None:
-        return _Upload(data=b"", is_pdf=False, ext="md", text=note.ocr_text or None, images=[])
-    data = Path(note.storage_path).read_bytes()
-    return _decompose(Path(note.storage_path).name, "application/pdf" if note.file_type is NoteFileType.pdf else "", data)
-
-
-def _generate_cards(
-    db: Session,
-    user_id: uuid.UUID,
-    deck_pk: uuid.UUID | None,
-    uploads: list[_Upload],
-    finish: Callable[[Deck], None],
-    deck_name: str = "",
-) -> Generator[str, None, None]:
-    """Draft, verify, and persist — shared by both generation entry points so a fresh upload and a
-    stored note produce cards the same way. `finish` runs after the cards are flushed and before
-    the commit, in the same transaction. Both callers pass a no-op today: it used to save the
-    uploads as notes, or refile the picked ones, and both of those put a category in the Notes
-    tab as a side effect of generating. The hook stays so any later per-deck work lands in the
-    cards' transaction rather than a second one.
-    """
-    # Card generation sees the batch as one body of material, so the per-file payloads merge.
-    text = "\n\n".join(u.text for u in uploads if u.text) or None
-    images = [image for u in uploads for image in u.images]
-
-    yield sse_event("stage", {"label": "Generating flashcards…"})
-    draft = generate_draft(images, text)
-
-    yield sse_event("stage", {"label": "Double-checking against your notes…"})
-    verified = verify_cards(images, text, draft.get("cards", []))
-
-    yield from _persist_cards(
-        db, user_id, deck_pk, verified, draft.get("deck_name"), finish, deck_name
-    )
-
-
-def _persist_cards(
-    db: Session,
-    user_id: uuid.UUID,
-    deck_pk: uuid.UUID | None,
-    verified: dict,
-    proposed_name: str | None,
-    finish: Callable[[Deck], None],
-    deck_name: str = "",
-) -> Generator[str, None, None]:
-    """Write out whatever survived verification, and report it.
-
-    Shared by both generation paths — from notes and from a topic — because what happens to a
-    verified card doesn't depend on where the material came from, and the `done` payload the
-    client reads has to be identical either way.
-    """
-    # A primary key rather than the Deck itself, because every caller charges the page allowance
-    # before opening the stream and that charge commits — which expires every row loaded before
-    # it. Re-reading here means the row this worker thread touches was never one of them.
-    deck = db.get(Deck, deck_pk) if deck_pk else None
-    if deck is None:
-        deck = Deck(user_id=user_id, name=deck_name.strip() or proposed_name or "Untitled Deck")
-        db.add(deck)
-        db.flush()
-
-    cards_added = []
-    for c in verified.get("cards", []):
-        question = (c.get("question") or "").strip()
-        answer = (c.get("answer") or "").strip()
-        if not question or not answer:
-            continue
-        card = Card(
-            deck_id=deck.id,
-            subtopic=(c.get("subtopic") or None),
-            question=question,
-            answer=answer,
-            # The model's own label, ORed with what it actually wrote. It reliably emits the
-            # notation and unreliably labels it — it wrote "$x^0$" and "$3$" and still answered
-            # false, reading a y-intercept as prose that mentions a number. Either signal alone
-            # misses cards; the text is the one that can't be argued with.
-            is_math=c.get("is_math") is True or looks_like_latex(question, answer),
-        )
-        db.add(card)
-        cards_added.append(card)
-    db.flush()
-
-    finish(deck)
-
-    # One event per run, counting the cards it produced. A run that verified everything away
-    # still counts as a use — that it produced nothing is the interesting part, and a
-    # cards-only count would hide it.
-    record(db, user_id, UsageEventType.cards_generated, count=len(cards_added))
-
-    db.commit()
-    db.refresh(deck)
-
-    result = GenerationResultOut(
-        deck_id=deck.id,
-        deck_name=deck.name,
-        cards_added=[
-            GeneratedCardOut(id=c.id, subtopic=c.subtopic, question=c.question, answer=c.answer, is_math=c.is_math)
-            for c in cards_added
-        ],
-        cards_dropped=[
-            DroppedCardOut(question=d.get("question", ""), reason=d.get("reason", ""))
-            for d in verified.get("dropped", [])
-        ],
-    )
-    yield sse_event("done", result.model_dump(mode="json"))
-
-
-@router.post("/generate")
-async def generate(
-    request: Request,
-    deck_id: str = Form(""),
-    deck_name: str = Form(""),
-    files: list[UploadFile] = File(...),
-    db: Session = Depends(get_db),
-) -> StreamingResponse:
-    """Photos and/or PDFs of notes -> flashcards, streamed as SSE `stage` events (this takes two
-    full LLM round-trips, draft then verify, so a bare spinner would feel broken) followed by a
-    `done` event carrying the GenerationResultOut payload.
-
-    Cards only. The files used to be saved into the notes library as well, which put a category
-    in the Notes tab that nobody had asked for and that tab had no way to remove. Keeping a copy
-    of a page is the Notes tab's own upload, done on purpose. GenerateScreen currently only ever
-    sends one PDF *or* a set of images, never a mix, but the batch is handled file by file so the
-    endpoint doesn't quietly break if that changes.
-    """
-    user = get_current_user(request, db)
-    require_ai(db, user.id, "generation")
-    require_text_ai(user)
-
-    if not files:
-        raise HTTPException(400, "No files uploaded")
-
-    raw = [(f.filename or "upload", f.content_type or "", await f.read()) for f in files]
-
-    # Decomposition moved ahead of the stream, and the "Reading your notes…" stage event went with
-    # it. You cannot decide whether to do work before knowing how much of it there is, and the
-    # allowance answer has to be a real status: raised from inside the generator, `guard` turns it
-    # into an SSE `error` frame and the client loses the typed 402 and with it the way to buy more.
-    # GenerateScreen already shows its own label from the moment the request starts, so nothing is
-    # unlabelled — the first streamed stage is simply "Generating flashcards…" now.
-    #
-    # Explicitly off the event loop: rasterising a PDF is CPU-bound and used to ride the
-    # generator's worker thread, which Starlette provided for free.
-    uploads = await run_in_threadpool(lambda: [_decompose(*r) for r in raw])
-
-    # Validate the request before charging for it.
-    existing_deck = _resolve_deck(db, user.id, deck_id)
-    deck_pk = existing_deck.id if existing_deck else None
-    user_id = user.id
-
-    pages = _page_cost(uploads)
-    require_pages(db, user, pages)
-    charge_pages(db, user, pages, PageReason.generation)
-
-    # Plain values from here down: the charge committed, so every row read before it is expired
-    # and touching one from the generator's thread would refresh it from there.
-    def stream() -> Generator[str, None, None]:
-        yield from _generate_cards(db, user_id, deck_pk, uploads, lambda deck: None, deck_name)
-
-    return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")
-
-
-@router.post("/generate-from-notes")
-def generate_from_notes(request: Request, payload: GenerateFromNotes, db: Session = Depends(get_db)) -> StreamingResponse:
-    """Same generation pipeline as /generate, but over notes already in the library instead of a
-    fresh upload. Streams the identical SSE shape so the client has one code path for both.
-
-    The stored originals are re-read and re-sent rather than the pipeline being fed the notes'
-    saved `ocr_text`: verification's whole job is checking a drafted card against the source, and
-    checking it against a transcription only proves the card matches an earlier model's reading of
-    the page. Text-layer PDFs skip the vision call anyway, via _decompose.
-    """
-    user = get_current_user(request, db)
-    require_ai(db, user.id, "generation")
-    require_text_ai(user)
-    existing_deck = _resolve_deck(db, user.id, payload.deck_id)
-
-    if not payload.note_ids:
-        raise HTTPException(400, "No notes selected")
-
-    notes = db.query(Note).filter(Note.id.in_(payload.note_ids), Note.user_id == user.id).all()
-    if len(notes) != len(set(payload.note_ids)):
-        raise HTTPException(404, "One or more notes not found")
-
-    # Ordered the way the client sent them, so the material reaches the model in the order the
-    # user chose rather than whatever order the database happened to return.
-    by_id = {n.id: n for n in notes}
-    ordered = [by_id[nid] for nid in dict.fromkeys(payload.note_ids)]
-
-    # Read ahead of the stream for the same reason /generate decomposes early — the page count has
-    # to be known before anything is charged or streamed. This route is a sync `def`, so it is
-    # already running in a worker thread and needs no run_in_threadpool of its own.
-    #
-    # Both failures below were SSE `error` events and are now statuses, which is strictly better:
-    # a status is something the client can branch on, and these two had to move above the stream
-    # anyway.
-    try:
-        uploads = [_upload_from_note(n) for n in ordered]
-    except OSError:
-        logger.exception("A stored note file could not be read")
-        raise HTTPException(404, "One of those notes is missing its original file.") from None
-    # Possible now that a note can be typed: a title with an empty body. Handing the model
-    # nothing would get a confident deck of nothing in return.
-    if not any(u.text or u.images for u in uploads):
-        raise HTTPException(400, "Those notes are empty — write something in them first.")
-
-    deck_pk = existing_deck.id if existing_deck else None
-    user_id = user.id
-
-    pages = _page_cost(uploads)
-    require_pages(db, user, pages)
-    charge_pages(db, user, pages, PageReason.generation)
-
-    def stream() -> Generator[str, None, None]:
-        # Nothing is refiled. An unfiled note used to be attached to the deck its cards landed in,
-        # which made a category appear in the Notes tab as a side effect of generating. Where a
-        # note lives is the student's call, made in the Notes tab.
-        yield from _generate_cards(db, user_id, deck_pk, uploads, lambda deck: None, payload.deck_name)
-
-    return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")
-
-
-@router.post("/generate-from-topic")
-def generate_from_topic(request: Request, payload: GenerateFromTopic, db: Session = Depends(get_db)) -> StreamingResponse:
-    """Flashcards from a described topic, for a student who hasn't written the notes yet.
-
-    Same SSE shape as the other two entry points, and the same no-review-screen contract: what
-    catches a bad card here is the student reporting it during review, not a confirmation gate
-    they'd click through anyway.
-
-    Where the chosen deck already has notes filed under it, those are passed in as grounding and
-    verification goes back to being a real check against real material. That is the whole reason
-    the deck is asked for before the cards are made rather than after: an unfiled topic generates
-    from the model's general knowledge, and a filed one generates from what the student was
-    actually taught.
-    """
-    user = get_current_user(request, db)
-    require_ai(db, user.id, "generation")
-    require_text_ai(user)
-    existing_deck = _resolve_deck(db, user.id, payload.deck_id)
-
-    subject = payload.subject.strip()
-    topic = payload.topic.strip()
-    if not subject or not topic:
-        raise HTTPException(400, "A subject and a topic are both needed")
-
-    grounding = None
-    if existing_deck is not None:
-        # Their own transcriptions, not the original files: this is context for what to cover and
-        # emphasise, not the material a card is checked against page by page, so a transcription
-        # is exactly the right fidelity and costs no vision call.
-        filed = (
-            db.query(Note)
-            .filter(Note.deck_id == existing_deck.id, Note.user_id == user.id, Note.ocr_text.isnot(None))
-            .order_by(Note.created_at)
-            .all()
-        )
-        joined = "\n\n".join(n.ocr_text for n in filed if n.ocr_text and n.ocr_text.strip())
-        grounding = joined or None
-
-    deck_pk = existing_deck.id if existing_deck else None
-    user_id = user.id
-
-    # No images, so this falls out of pages_for's floor: one page, plus whatever the grounding
-    # weighs. That is the right answer rather than an exemption — a run's cost is dominated by the
-    # output tokens of its two round trips, which a topic run makes just like an upload does, so a
-    # topic generation costs about what a one-page generation costs. Exempting it would need a
-    # second constant, a second meter and a second refusal sentence to police something cheaper
-    # than a single page.
-    pages = pages_for(0, grounding)
-    require_pages(db, user, pages)
-    charge_pages(db, user, pages, PageReason.generation)
-
-    def stream() -> Generator[str, None, None]:
-        yield sse_event("stage", {"label": "Writing flashcards…"})
-        draft = generate_topic_draft(subject, topic, payload.grade_level or None, payload.curriculum or None, grounding)
-
-        yield sse_event(
-            "stage",
-            {"label": "Checking them against your notes…" if grounding else "Checking them over…"},
-        )
-        verified = verify_topic_cards(
-            subject, topic, payload.grade_level or None, payload.curriculum or None,
-            draft.get("cards", []), grounding,
-        )
-
-        yield from _persist_cards(
-            db, user_id, deck_pk, verified, draft.get("deck_name") or topic, lambda _deck: None, payload.deck_name
-        )
-
-    return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")

@@ -3,7 +3,8 @@
 import pymupdf
 import pytest
 
-from app.api.notes import _decompose, _plain_preview, _prefix_tsquery
+from app.api.notes import _plain_preview, _prefix_tsquery
+from app.services.note_files import decompose
 
 
 @pytest.mark.parametrize(
@@ -36,15 +37,15 @@ def test_search_text_becomes_a_safe_prefix_query(q: str, tsquery) -> None:
 
 
 def test_a_photo_is_one_image() -> None:
-    upload = _decompose("Board.JPG", "image/jpeg", b"\xff\xd8\xffdata")
+    upload = decompose("Board.JPG", "image/jpeg", b"\xff\xd8\xffdata")
     assert (upload.is_pdf, upload.ext, upload.text, upload.images) == (False, "jpg", None, [b"\xff\xd8\xffdata"])
-    assert _decompose("noext", "", b"x").ext == "jpg"
+    assert decompose("noext", "", b"x").ext == "jpg"
 
 
 def test_a_pdf_with_a_text_layer_is_read_as_text() -> None:
     doc = pymupdf.open()
     doc.new_page().insert_text((72, 72), "Beta blockers slow the heart rate and lower blood pressure.")
-    upload = _decompose("slides.pdf", "", doc.tobytes())
+    upload = decompose("slides.pdf", "", doc.tobytes())
     assert upload.is_pdf and upload.ext == "pdf" and upload.images == []
     assert "Beta blockers slow the heart rate" in upload.text
 
@@ -52,6 +53,6 @@ def test_a_pdf_with_a_text_layer_is_read_as_text() -> None:
 def test_a_scanned_pdf_is_rendered_to_images() -> None:
     doc = pymupdf.open()
     doc.new_page()
-    upload = _decompose("scan", "application/pdf", doc.tobytes())
+    upload = decompose("scan", "application/pdf", doc.tobytes())
     assert upload.is_pdf and upload.text is None
     assert len(upload.images) == 1 and upload.images[0].startswith(b"\x89PNG")

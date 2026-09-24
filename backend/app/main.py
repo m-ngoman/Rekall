@@ -16,6 +16,7 @@ from app.api.cards import router as cards_router
 from app.api.dashboard import router as dashboard_router
 from app.api.decks import router as decks_router
 from app.api.exams import router as exams_router
+from app.api.generation import router as generation_router
 from app.api.memory import router as memory_router
 from app.api.notes import router as notes_router
 from app.api.settings import router as settings_router
@@ -51,6 +52,7 @@ app.include_router(exams_router)
 app.include_router(tutor_router)
 app.include_router(memory_router)
 app.include_router(notes_router)
+app.include_router(generation_router)
 app.include_router(settings_router)
 app.include_router(bugs_router)
 app.include_router(admin_router)
