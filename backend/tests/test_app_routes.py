@@ -6,8 +6,9 @@ refreshes the page, which is exactly the kind of break that reaches a user rathe
 """
 
 import pytest
+from fastapi.testclient import TestClient
 
-from app.main import _APP_ROUTES, _is_app_route
+from app.main import _APP_ROUTES, _DIST, _is_app_route, app
 
 
 @pytest.mark.parametrize("path", sorted(_APP_ROUTES))
@@ -48,13 +49,10 @@ def test_everything_else_keeps_its_404(path: str) -> None:
 # a file named 404.html sits in the dist directory, StaticFiles(html=True) serves it on every miss
 # before get_response can fall back, which silently turns every deep link into a 404 and every API
 # miss into HTML. That shipped once. These are what would have caught it.
-
-import pytest
-from fastapi.testclient import TestClient
-
-from app.main import _DIST, app
-
-pytestmark = pytest.mark.skipif(not _DIST.is_dir(), reason="frontend not built")
+#
+# Only these need `frontend/dist`: the mount doesn't exist without it. The unit tests above run
+# regardless, so an unbuilt checkout still checks the route list.
+needs_dist = pytest.mark.skipif(not _DIST.is_dir(), reason="frontend not built")
 
 
 @pytest.fixture(scope="module")
@@ -62,6 +60,7 @@ def client() -> TestClient:
     return TestClient(app, raise_server_exceptions=False)
 
 
+@needs_dist
 @pytest.mark.parametrize("path", ["/cards", "/settings", "/study/abc123"])
 def test_a_client_side_route_still_gets_the_app_shell(client: TestClient, path: str) -> None:
     res = client.get(path)
@@ -69,6 +68,7 @@ def test_a_client_side_route_still_gets_the_app_shell(client: TestClient, path: 
     assert "<div id=" in res.text or "<script" in res.text
 
 
+@needs_dist
 @pytest.mark.parametrize("path", ["/nope", "/blog/dead-link/", "/privacy"])
 def test_an_unknown_page_gets_the_human_404(client: TestClient, path: str) -> None:
     res = client.get(path)
@@ -76,6 +76,7 @@ def test_an_unknown_page_gets_the_human_404(client: TestClient, path: str) -> No
     assert res.headers["content-type"].startswith("text/html")
 
 
+@needs_dist
 @pytest.mark.parametrize("path", ["/api/nonexistent", "/api/decks/not-a-real-id"])
 def test_the_api_keeps_its_json_404(client: TestClient, path: str) -> None:
     """The client reads `detail` off these to build its error and paywall copy, so an HTML body
@@ -86,6 +87,7 @@ def test_the_api_keeps_its_json_404(client: TestClient, path: str) -> None:
     assert "detail" in res.json()
 
 
+@needs_dist
 def test_the_404_page_is_not_named_404_html(client: TestClient) -> None:
     """StaticFiles(html=True) claims that exact filename for itself. See the comment on
     _NOT_FOUND_PAGE in app/main.py."""

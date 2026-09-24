@@ -27,6 +27,13 @@ dev = [
     "ruff>=0.7",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+markers = [
+    "pg: drives the API against a real Postgres; runs only when TEST_DATABASE_URL is set (see tests/conftest.py)",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
