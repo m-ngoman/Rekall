@@ -173,11 +173,10 @@ export default function CardsScreen({ onStudy, onChanged, aiGeneration, onOpenPr
           // Rows on the page with a rule above the first, not a grid of tiles. A library is a
           // list, and drawing it as cards is what made every screen look like the same screen.
           <div className="border-t border-[var(--rule)]">
-            {decks.map((deck, i) => (
+            {decks.map((deck) => (
               <DeckTile
                 key={deck.id}
                 deck={deck}
-                index={i}
                 variant="row"
                 onClick={() => onStudy(deck.id)}
                 onEdit={() => setEditingDeckId(deck.id)}

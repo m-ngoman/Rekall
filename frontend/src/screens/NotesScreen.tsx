@@ -855,15 +855,11 @@ function NoteTile({
 function CategoryNameInput({
   initial = '',
   placeholder,
-  allowEmpty = false,
   onCommit,
   onCancel,
 }: {
   initial?: string
   placeholder: string
-  /** Categories must always have a name, so an emptied box there means "abandon". A note title is
-   * optional — emptying it is a real instruction to drop back to the transcription preview. */
-  allowEmpty?: boolean
   onCommit: (name: string) => void
   onCancel: () => void
 }) {
@@ -874,7 +870,7 @@ function CategoryNameInput({
     if (committed.current) return
     committed.current = true
     const next = value.trim()
-    if (next !== initial.trim() && (next || allowEmpty)) onCommit(value)
+    if (next && next !== initial.trim()) onCommit(value)
     else onCancel()
   }
 

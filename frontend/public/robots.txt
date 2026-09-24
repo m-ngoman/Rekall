@@ -1,8 +1,5 @@
 # The app itself is behind a login and has nothing worth indexing — only the public pages do.
 User-agent: *
 Allow: /
-# A dev-only layout audit page. It has to live in public/ to be served by the dev server, so it
-# ships — but there is no reason to index it.
-Disallow: /_layoutcheck.html
 
 Sitemap: https://rekall.study/sitemap.xml

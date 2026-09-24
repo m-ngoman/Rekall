@@ -19,14 +19,6 @@ export function daysUntil(iso: string): number {
   return Math.round((parseISODate(iso).getTime() - today.getTime()) / 86_400_000)
 }
 
-/** "in 12 days" / "tomorrow" / "today" / "passed" — for exam rows. */
-export function formatCountdown(days: number): string {
-  if (days < 0) return 'passed'
-  if (days === 0) return 'today'
-  if (days === 1) return 'tomorrow'
-  return `in ${days} days`
-}
-
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',

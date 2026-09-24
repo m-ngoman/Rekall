@@ -34,7 +34,7 @@ function unwrap(chunk: string): { display: boolean; body: string } {
   return { display, body: chunk.slice(width, -width) }
 }
 
-export default function MathText({ text, className }: { text: string; className?: string }) {
+export default function MathText({ text }: { text: string }) {
   const parts = useMemo(() => {
     // One capture group, so split() alternates: even indices are prose, odd ones are the matches.
     // Parity rather than re-testing the chunk's edges — a prose chunk that happens to start and
@@ -53,7 +53,7 @@ export default function MathText({ text, className }: { text: string; className?
   }, [text])
 
   return (
-    <span className={className}>
+    <span>
       {parts.map((p) =>
         p.math ? (
           <span key={p.key} className={p.display ? 'my-2 block overflow-x-auto' : ''} dangerouslySetInnerHTML={{ __html: p.value }} />

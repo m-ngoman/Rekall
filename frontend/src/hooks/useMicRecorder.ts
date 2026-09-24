@@ -331,5 +331,5 @@ export function useMicRecorder(tuning: MicTuning = {}) {
     [start, stop],
   )
 
-  return { start, stop, getAnalyser, listenUntilSilence, watchForSpeech }
+  return { stop, getAnalyser, listenUntilSilence, watchForSpeech }
 }

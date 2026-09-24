@@ -208,11 +208,6 @@ interface Props {
   /** The user's saved voice settings. Null until they've loaded — the hooks fall back to their
    * own defaults in the meantime rather than blocking the screen on a request. */
   settings: Settings | null
-  /** The tab-transition animation, applied to this screen's own elements rather than to a
-   * wrapper around them. A transform on an ancestor would re-anchor the fixed composer to that
-   * ancestor instead of the viewport; a transform on an element doesn't affect its own fixed
-   * positioning, so log and composer each animate themselves. */
-  enterClass?: string
   /** Adam's account only. Enables the /bug commands in the composer — see handleCommand. */
   isOwner?: boolean
   /** Where a 402 sends you. The tutor is a paid feature end to end, so this is reachable from
@@ -220,7 +215,7 @@ interface Props {
   onOpenPricing: () => void
 }
 
-export default function TutorScreen({ settings, enterClass, isOwner, onOpenPricing }: Props) {
+export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props) {
   const [session, setSession] = useState<TutorSession | null>(null)
   // The last error was a 402, so the message carries a link to plans.
   const [paywall, setPaywall] = useState(false)
@@ -487,7 +482,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
   // useLayoutEffect, not useEffect: this measures the textarea and then writes a pixel height
   // onto it. In a passive effect that write lands *after* the browser has painted, so opening the
   // tutor tab showed the composer at its natural height and then resized it a frame later —
-  // visible as a delayed jump, and worse while the tab-enter animation was still running.
+  // visible as a delayed jump.
   useLayoutEffect(() => {
     const el = textareaRef.current
     if (!el) return
@@ -1177,7 +1172,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
           below is capped to so the two share an edge. Without it the starter rows and the chat
           log stretch the full content area on a desktop and a row's meta ends up a thousand
           pixels from the text it belongs to. */}
-      <div ref={logRef} className={`mx-auto flex w-full max-w-[640px] flex-col gap-5 pb-64 ${enterClass ?? ''}`}>
+      <div ref={logRef} className="mx-auto flex w-full max-w-[640px] flex-col gap-5 pb-64">
         {messages.length === 0 ? (
           /* Was a single centered line of grey text on an otherwise blank screen. The starter
              prompts do real work beyond filling space: a blank tutor box gives no clue what it's
@@ -1238,9 +1233,6 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
               </div>
             ) : (
               <div key={i} className="max-w-[94%] self-start px-1 text-[0.9375rem] leading-relaxed text-[var(--text)]">
-                {m.imageUrl && (
-                  <img src={m.imageUrl} alt="Attached photo" className="mb-2 max-h-48 w-full rounded-[var(--r-sm)] object-cover" />
-                )}
                 {replyPending && i === messages.length - 1 && !m.text ? (
                   // Same three dots the voice stage shows while the tutor thinks.
                   <span aria-label="Thinking" className="animate-pulse tracking-[0.35em] text-[var(--text-muted)]">
@@ -1305,7 +1297,7 @@ export default function TutorScreen({ settings, enterClass, isOwner, onOpenPrici
       {/* `fixed`, not `sticky` — pinned to the viewport regardless of chat scroll. Offset by the
           sidebar's width on desktop (lg:left-60) so it centers within the content area, not the
           full window; bottom-24 on mobile clears the floating tab bar underneath it. */}
-      <div ref={composerRef} className={`fixed inset-x-0 bottom-24 z-20 flex justify-center px-5 lg:bottom-6 lg:left-60 lg:px-10 ${enterClass ?? ''}`}>
+      <div ref={composerRef} className="fixed inset-x-0 bottom-24 z-20 flex justify-center px-5 lg:bottom-6 lg:left-60 lg:px-10">
         {/* The way back to a reply still growing below you. It slides down *behind* the composer
             rather than fading: the card below is opaque and comes later in the DOM, so it simply
             covers this. That needs the card to be positioned too — otherwise this absolute box

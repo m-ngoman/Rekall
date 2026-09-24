@@ -43,10 +43,8 @@
   --grade-forgot: oklch(0.5 0.17 25);
   --grade-forgot-bg: oklch(0.95 0.05 25);
   --grade-hard: oklch(0.5 0.124 55);
-  --grade-hard-bg: oklch(0.95 0.05 55);
   --grade-good: oklch(0.5 0.14 145);
   --grade-good-bg: oklch(0.95 0.04 145);
-  --streak: oklch(0.72 0.16 55);
 }
 
 @supports not (color: oklch(from red l c h)) {
@@ -68,10 +66,8 @@
   --grade-forgot: oklch(0.68 0.17 25);
   --grade-forgot-bg: oklch(0.3 0.08 25);
   --grade-hard: oklch(0.76 0.16 55);
-  --grade-hard-bg: oklch(0.32 0.08 55);
   --grade-good: oklch(0.68 0.16 145);
   --grade-good-bg: oklch(0.28 0.06 145);
-  --streak: oklch(0.76 0.16 55);
 }
 
 /* 100%, not 106%: every size in the design doc is a px value, and the code expresses those as
@@ -257,13 +253,6 @@ a,
     to { opacity: 1; }
   }
   .focus-word { animation-timing-function: ease; }
-}
-
-/* Tab switches are instant. The classes remain so nothing else has to change; they do nothing. */
-.tab-enter-right,
-.tab-enter-left,
-.tab-enter-fade {
-  animation: none;
 }
 
 /* iOS Safari zooms the page in on any focused field whose font is under 16px, and it doesn't

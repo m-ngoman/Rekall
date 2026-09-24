@@ -2,8 +2,6 @@ import type { Deck } from '../types'
 
 interface Props {
   deck: Deck
-  /** Unused since the monogram colours went; accepted so the library's call sites compile. */
-  index?: number
   onClick: () => void
   /** Opens the deck's cards for editing. Library-only: on Home a deck tile means "study this". */
   onEdit?: () => void

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { HOME, parse, href, sameRoute, type Route } from '../lib/route'
+import { parse, href, sameRoute, type Route } from '../lib/route'
 
 /** The app's location, kept in the browser's history rather than in component state alone.
  *
@@ -38,5 +38,5 @@ export function useRoute() {
     setRoute(next)
   }, [])
 
-  return { route, go, replace, home: HOME }
+  return { route, go, replace }
 }

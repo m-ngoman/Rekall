@@ -192,7 +192,7 @@ export default function App() {
                 here would snap the month back to today and close the sheet mid-edit. */}
             {!showAdmin && !showPricing && tab === 'calendar' && <ExamsScreen onChanged={() => setRefreshKey((k) => k + 1)} />}
             {!showAdmin && !showPricing && tab === 'notes' && <NotesScreen onGoToCards={() => goToTab('cards')} aiGeneration={aiGeneration} />}
-            {!showAdmin && !showPricing && tab === 'tutor' && <TutorScreen settings={settings} enterClass="" isOwner={me.is_owner} onOpenPricing={openPricing} />}
+            {!showAdmin && !showPricing && tab === 'tutor' && <TutorScreen settings={settings} isOwner={me.is_owner} onOpenPricing={openPricing} />}
             {!showAdmin && !showPricing && tab === 'settings' && (
               <SettingsScreen me={me} settings={settings} error={settingsError} onChange={updateSettings} onOpenAdmin={() => go({ kind: 'admin' })} onOpenPricing={openPricing} />
             )}

@@ -337,10 +337,6 @@ export function createMemoryNote(category: MemoryCategory, content: string): Pro
   return request('/tutor/memory', { method: 'POST', body: JSON.stringify({ category, content }) })
 }
 
-export function updateMemoryNote(id: string, patch: { category?: MemoryCategory; content?: string }): Promise<MemoryNote> {
-  return request(`/tutor/memory/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
-}
-
 export function deleteMemoryNote(id: string): Promise<void> {
   return request(`/tutor/memory/${id}`, { method: 'DELETE' })
 }
@@ -537,13 +533,6 @@ export function moveNote(id: string, deckId: string | null): Promise<Note> {
  * the server removes it; `deck_deleted` says which happened so the deck list can follow. */
 export function unfileCategory(deckId: string): Promise<{ unfiled: number; deck_deleted: boolean }> {
   return request('/notes/unfile', { method: 'POST', body: JSON.stringify({ deck_id: deckId }) })
-}
-
-/** Names a note, or clears the name back to its transcription preview by passing an empty string.
- * Sent as its own call rather than folded into moveNote so a rename can't accidentally refile —
- * the backend distinguishes an omitted field from a null one, and this omits deck_id entirely. */
-export function renameNote(id: string, title: string): Promise<Note> {
-  return request(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify({ title }) })
 }
 
 export function getNote(id: string): Promise<NoteDetail> {

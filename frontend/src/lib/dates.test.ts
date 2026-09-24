@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { daysUntil, formatCountdown, formatMonth, parseISODate, toISODate } from './dates'
+import { daysUntil, formatMonth, parseISODate, toISODate } from './dates'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -19,10 +19,6 @@ describe('calendar dates', () => {
     expect(daysUntil('2026-09-25')).toBe(1)
     expect(daysUntil('2026-10-24')).toBe(30)
     expect(daysUntil('2026-09-20')).toBe(-4)
-  })
-
-  it('words a countdown', () => {
-    expect([-1, 0, 1, 12].map(formatCountdown)).toEqual(['passed', 'today', 'tomorrow', 'in 12 days'])
   })
 
   it('names a month', () => {

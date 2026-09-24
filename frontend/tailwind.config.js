@@ -8,6 +8,5 @@ export default {
       },
     },
   },
-  darkMode: 'media',
   plugins: [],
 }
