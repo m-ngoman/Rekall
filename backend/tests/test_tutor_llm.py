@@ -54,20 +54,17 @@ def test_the_stream_yields_content_and_skips_usage_frames(openrouter, monkeypatc
     assert list(stream_chat(HISTORY)) == ["Hel", "lo"]
 
 
-@pytest.mark.xfail(strict=True, reason="bug: the tutor's OpenRouter parser crashes on a non-JSON data line")
 def test_a_garbage_frame_does_not_end_the_reply(openrouter, monkeypatch) -> None:
     Recorder(monkeypatch, lambda req: openrouter_stream(["Hello"], extra_lines=["data: {truncated"]))
     assert list(stream_chat(HISTORY)) == ["Hello"]
 
 
-@pytest.mark.xfail(strict=True, reason="bug: the tutor's OpenRouter parser crashes on a choice with no delta")
 def test_a_choice_without_a_delta_is_skipped(openrouter, monkeypatch) -> None:
     lines = ["data: " + json.dumps({"choices": [{"finish_reason": "stop"}]}), "data: [DONE]"]
     Recorder(monkeypatch, lambda req: FakeResponse(lines=lines))
     assert list(stream_chat(HISTORY)) == []
 
 
-@pytest.mark.xfail(strict=True, reason="bug: the tutor's Ollama parser crashes on a non-JSON line")
 def test_an_ollama_garbage_line_is_skipped(monkeypatch) -> None:
     monkeypatch.setattr(settings, "tutor_provider", "ollama")
     lines = ["{bad", json.dumps({"message": {"content": "Hi"}, "done": True})]

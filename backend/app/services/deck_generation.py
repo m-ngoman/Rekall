@@ -9,15 +9,14 @@ confirms" gate. The same model also transcribes uploaded notes for the library
 
 from __future__ import annotations
 
-import base64
 import json
 import re
 
-import httpx
 import pymupdf
 
 from app.config import settings
 from app.services.llm_cache import log_cache, supports_cache_control
+from app.services.llm_http import bearer, completion_text, image_data_url, post_openrouter, strip_fence
 
 MAX_PDF_PAGES = 20
 
@@ -25,11 +24,6 @@ MAX_PDF_PAGES = 20
 # artifacts, not a real text layer (i.e. it's a scan or a photo turned into a PDF) — render pages
 # to images and go through vision instead of trusting the near-empty text extraction.
 TEXT_LAYER_CHARS_PER_PAGE = 40
-
-# OpenRouter's json_object response_format doesn't stop Claude from wrapping its answer in a
-# ```json fence (verified directly — response_format: json_object still returned a fenced
-# response) — strip it before parsing rather than trusting raw json.loads().
-_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 
 
 # What the model is told about notation, and what the client can render.
@@ -77,10 +71,6 @@ def looks_like_latex(*texts: str | None) -> bool:
     return False
 
 
-def _strip_fence(text: str) -> str:
-    return _FENCE_RE.sub("", text.strip())
-
-
 def extract_pdf(pdf_bytes: bytes) -> tuple[str | None, list[bytes]]:
     """Text-layer PDFs (exported slides, etc.) get their text pulled directly — cheap and exact,
     no vision call needed. Scanned/handwritten PDFs fall back to rendering pages as images.
@@ -100,21 +90,6 @@ def extract_pdf(pdf_bytes: bytes) -> tuple[str | None, list[bytes]]:
             return "\n\n".join(t.strip() for t in texts if t.strip()), []
 
         return None, [page.get_pixmap(dpi=150).tobytes("png") for page in pages]
-
-
-def _image_mime(data: bytes) -> str:
-    """Claude validates the data URI's declared MIME type against the actual image bytes and
-    rejects the request on a mismatch (verified directly) — can't just assume PNG (only true for
-    our own rendered PDF pages) or JPEG (true for most phone photos, not all of them)."""
-    if data.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png"
-    if data.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
-    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
-        return "image/gif"
-    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "image/webp"
-    return "image/jpeg"
 
 
 # A fixed sentence between the material and the task, carrying the cache breakpoint. It is a text
@@ -137,8 +112,7 @@ def _user_content(images: list[bytes], text: str | None, task: str, cacheable: b
     if text:
         content.append({"type": "text", "text": text})
     for img in images:
-        b64 = base64.b64encode(img).decode()
-        content.append({"type": "image_url", "image_url": {"url": f"data:{_image_mime(img)};base64,{b64}"}})
+        content.append({"type": "image_url", "image_url": {"url": image_data_url(img)}})
     marker: dict = {"type": "text", "text": _END_OF_SOURCE}
     if cacheable:
         marker["cache_control"] = {"type": "ephemeral"}
@@ -148,10 +122,8 @@ def _user_content(images: list[bytes], text: str | None, task: str, cacheable: b
 
 
 def _call_json(system_prompt: str, user_content: list[dict]) -> dict:
-    resp = httpx.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={"Authorization": f"Bearer {settings.openrouter_api_key}"},
-        json={
+    body = post_openrouter(
+        {
             "model": settings.card_generation_model,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -159,15 +131,14 @@ def _call_json(system_prompt: str, user_content: list[dict]) -> dict:
             ],
             "response_format": {"type": "json_object"},
         },
+        headers=bearer(settings.openrouter_api_key),
         timeout=90.0,
     )
-    resp.raise_for_status()
-    body = resp.json()
     # A plain POST, so usage is in the body — no stream_options needed, unlike the tutor's
     # streaming call which gets nothing back without it.
     log_cache("generation", body.get("usage") or {})
-    raw = body["choices"][0]["message"]["content"]
-    return json.loads(_strip_fence(raw))
+    # response_format: json_object still comes back fenced now and then; see strip_fence.
+    return json.loads(strip_fence(completion_text(body)))
 
 
 # ONE system prompt for both passes. The two used to differ, which alone was enough to defeat the

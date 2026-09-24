@@ -5,15 +5,20 @@ than the local grading model needs. Ollama stays available as a fallback/compari
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from collections.abc import Iterator
 
-import httpx
-
 from app.config import settings
 from app.services.llm_cache import log_cache, supports_cache_control
+from app.services.llm_http import (
+    bearer,
+    completion_text,
+    post_ollama,
+    post_openrouter,
+    stream_ollama,
+    stream_openrouter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,31 +70,18 @@ def _with_cache_breakpoints(messages: list[dict], model: str) -> list[dict]:
 
 
 def _stream_ollama(messages: list[dict]) -> Iterator[str]:
-    with httpx.stream(
-        "POST",
-        f"{settings.ollama_base_url}/api/chat",
-        json={"model": settings.ollama_tutor_model, "messages": messages, "stream": True},
+    return stream_ollama(
+        settings.ollama_base_url,
+        "/api/chat",
+        {"model": settings.ollama_tutor_model, "messages": messages, "stream": True},
         timeout=60.0,
-    ) as response:
-        response.raise_for_status()
-        for line in response.iter_lines():
-            if not line:
-                continue
-            chunk = json.loads(line)
-            piece = chunk.get("message", {}).get("content", "")
-            if piece:
-                yield piece
-            if chunk.get("done"):
-                break
+    )
 
 
 def _stream_openrouter(messages: list[dict]) -> Iterator[str]:
     model = settings.openrouter_model
-    with httpx.stream(
-        "POST",
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={"Authorization": f"Bearer {settings.openrouter_api_key}"},
-        json={
+    return stream_openrouter(
+        {
             "model": model,
             "messages": _with_cache_breakpoints(messages, model),
             "stream": True,
@@ -101,23 +93,10 @@ def _stream_openrouter(messages: list[dict]) -> Iterator[str]:
             # provider's own default applies and nothing here has to know what that is.
             **({} if settings.tutor_reasoning else {"reasoning": {"enabled": False}}),
         },
+        headers=bearer(settings.openrouter_api_key),
         timeout=60.0,
-    ) as response:
-        response.raise_for_status()
-        for line in response.iter_lines():
-            if not line or not line.startswith("data: "):
-                continue
-            payload = line[len("data: ") :]
-            if payload.strip() == "[DONE]":
-                break
-            chunk = json.loads(payload)
-            if usage := chunk.get("usage"):
-                log_cache("tutor", usage)
-            if not chunk.get("choices"):
-                continue
-            delta = chunk["choices"][0]["delta"].get("content", "")
-            if delta:
-                yield delta
+        on_usage=lambda usage: log_cache("tutor", usage),
+    )
 
 
 # A canned reply, emitted a few characters at a time. Exists for the same reason `grader = "stub"`
@@ -177,19 +156,18 @@ def complete_chat(messages: list[dict], model: str | None = None) -> str:
     cheap job can use a cheap model.
     """
     if settings.tutor_provider == "ollama":
-        response = httpx.post(
-            f"{settings.ollama_base_url}/api/chat",
-            json={"model": model or settings.ollama_tutor_model, "messages": messages, "stream": False},
+        body = post_ollama(
+            settings.ollama_base_url,
+            "/api/chat",
+            {"model": model or settings.ollama_tutor_model, "messages": messages, "stream": False},
             timeout=60.0,
         )
-        response.raise_for_status()
-        return response.json().get("message", {}).get("content", "")
+        return (body.get("message") or {}).get("content") or ""
 
-    response = httpx.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={"Authorization": f"Bearer {settings.openrouter_api_key}"},
-        json={"model": model or settings.openrouter_model, "messages": messages},
-        timeout=60.0,
+    return completion_text(
+        post_openrouter(
+            {"model": model or settings.openrouter_model, "messages": messages},
+            headers=bearer(settings.openrouter_api_key),
+            timeout=60.0,
+        )
     )
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]

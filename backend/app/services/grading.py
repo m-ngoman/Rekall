@@ -10,16 +10,14 @@ blocking wrapper over the same stream, kept for tests/callers that just want the
 from __future__ import annotations
 
 import difflib
-import json
 import logging
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Protocol, Union
 
-import httpx
-
 from app.config import settings
+from app.services.llm_http import bearer, post_ollama, stream_ollama, stream_openrouter
 
 logger = logging.getLogger(__name__)
 
@@ -229,9 +227,10 @@ class PrometheusGrader:
         prompt = _PROMETHEUS_PROMPT.format(
             instruction=question, response=submitted_answer, reference_answer=reference_answer.strip()
         )
-        response = httpx.post(
-            f"{self._base_url}/api/generate",
-            json={
+        body = post_ollama(
+            self._base_url,
+            "/api/generate",
+            {
                 "model": self._model,
                 "prompt": prompt,
                 "raw": True,
@@ -240,8 +239,7 @@ class PrometheusGrader:
             },
             timeout=60.0,
         )
-        response.raise_for_status()
-        text = response.json()["response"].strip()
+        text = body["response"].strip()
 
         match = _RESULT_RE.search(text)
         score = min(5, max(1, int(match.group(1)))) if match else 3
@@ -264,28 +262,19 @@ class PrometheusGrader:
         score, raw_explanation = self._judge(question, reference_answer, submitted)
 
         parts: list[str] = []
-        with httpx.stream(
-            "POST",
-            f"{self._base_url}/api/generate",
-            json={
+        for text in stream_ollama(
+            self._base_url,
+            "/api/generate",
+            {
                 "model": self._rewrite_model,
                 "prompt": _REWRITE_PROMPT.format(raw=raw_explanation),
                 "stream": True,
                 "options": {"temperature": 0.2, "num_predict": 60},
             },
             timeout=30.0,
-        ) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                chunk = json.loads(line)
-                text = chunk.get("response", "")
-                if text:
-                    parts.append(text)
-                    yield text
-                if chunk.get("done"):
-                    break
+        ):
+            parts.append(text)
+            yield text
 
         explanation = "".join(parts).strip()
         yield GradeResult(grade=_SCORE_TO_GRADE[score], explanation=explanation, score=score)
@@ -492,30 +481,17 @@ class LocalLLMGrader:
         return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness, math))
 
     def _explain_tokens(self, prompt: str) -> Iterator[str]:
-        with httpx.stream(
-            "POST",
-            f"{self._base_url}/api/generate",
-            json={
+        return stream_ollama(
+            self._base_url,
+            "/api/generate",
+            {
                 "model": self._model,
                 "prompt": prompt,
                 "stream": True,
                 "options": {"temperature": 0.3, "num_predict": 220},
             },
             timeout=60.0,
-        ) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                try:
-                    chunk = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                piece = chunk.get("response") or ""
-                if piece:
-                    yield piece
-                if chunk.get("done"):
-                    break
+        )
 
     def grade_stream(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
@@ -535,33 +511,26 @@ class LocalLLMGrader:
 
         full_text = ""
         sent_len = 0
-        with httpx.stream(
-            "POST",
-            f"{self._base_url}/api/generate",
-            json={
+        for piece in stream_ollama(
+            self._base_url,
+            "/api/generate",
+            {
                 "model": self._model,
                 "prompt": prompt,
                 "stream": True,
                 "options": {"temperature": 0.2, "num_predict": 250},
             },
             timeout=60.0,
-        ) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                chunk = json.loads(line)
-                full_text += chunk.get("response", "")
-                # Recomputed on the whole text each step (cheap at this length) so a LaTeX pair
-                # split across two network chunks still gets cleaned correctly — sent_len and the
-                # holdback margin are both in cleaned-text space, not raw.
-                cleaned = _clean_latex(full_text, math)
-                safe_len = max(0, len(cleaned) - _HOLDBACK_CHARS)
-                if safe_len > sent_len:
-                    yield cleaned[sent_len:safe_len]
-                    sent_len = safe_len
-                if chunk.get("done"):
-                    break
+        ):
+            full_text += piece
+            # Recomputed on the whole text each step (cheap at this length) so a LaTeX pair
+            # split across two network chunks still gets cleaned correctly — sent_len and the
+            # holdback margin are both in cleaned-text space, not raw.
+            cleaned = _clean_latex(full_text, math)
+            safe_len = max(0, len(cleaned) - _HOLDBACK_CHARS)
+            if safe_len > sent_len:
+                yield cleaned[sent_len:safe_len]
+                sent_len = safe_len
 
         cleaned = _clean_latex(full_text, math)
         match = _LOCAL_RESULT_RE.search(cleaned)
@@ -596,35 +565,17 @@ class CloudGrader:
         return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness, math))
 
     def _explain_tokens(self, prompt: str) -> Iterator[str]:
-        with httpx.stream(
-            "POST",
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"},
-            json={
+        return stream_openrouter(
+            {
                 "model": self._model,
                 "stream": True,
                 "max_tokens": 220,
                 "temperature": 0.3,
                 "messages": [{"role": "user", "content": prompt}],
             },
+            headers={**bearer(self._api_key), "Content-Type": "application/json"},
             timeout=60.0,
-        ) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if not line.startswith("data: "):
-                    continue
-                payload = line[6:].strip()
-                if payload == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(payload)
-                except json.JSONDecodeError:
-                    continue
-                choices = chunk.get("choices") or []
-                if choices:
-                    piece = choices[0].get("delta", {}).get("content") or ""
-                    if piece:
-                        yield piece
+        )
 
     def grade_stream(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
@@ -644,41 +595,23 @@ class CloudGrader:
 
         full_text = ""
         sent_len = 0
-        with httpx.stream(
-            "POST",
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"},
-            json={
+        for piece in stream_openrouter(
+            {
                 "model": self._model,
                 "stream": True,
                 "max_tokens": 250,
                 "temperature": 0.2,
                 "messages": [{"role": "user", "content": prompt}],
             },
+            headers={**bearer(self._api_key), "Content-Type": "application/json"},
             timeout=60.0,
-        ) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if not line.startswith("data: "):
-                    continue
-                payload = line[6:].strip()
-                if payload == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(payload)
-                except json.JSONDecodeError:
-                    # OpenRouter interleaves keep-alive comments and occasional non-JSON lines
-                    # into the stream; one unparseable frame shouldn't abort a grading in flight.
-                    continue
-                choices = chunk.get("choices") or []
-                if not choices:
-                    continue
-                full_text += choices[0].get("delta", {}).get("content") or ""
-                cleaned = _clean_latex(full_text, math)
-                safe_len = max(0, len(cleaned) - _HOLDBACK_CHARS)
-                if safe_len > sent_len:
-                    yield cleaned[sent_len:safe_len]
-                    sent_len = safe_len
+        ):
+            full_text += piece
+            cleaned = _clean_latex(full_text, math)
+            safe_len = max(0, len(cleaned) - _HOLDBACK_CHARS)
+            if safe_len > sent_len:
+                yield cleaned[sent_len:safe_len]
+                sent_len = safe_len
 
         cleaned = _clean_latex(full_text, math)
         match = _LOCAL_RESULT_RE.search(cleaned)

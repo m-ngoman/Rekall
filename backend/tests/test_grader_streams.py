@@ -114,7 +114,6 @@ def test_cloud_skips_keepalives_and_garbage_frames(monkeypatch) -> None:
     assert result == GradeResult(grade=4, explanation="Right.", score=5)
 
 
-@pytest.mark.xfail(strict=True, reason="bug: the local grader's stream parser crashes on a non-JSON line")
 def test_local_skips_garbage_lines(monkeypatch) -> None:
     Recorder(monkeypatch, lambda req: FakeResponse(lines=["{not json", json.dumps({"response": "Right.\n###SCORE: 5", "done": True})]))
     _, result = run(LocalLLMGrader(base_url="http://ollama", model="m"), "Paris")

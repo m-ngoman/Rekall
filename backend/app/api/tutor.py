@@ -26,6 +26,7 @@ from app.db import SessionLocal, get_db
 from app.models import CreditReason, TutorMessage, TutorMessageRole, TutorSession, UsageEventType, User
 from app.schemas import TutorSessionCreate, TutorSessionOut, TutorSessionUpdate, TutorVoiceOut, VoiceTurnTextRequest
 from app.services.live_stt import relay as relay_live_stt
+from app.services.llm_http import image_data_url
 from app.services.memory_extraction import schedule_if_due
 from app.services.stt import transcribe
 from app.services.tts import list_voices, synthesize_timed
@@ -313,12 +314,11 @@ def _stream_reply(
 
     if image_bytes:
         if settings.tutor_provider == "openrouter":
-            b64 = base64.b64encode(image_bytes).decode()
             messages[-1] = {
                 "role": "user",
                 "content": [
                     {"type": "text", "text": stored_text},
-                    {"type": "image_url", "image_url": {"url": f"data:{image_mime or 'image/jpeg'};base64,{b64}"}},
+                    {"type": "image_url", "image_url": {"url": image_data_url(image_bytes, image_mime or "image/jpeg")}},
                 ],
             }
         else:

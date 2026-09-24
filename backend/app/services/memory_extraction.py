@@ -31,6 +31,7 @@ from app.config import settings
 from app.core.settings_store import get_settings_row
 from app.db import SessionLocal
 from app.models import MemoryCategory, MemorySource, StudentMemoryNote, TutorMessage
+from app.services.llm_http import strip_fence
 from app.services.tutor_llm import complete_chat
 
 # How much conversation the extractor sees. Enough to spot a repeated struggle, short enough that
@@ -111,9 +112,7 @@ def _is_duplicate(content: str, existing: list[str]) -> bool:
 
 def _parse_notes(raw: str) -> list[tuple[MemoryCategory, str]]:
     """Tolerant of the ```json fences models add despite being told not to."""
-    text = raw.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```[a-z]*\s*|\s*```$", "", text)
+    text = strip_fence(raw)
     start, end = text.find("["), text.rfind("]")
     if start == -1 or end == -1:
         return []
