@@ -1,18 +1,17 @@
-import { type ChangeEvent, Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { PaymentRequired, createMemoryNote, createTutorSession, deleteMemoryNote, listBugs, listMemoryNotes, listTutorVoices, reportBug, resolveBug, sendTextTurn, sendVoiceTurnText, updateTutorSession } from '../api'
-import MemoryPicker from '../components/MemoryPicker'
-import PersonalityPicker, { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
-// Typed replies carry LaTeX (the prompt asks for it — see tutor_prompt._TYPED_PROMPT), so every
-// assistant message goes through MaybeMath, which loads KaTeX the first time a reply renders.
-// Spoken replies are plain words by instruction, so they pass through unchanged.
-import MaybeMath from '../components/MaybeMath'
-import { CameraIcon, PhotoIcon } from '../components/icons'
 import type { PlotSpec } from '../lib/plot'
 import Notice from '../components/Notice'
-import VoiceOrb, { type OrbState } from '../components/VoiceOrb'
-import VoicePicker from '../components/VoicePicker'
+import type { OrbState } from '../components/VoiceOrb'
+import ComposerChips from '../components/tutor/ComposerChips'
+import EmptyState from '../components/tutor/EmptyState'
+import { ExamOfferRow } from '../components/tutor/ExamOffer'
+import FocusStage, { OVERLAY_FADE_MS } from '../components/tutor/FocusStage'
+import LatestPill from '../components/tutor/LatestPill'
+import PhotoAttach, { PendingPhoto } from '../components/tutor/PhotoAttach'
+import TutorLog from '../components/tutor/TutorLog'
+import type { ExamOffer, Message, Popover } from '../components/tutor/types'
 import { createExam, listExams } from '../api'
-import { daysUntil, formatDayLong } from '../lib/dates'
 import { upcomingExams } from '../lib/exams'
 import { useCachedResource } from '../hooks/useCachedResource'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
@@ -25,26 +24,6 @@ import { findListedBug, renderBugs } from '../lib/bugCommands'
 import { wordStarts } from '../lib/wordTimings'
 import type { BugReport, Exam, MemoryCategory, MemoryNote, Settings, TutorPersonality, TutorSession, TutorVoice, WordTiming } from '../types'
 
-/** The plot renderer and its parser, as a third lazy chunk. A conversation about history never
- * downloads a maths evaluator. */
-const FunctionPlot = lazy(() => import('../components/FunctionPlot'))
-
-interface Message {
-  /** 'system' is local-only — the app talking, not the tutor. Used by the owner-only /bug
-   * commands, which never reach the model. */
-  role: 'user' | 'assistant' | 'system'
-  text: string
-  imageUrl?: string
-  /** Graphs the tutor drew with this reply.
-   *
-   * On the message rather than in sibling state like `examOffer`, because a graph belongs to the
-   * reply that drew it. It also has to be here: `typeInto` writes into the *last* assistant
-   * message every 20ms and bails if the last message isn't the assistant's, so a plot appended
-   * as its own message would stop the reveal dead. The typewriter spreads `{ ...last }`, so a
-   * field added here survives every tick. */
-  plots?: PlotSpec[]
-}
-
 const STATUS_LABEL: Record<OrbState, string> = {
   idle: '',
   waiting: 'Waiting for you…',
@@ -53,69 +32,10 @@ const STATUS_LABEL: Record<OrbState, string> = {
   speaking: 'Speaking…',
 }
 
-/** Tap-to-fill starters for the empty tutor screen. Deliberately phrased around what this tutor
- * can actually do given its grounding (it reads your weak cards — see tutor_prompt.py) rather
- * than generic "ask me anything" filler. */
-const STARTER_PROMPTS = ['Quiz me on my weak cards', 'Explain a concept I keep missing', 'Help me study for an exam']
-
-/** The starters, with the third one naming the exam it would actually plan for. A starter that
- * says "Help me plan for Organic Chemistry II — 34 days" tells you the tutor knows your calendar;
- * the generic phrasing doesn't. Falls back to the generic wording when nothing is scheduled. */
-function starterRows(next: Exam | null): { prompt: string; meta?: string }[] {
-  const [weak, concept] = STARTER_PROMPTS
-  return [
-    { prompt: weak },
-    { prompt: concept },
-    next
-      ? { prompt: `Help me plan for ${next.name}`, meta: `${daysUntil(next.date)} days` }
-      : { prompt: STARTER_PROMPTS[2] },
-  ]
-}
-
-/** Derived from the picker's own presets rather than restated here — two hand-written copies of
- * the same five labels is exactly the kind of pair that quietly disagrees after a rename. */
-const PERSONALITY_LABELS = Object.fromEntries(
-  PERSONALITY_PRESETS.map((p) => [p.id, p.label]),
-) as Record<TutorPersonality, string>
-
-const MEMORY_ICON = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 3.5h11a1 1 0 0 1 1 1V21l-6.5-3L4.5 21V4.5a1 1 0 0 1 1-1z" />
-    <path d="M8.5 8h6" />
-  </svg>
-)
-
-const PERSONALITY_ICON = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 3l1.9 4.9L19 9.8l-4.9 1.9L12 16.6l-1.9-4.9L5.2 9.8l4.9-1.9L12 3z" />
-    <path d="M19 15l.8 2.1L22 18l-2.2.9L19 21l-.8-2.1L16 18l2.2-.9L19 15z" />
-  </svg>
-)
-
-const VOICE_ICON = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M11 5 6 9H3v6h3l5 4V5z" />
-    <path d="M16 8a5 5 0 0 1 0 8" />
-    <path d="M19 5a9 9 0 0 1 0 14" />
-  </svg>
-)
-
-const LATEST_ICON = (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 5v14M19 12l-7 7-7-7" />
-  </svg>
-)
-
 const SEND_ICON = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 19V5" />
     <path d="M6 11l6-6 6 6" />
-  </svg>
-)
-
-const CLOSE_ICON = (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-    <path d="M6 6l12 12M18 6L6 18" />
   </svg>
 )
 
@@ -127,16 +47,6 @@ const MIC_ICON = (
   </svg>
 )
 
-/** Bare words for the focus view's status line — the ellipsis variants above suit a composer
- * strip, but uppercase-tracked status text reads cleaner without punctuation. */
-const FOCUS_STATUS: Record<OrbState, string> = {
-  idle: '',
-  waiting: 'Waiting for you',
-  listening: 'Listening',
-  thinking: 'Thinking',
-  speaking: 'Speaking',
-}
-
 /** A spoken "yes" to the tutor's offer to add an exam. Anchored to the whole utterance on
  * purpose: answering a study question with "yes, the mitochondria" must never book something.
  * Only consulted on the turn immediately following an offer. */
@@ -146,10 +56,6 @@ const AFFIRMATIVE = /^(yes|yeah|yep|yup|sure|ok|okay|please|do it|go ahead|add i
 const WORD_LEAD_S = 0.08
 
 const FLIP_DURATION_MS = 160
-/** How long the focus overlay takes to fade. Also the unmount delay on exit — the orb's FLIP
- * back onto the mic button (160ms) finishes first, then the backdrop melts away around it. */
-const OVERLAY_FADE_MS = 300
-
 /** FLIP delta: how far (and by what scale) `el` would need to move to sit exactly over `target`. */
 function deltaToElement(el: HTMLElement, target: HTMLElement) {
   const elRect = el.getBoundingClientRect()
@@ -195,13 +101,13 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
    * could go out mid-reply and the typewriter — which always writes into the last assistant
    * message — would splice two replies into one. */
   const textTurnInFlightRef = useRef(false)
-  const [openPopover, setOpenPopover] = useState<'personality' | 'voice' | 'memory' | 'photo' | null>(null)
+  const [openPopover, setOpenPopover] = useState<Popover | null>(null)
   const [voices, setVoices] = useState<TutorVoice[] | null>(null)
   const [memoryNotes, setMemoryNotes] = useState<MemoryNote[] | null>(null)
   /** A calendar entry the tutor has offered to add. Held until the student taps Add — the tutor
    * proposes, the student writes. `added` keeps the card in place afterwards so the confirmation
    * is visible rather than the row just vanishing. */
-  const [examOffer, setExamOffer] = useState<{ name: string; date: string; added: boolean } | null>(null)
+  const [examOffer, setExamOffer] = useState<ExamOffer | null>(null)
   /** Exams already written this session. The tutor sometimes repeats its offer on a later turn,
    * and without this the same test could be added to the calendar twice. */
   const addedExamsRef = useRef<Set<string>>(new Set())
@@ -267,8 +173,6 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
   const logRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
-  const libraryInputRef = useRef<HTMLInputElement>(null)
   const micButtonRef = useRef<HTMLButtonElement>(null)
   const orbCircleRef = useRef<HTMLButtonElement>(null)
 
@@ -895,116 +799,16 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
           pixels from the text it belongs to. */}
       <div ref={logRef} className="mx-auto flex w-full max-w-[640px] flex-col gap-5 pb-64">
         {messages.length === 0 ? (
-          /* Was a single centered line of grey text on an otherwise blank screen. The starter
-             prompts do real work beyond filling space: a blank tutor box gives no clue what it's
-             actually good at, so these double as capability hints. */
-          // Centred in the space it has, with the starters pinned to the bottom above the
-          // composer. Stacked from the top, this screen was mostly an empty black field.
-          <div className="flex min-h-[58vh] flex-col justify-end pt-4 lg:min-h-[62vh]">
-            <div className="flex flex-1 flex-col justify-center">
-            <div className="text-[1.5rem] font-bold leading-snug tracking-[-0.02em] lg:text-[1.75rem]">What are we working on?</div>
-            <p className="mt-2 max-w-[320px] text-[0.9375rem] leading-[1.55] text-[var(--text-muted)] lg:max-w-[440px]">
-              Type, attach a photo of your notes, or tap the mic and talk. It keeps listening until you tap again.
-            </p>
-            </div>
-            {/* Starters as rows, not chips: they are the three things this tutor is actually good at. */}
-            <div className="mt-6 border-t border-[var(--rule)]">
-              {starterRows(nextExam).map(({ prompt, meta }) => (
-                <button
-                  key={prompt}
-                  onClick={() => setDraft(prompt)}
-                  className="flex w-full items-baseline justify-between gap-4 border-b border-[var(--rule)] py-3.5 text-left text-[0.9375rem] font-semibold"
-                >
-                  <span className="min-w-0 truncate">{prompt}</span>
-                  {meta && (
-                    <span className="flex flex-shrink-0 items-baseline gap-1">
-                      <span className="numeral text-[1.125rem] text-[var(--text)]">{meta.split(' ')[0]}</span>
-                      <span className="text-[0.8125rem] text-[var(--text-muted)]">{meta.split(' ').slice(1).join(' ')}</span>
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
+          <EmptyState nextExam={nextExam} onPick={setDraft} />
         ) : (
-          /* Not bubble-on-bubble chat styling: the tutor's words sit directly on the page like
-             prose, and only the user's turns get a (quiet, tinted) pill to mark whose line is
-             whose. One bubble per exchange is enough attribution — two was wallpaper. */
-          messages.map((m, i) =>
-            m.role === 'system' ? (
-              // The app talking, not the tutor: monospaced, dimmed and centred so a /bug listing
-              // never reads as something the model said.
-              <div
-                key={i}
-                className="max-w-[94%] self-center whitespace-pre-line rounded-[var(--r-sm)] px-4 py-2.5 text-center font-mono text-xs leading-relaxed"
-                style={{ background: 'var(--surface)', color: 'var(--text-muted)' }}
-              >
-                {m.text}
-              </div>
-            ) : m.role === 'user' ? (
-              <div
-                key={i}
-                className="max-w-[85%] self-end rounded-[var(--r-md)] px-4 py-2.5 text-sm leading-relaxed"
-                style={{ background: 'var(--surface)', color: 'var(--text)' }}
-              >
-                {m.imageUrl && (
-                  <img src={m.imageUrl} alt="Attached photo" className="mb-2 max-h-48 w-full rounded-[var(--r-sm)] object-cover" />
-                )}
-                {m.text}
-              </div>
-            ) : (
-              <div key={i} className="max-w-[94%] self-start px-1 text-[0.9375rem] leading-relaxed text-[var(--text)]">
-                {replyPending && i === messages.length - 1 && !m.text ? (
-                  // Same three dots the voice stage shows while the tutor thinks.
-                  <span aria-label="Thinking" className="animate-pulse tracking-[0.35em] text-[var(--text-muted)]">
-                    •••
-                  </span>
-                ) : (
-                  <MaybeMath text={m.text} />
-                )}
-                {/* Below the words, attached to the reply that drew it. No fallback: a graph has
-                    no readable degraded form, and the sentence above already carries the answer. */}
-                {m.plots?.map((plot, pi) => (
-                  <Suspense key={pi} fallback={null}>
-                    <FunctionPlot spec={plot} />
-                  </Suspense>
-                ))}
-              </div>
-            ),
-          )
+          <TutorLog messages={messages} replyPending={replyPending} />
         )}
-        {/* A divided row on the page, not a surface card: the accent-stroked glyph and the
-            green "Added" tick were both outside the four jobs the accent and the grade colours
-            have. The confirmation is plain muted text now, which is all it ever needed to be. */}
         {examOffer && (
-          <div className="flex items-center gap-3 self-stretch border-y border-[var(--rule)] py-3">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-              <rect x="3" y="5" width="18" height="16" rx="2" />
-              <path d="M3 10h18M8 3v4M16 3v4" />
-            </svg>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[0.875rem] font-bold">{examOffer.name}</div>
-              <div className="text-[0.8125rem] text-[var(--text-muted)]">{formatDayLong(examOffer.date)}</div>
-            </div>
-            {examOffer.added ? (
-              <span className="flex-shrink-0 text-[0.8125rem] text-[var(--text-muted)]">Added to your calendar</span>
-            ) : (
-              <div className="flex flex-shrink-0 items-center gap-1">
-                <button
-                  onClick={() => setExamOffer(null)}
-                  className="flex h-10 items-center rounded-[var(--r-sm)] px-3 text-[0.875rem] font-semibold text-[var(--text-muted)]"
-                >
-                  Not now
-                </button>
-                <button
-                  onClick={() => commitExam({ name: examOffer.name, date: examOffer.date })}
-                  className="flex h-10 items-center rounded-[var(--r-sm)] px-3 text-[0.875rem] font-bold"
-                >
-                  Add to calendar
-                </button>
-              </div>
-            )}
-          </div>
+          <ExamOfferRow
+            offer={examOffer}
+            onDismiss={() => setExamOffer(null)}
+            onAdd={() => commitExam({ name: examOffer.name, date: examOffer.date })}
+          />
         )}
         {notice && <Notice tone="neutral">{notice}</Notice>}
         {error && (
@@ -1019,44 +823,10 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
           sidebar's width on desktop (lg:left-60) so it centers within the content area, not the
           full window; bottom-24 on mobile clears the floating tab bar underneath it. */}
       <div ref={composerRef} className="fixed inset-x-0 bottom-24 z-20 flex justify-center px-5 lg:bottom-6 lg:left-60 lg:px-10">
-        {/* The way back to a reply still growing below you. It slides down *behind* the composer
-            rather than fading: the card below is opaque and comes later in the DOM, so it simply
-            covers this. That needs the card to be positioned too — otherwise this absolute box
-            paints above a static sibling regardless of order, which is why the card is
-            `relative`. Shown whenever the reader is away from the newest line, streaming or not.
-            Gating it on "a reply is in flight" was tried and is wrong: that flag follows the
-            network, and the typewriter keeps growing the log for a while after the wire closes,
-            so the pill parked itself with text still arriving underneath. "Is there something
-            below you" is both the simpler question and the one worth answering. */}
-        <div className="pointer-events-none absolute bottom-full left-0 right-0 flex justify-center">
-          <button
-            onClick={pinToLatest}
-            aria-label="Jump to the newest message"
-            aria-hidden={!away}
-            tabIndex={away ? 0 : -1}
-            className={`latest-pill mb-2 flex h-9 items-center gap-1.5 rounded-[var(--r-full)] border border-[var(--rule)] bg-[var(--surface)] px-3.5 text-[0.8125rem] font-bold ${
-              away ? 'pointer-events-auto' : 'translate-y-[calc(100%+1.5rem)]'
-            }`}
-          >
-            {LATEST_ICON}
-            Latest
-          </button>
-        </div>
+        <LatestPill away={away} onClick={pinToLatest} />
         <div className="relative flex w-full max-w-xl flex-col gap-1.5 rounded-[var(--r-md)] bg-[var(--surface)] p-2 lg:max-w-[640px]">
           {pendingImage && !voiceModeActive && (
-            <div className="flex items-center gap-2 px-2 pt-1">
-              <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-[var(--r-sm)]">
-                <img src={pendingImageUrl ?? undefined} alt="Selected photo" className="h-full w-full object-cover" />
-                <button
-                  onClick={() => setPendingImage(null)}
-                  aria-label="Remove photo"
-                  className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-[var(--r-full)] border border-[var(--rule)] bg-[var(--surface)] text-[var(--text)]"
-                >
-                  {CLOSE_ICON}
-                </button>
-              </div>
-              <span className="truncate text-xs text-[var(--text-muted)]">{pendingImage.name}</span>
-            </div>
+            <PendingPhoto file={pendingImage} url={pendingImageUrl} onRemove={() => setPendingImage(null)} />
           )}
           {/* One shared click-away layer, rendered before the controls and below them (z-10 vs
               z-20). Each popover used to carry its own `fixed inset-0` backdrop, which painted
@@ -1073,50 +843,13 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
               always [photo] [text] [send], whatever the width. */}
           <div className="relative z-20 flex items-end gap-1.5">
             {!voiceModeActive && (
-              <div className="relative">
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleSelectImage}
-                  className="hidden"
-                />
-                <input ref={libraryInputRef} type="file" accept="image/*" onChange={handleSelectImage} className="hidden" />
-                <button
-                  onClick={() => setOpenPopover((p) => (p === 'photo' ? null : 'photo'))}
-                  aria-label={pendingImage ? 'Photo attached' : 'Attach a photo'}
-                  className="flex h-9 items-center justify-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
-                  style={{ background: pendingImage || openPopover === 'photo' ? 'var(--bg)' : undefined }}
-                >
-                  <PhotoIcon size={16} />
-                  {pendingImage && <span className="inline">1 photo</span>}
-                </button>
-                {openPopover === 'photo' && (
-                  <div className="absolute bottom-12 left-0 z-20 flex w-44 flex-col gap-1 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-1.5">
-                    <button
-                      onClick={() => {
-                        cameraInputRef.current?.click()
-                        setOpenPopover(null)
-                      }}
-                      className="flex items-center gap-2.5 rounded-[var(--r-sm)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
-                    >
-                      <CameraIcon size={16} />
-                      Take Photo
-                    </button>
-                    <button
-                      onClick={() => {
-                        libraryInputRef.current?.click()
-                        setOpenPopover(null)
-                      }}
-                      className="flex items-center gap-2.5 rounded-[var(--r-sm)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--text)]"
-                    >
-                      <PhotoIcon size={16} />
-                      Choose from Library
-                    </button>
-                  </div>
-                )}
-              </div>
+              <PhotoAttach
+                attached={pendingImage !== null}
+                open={openPopover === 'photo'}
+                onToggle={() => setOpenPopover((p) => (p === 'photo' ? null : 'photo'))}
+                onClose={() => setOpenPopover(null)}
+                onSelect={handleSelectImage}
+              />
             )}
 
             {!voiceModeActive ? (
@@ -1172,260 +905,43 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
             )}
           </div>
 
-          {/* The chips. They wrap among themselves on a narrow phone rather than squeezing until
-              their labels break apart: the design draws them as flat text chips, and an icon
-              alone doesn't say which style or voice is selected. */}
-          <div className="relative z-20 flex flex-wrap items-end gap-1.5">
-            <div className="relative">
-              <button
-                onClick={() => setOpenPopover((p) => (p === 'personality' ? null : 'personality'))}
-                aria-label={`Tutor style${session ? ': ' + PERSONALITY_LABELS[session.personality] : ''}`}
-                className="flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
-                style={{ background: openPopover === 'personality' ? 'var(--bg)' : undefined }}
-              >
-                {PERSONALITY_ICON}
-                {/* The value shows at every width: the design draws these as flat text chips
-                    ("Socratic", "Voice: Ada", "Memory"), and an icon alone doesn't say which
-                    style is selected. The row wraps rather than squeezing, so a narrow phone
-                    gets a second line instead of unlabelled glyphs. */}
-                {/* Falls back to the saved default while the session request is in flight. A
-                    new session is created *from* that default, so this is the same word it will
-                    show a moment later — without it the chip grows when the response lands and
-                    shoves the composer's controls around. */}
-                {(session?.personality ?? settings?.tutor_personality) && (
-                  <span className="inline">
-                    {PERSONALITY_LABELS[(session?.personality ?? settings?.tutor_personality)!]}
-                  </span>
-                )}
-              </button>
-              {openPopover === 'personality' && session && (
-                <>
-                  <div className="absolute bottom-12 left-0 z-20">
-                    <PersonalityPicker
-                      personality={session.personality}
-                      customPrompt={session.custom_prompt ?? ''}
-                      onChange={handlePersonalityChange}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="relative">
-              <button
-                onClick={() => setOpenPopover((p) => (p === 'voice' ? null : 'voice'))}
-                aria-label={`Voice${voiceName ? ': ' + voiceName : ''}`}
-                className="flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
-                style={{ background: openPopover === 'voice' ? 'var(--bg)' : undefined }}
-              >
-                {VOICE_ICON}
-                {voiceName ? <span className="inline">{voiceName}</span> : null}
-              </button>
-              {openPopover === 'voice' && session && (
-                <>
-                  <div className="absolute bottom-12 left-0 z-20">
-                    <VoicePicker voiceId={session.voice_id} voices={voices} onChange={handleVoiceChange} />
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="relative">
-              <button
-                onClick={() => setOpenPopover((p) => (p === 'memory' ? null : 'memory'))}
-                aria-label={`Notes the tutor remembers: ${memoryNotes?.length ?? 0}`}
-                className="flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
-                style={{ background: openPopover === 'memory' ? 'var(--bg)' : undefined }}
-              >
-                {MEMORY_ICON}
-                {/* Named even at zero, like its neighbours: an unlabelled glyph in a row of
-                    labelled chips reads as a different kind of control, and "Memory" is what
-                    tells you the tutor keeps notes at all. */}
-                <span className="inline">
-                  {memoryNotes && memoryNotes.length > 0
-                    ? `${memoryNotes.length} ${memoryNotes.length === 1 ? 'note' : 'notes'}`
-                    : 'Memory'}
-                </span>
-              </button>
-              {openPopover === 'memory' && (
-                <>
-                  <div className="absolute bottom-12 left-0 z-20">
-                    <MemoryPicker notes={memoryNotes} onAdd={handleAddMemory} onDelete={handleDeleteMemory} />
-                  </div>
-                </>
-              )}
-            </div>
-
-          </div>
+          <ComposerChips
+            session={session}
+            settings={settings}
+            voices={voices}
+            voiceName={voiceName}
+            memoryNotes={memoryNotes}
+            open={openPopover}
+            onToggle={(which) => setOpenPopover((p) => (p === which ? null : which))}
+            onPersonalityChange={handlePersonalityChange}
+            onVoiceChange={handleVoiceChange}
+            onAddMemory={handleAddMemory}
+            onDeleteMemory={handleDeleteMemory}
+          />
         </div>
       </div>
 
-      {/* FOCUS MODE — a full-screen takeover, not a chat with an orb floating over it. The text
-          being spoken is the star: large type on a bare dark stage, the sentence currently being
-          read lit up and the rest dimmed, with the orb reduced to a control at the bottom. The
-          stage is deliberately literal-black in both themes — same "own immersive treatment"
-          decision as the orb itself. Mounted/unmounted around the orb's FLIP flight so the grow-
-          out-of-the-button motion still lands. */}
       {orbMounted && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Voice session"
-          className="fixed inset-0 z-30 flex touch-none flex-col transition-opacity"
-          style={{
-            transitionDuration: `${OVERLAY_FADE_MS}ms`,
-            opacity: voiceModeActive && overlayIn ? 1 : 0,
-            background:
-              'radial-gradient(ellipse 95% 60% at 50% 104%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 68%), rgb(13 10 8 / 0.96)',
-          }}
-        >
-          <div className="flex min-h-0 flex-1 items-end justify-center px-7 pt-[calc(3.5rem+env(safe-area-inset-top))]">
-            <div
-              ref={focusTextRef}
-              className="max-h-[55vh] w-full max-w-xl touch-auto overflow-y-auto overscroll-contain transition-transform duration-500 lg:max-h-[60vh]"
-              style={{
-                transform: overlayIn ? 'translateY(0)' : 'translateY(12px)',
-                // Text dissolves at the container's edges instead of clipping against an
-                // invisible line — the scroll boundary shouldn't read as a box edge when the
-                // whole design is about not having boxes.
-                WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 14%, black 88%, transparent)',
-                maskImage: 'linear-gradient(to bottom, transparent, black 14%, black 88%, transparent)',
-              }}
-            >
-              {/* The running conversation, not a one-utterance-at-a-time card: entering voice
-                  mode mid-chat picks up right where the typed exchange left off, and everything
-                  said by voice stays on stage above the live line. One type size throughout —
-                  brightness carries time (past turns recede, the live moment is lit) and
-                  alignment carries speaker, so nothing needs a bubble. */}
-              <div className="flex flex-col gap-9 px-1 py-6 text-[1.35rem] font-semibold leading-[1.5] lg:text-[1.6rem]">
-                {/* System messages (the /bug commands) are dropped here: they're the app talking
-                    to itself, and on the voice stage they'd read as something that was said. */}
-                {(orbState === 'speaking' && voiceSentences.length > 0 ? messages.slice(0, -1) : messages)
-                  .filter((m) => m.role !== 'system')
-                  .map(
-                  (m, i) =>
-                    m.text ? (
-                      <p
-                        key={i}
-                        className={`focus-line ${m.role === 'user' ? 'self-end text-right' : 'self-start text-left'}`}
-                        style={{
-                          maxWidth: '88%',
-                          color:
-                            m.role === 'user'
-                              ? 'color-mix(in oklab, var(--accent) 55%, rgb(255 255 255 / 0.45))'
-                              : 'rgb(255 255 255 / 0.42)',
-                        }}
-                      >
-                        {m.role === 'user' ? m.text : <MaybeMath text={m.text} />}
-                      </p>
-                    ) : null,
-                )}
-
-                {orbState === 'listening' && liveTranscript && (
-                  <p className="max-w-[88%] self-end text-right text-white">{revealedTranscript}</p>
-                )}
-
-                {orbState === 'thinking' && (
-                  <p aria-label="Thinking" className="animate-pulse self-start tracking-[0.35em] text-white/40">
-                    •••
-                  </p>
-                )}
-
-                {orbState === 'speaking' && voiceSentences.length > 0 && (
-                  /* Karaoke, at sentence granularity — that's the honest unit: audio arrives one
-                     sentence per blob, so playback genuinely knows sentence boundaries and
-                     nothing finer. The sentence being read is lit, spoken ones stay readable,
-                     arrived-but-unspoken ones are barely there. */
-                  <p className="max-w-[88%] self-start text-left">
-                    {voiceSentences.map((sentence, i) =>
-                      i === speakingIdx && currentWords ? (
-                        <span key={i} data-sentence={i} className="focus-line-inline">
-                          {currentWords.map(({ word }, wi) => (
-                            <span key={wi} className={wi < litCount ? 'focus-word' : 'focus-word-idle'}>
-                              {word + ' '}
-                            </span>
-                          ))}
-                        </span>
-                      ) : (
-                        <span
-                          key={i}
-                          data-sentence={i}
-                          className="focus-line-inline"
-                          style={{
-                            color: i < speakingIdx ? 'rgb(255 255 255 / 0.55)' : 'rgb(255 255 255 / 0.16)',
-                            transition: 'color 350ms ease',
-                          }}
-                        >
-                          {sentence}{' '}
-                        </span>
-                      ),
-                    )}
-                  </p>
-                )}
-                <div ref={focusBottomRef} />
-              </div>
-            </div>
-          </div>
-
-          {/* The offer has to be reachable from in here: the overlay covers the chat, so the card
-              in the log behind it is invisible until you leave voice mode. Tapping is the primary
-              path — a spoken "yes" also works (see runVoiceTurn), but speech gets misheard and
-              this one writes to their calendar. */}
-          {examOffer && (
-            <div className="mx-auto mb-4 flex w-[min(26rem,88%)] items-center gap-3 rounded-[16px] px-4 py-3"
-              style={{ background: 'rgb(255 255 255 / 0.08)', border: '1px solid rgb(255 255 255 / 0.14)' }}
-            >
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" className="flex-shrink-0">
-                <rect x="3" y="5" width="18" height="16" rx="2" />
-                <path d="M3 10h18M8 3v4M16 3v4" />
-              </svg>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-bold text-white/90">{examOffer.name}</div>
-                <div className="text-xs text-white/50">{formatDayLong(examOffer.date)}</div>
-              </div>
-              {examOffer.added ? (
-                <span className="flex-shrink-0 text-[0.8125rem] text-white/50">Added to your calendar</span>
-              ) : (
-                <div className="flex flex-shrink-0 items-center gap-1">
-                  <button onClick={() => setExamOffer(null)} className="flex h-9 items-center rounded-[var(--r-sm)] px-3 text-[0.8125rem] font-bold text-white/45">
-                    Not now
-                  </button>
-                  {/* The one primary button on this stage, so it keeps the accent fill — but with
-                      .on-accent rather than a literal near-white, which is the rule everywhere
-                      else in the app. */}
-                  <button
-                    onClick={() => commitExam({ name: examOffer.name, date: examOffer.date })}
-                    className="on-accent flex h-9 items-center rounded-[var(--r-full)] px-4 text-[0.8125rem] font-bold"
-                    style={{ background: 'var(--accent)' }}
-                  >
-                    Add
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex flex-col items-center gap-1 pb-10 lg:pb-8">
-            <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/50">
-              {FOCUS_STATUS[orbState]}
-            </span>
-            {/* The grow-out-of-the-button motion is done on orbCircleRef via direct transform
-                manipulation (see the FLIP effects above) — imperative on purpose. */}
-            <button
-              ref={orbCircleRef}
-              onClick={handleToggleVoiceMode}
-              title="End voice mode"
-              className="relative flex origin-center cursor-pointer items-center justify-center rounded-full p-2"
-            >
-              <VoiceOrb state={orbState} getAnalyser={getAnalyser} size={230} />
-              <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="oklch(0.99 0.005 90)">
-                  <rect x="5" y="5" width="14" height="14" rx="4" />
-                </svg>
-              </span>
-            </button>
-          </div>
-        </div>
+        <FocusStage
+          voiceModeActive={voiceModeActive}
+          overlayIn={overlayIn}
+          focusTextRef={focusTextRef}
+          focusBottomRef={focusBottomRef}
+          messages={messages}
+          orbState={orbState}
+          voiceSentences={voiceSentences}
+          speakingIdx={speakingIdx}
+          currentWords={currentWords}
+          litCount={litCount}
+          liveTranscript={liveTranscript}
+          revealedTranscript={revealedTranscript}
+          examOffer={examOffer}
+          onDismissOffer={() => setExamOffer(null)}
+          onAddOffer={() => examOffer && commitExam({ name: examOffer.name, date: examOffer.date })}
+          orbCircleRef={orbCircleRef}
+          getAnalyser={getAnalyser}
+          onEnd={handleToggleVoiceMode}
+        />
       )}
     </div>
   )
