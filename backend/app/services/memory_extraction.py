@@ -309,7 +309,7 @@ def _extract(user_id: uuid.UUID, session_id: uuid.UUID) -> None:
             model=settings.memory_model,
             on_usage=spent.update,
         )
-        spend_log.from_usage(db, user_id, "memory", spent, model=settings.memory_model)
+        spend_log.from_usage(user_id, "memory", spent, model=settings.memory_model)
         parsed = _parse_response(raw)
         if parsed is None:
             logger.info("memory pass returned nothing parseable")
@@ -341,6 +341,7 @@ def _extract(user_id: uuid.UUID, session_id: uuid.UUID) -> None:
                         {"role": "user", "content": f"That edit was rejected: {error}\n\nReturn the same JSON shape again."},
                     ],
                     model=settings.memory_model,
+                    on_usage=lambda u: spend_log.from_usage(user_id, "memory", u, model=settings.memory_model),
                 )
                 if (again := _parse_response(retry)) and (op2 := _op_from(again)):
                     new_body, error = profile_doc.apply_op(

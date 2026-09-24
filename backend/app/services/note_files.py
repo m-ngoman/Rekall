@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -60,7 +61,7 @@ def page_cost(uploads: list[Upload]) -> int:
     )
 
 
-def _transcribe(upload: Upload) -> str | None:
+def _transcribe(upload: Upload, on_usage: Callable[[dict], None] | None = None) -> str | None:
     """One note's markdown transcription, or None if it couldn't be produced.
 
     Failures are swallowed on purpose. A note with no text is still a note you can open and read —
@@ -68,17 +69,19 @@ def _transcribe(upload: Upload) -> str | None:
     in the upload over one note's searchability.
     """
     try:
-        return transcribe_notes(upload.images, upload.text)[0] or None
+        return transcribe_notes(upload.images, upload.text, on_usage)[0] or None
     except Exception:
         logger.exception("Transcription failed for an uploaded note; saving it without text")
         return None
 
 
-def transcribe_all(uploads: list[Upload]) -> list[str | None]:
+def transcribe_all(uploads: list[Upload], on_usage: Callable[[dict], None] | None = None) -> list[str | None]:
+    """`on_usage` receives each call's usage block. It may be called from pool threads, so it
+    must not touch a caller's session — `core.spend` writes through its own."""
     if len(uploads) == 1:
-        return [_transcribe(uploads[0])]
+        return [_transcribe(uploads[0], on_usage)]
     with ThreadPoolExecutor(max_workers=min(TRANSCRIBE_WORKERS, len(uploads))) as pool:
-        return list(pool.map(_transcribe, uploads))
+        return list(pool.map(lambda u: _transcribe(u, on_usage), uploads))
 
 
 def save_note(

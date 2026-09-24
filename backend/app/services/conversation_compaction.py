@@ -111,7 +111,7 @@ def _compact(session_id: uuid.UUID) -> None:
             model=settings.memory_model,
             on_usage=spent.update,
         ).strip()
-        spend_log.from_usage(db, session.user_id, "compaction", spent, model=settings.memory_model)
+        spend_log.from_usage(session.user_id, "compaction", spent, model=settings.memory_model)
         if not summary:
             return
 

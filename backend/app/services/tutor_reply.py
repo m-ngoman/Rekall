@@ -266,16 +266,14 @@ def stream_reply(
     # billed nothing, and a zero-count row would say it did.
     if spoken_chars:
         record(db, session.user_id, UsageEventType.tts_characters, count=spoken_chars)
-        spend_log.estimated(db, session.user_id, "tts", spoken_chars * settings.tts_usd_per_million_chars / 1e6)
+        spend_log.estimated(session.user_id, "tts", spoken_chars * settings.tts_usd_per_million_chars / 1e6)
         # Recorded for everyone, charged only to accounts that fund themselves. The meter answers
         # "what did this cost"; the ledger answers "who owes for it", and friends are absorbed by
         # design without making their usage invisible.
         charge_voice(db, session.user_id, credits_for_tts(spoken_chars), CreditReason.voice_tts)
     # What this turn actually cost, as the provider priced it. Recorded before the commit so it
     # shares the transaction with the turn it describes.
-    spend_log.from_usage(
-        db,
-        session.user_id,
+    spend_log.from_usage(session.user_id,
         "tutor_voice" if synth else "tutor_text",
         usage_seen,
         model=settings.openrouter_model,

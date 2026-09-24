@@ -13,6 +13,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
+from app.config import settings
+from app.core import spend as spend_log
 from app.core.allowance import charge_pages, has_pages
 from app.core.auth import get_current_user
 from app.core.entitlements import has_text_ai
@@ -194,7 +196,14 @@ async def upload_notes(
         # file with pymupdf and no model is involved, which is the same short-circuit
         # `transcribe_notes` takes anyway. Images and scanned PDFs save with no text: readable and
         # openable, just absent from search until AI is switched back on.
-        markdowns = transcribe_all(uploads) if transcribe else [u.text for u in uploads]
+        markdowns = (
+            transcribe_all(
+                uploads,
+                lambda u: spend_log.from_usage(user_id, "transcription", u, model=settings.card_generation_model),
+            )
+            if transcribe
+            else [u.text for u in uploads]
+        )
         created = [
             save_note(db, user_id, deck.id if deck else None, upload, markdown)
             for upload, markdown in zip(uploads, markdowns, strict=True)

@@ -344,7 +344,7 @@ async def live_transcribe(websocket: WebSocket, sample_rate: int = Query(16000, 
             meter = SessionLocal()
             try:
                 record(meter, user_id, UsageEventType.stt_seconds, count=seconds)
-                spend_log.estimated(meter, user_id, "stt", seconds * settings.stt_usd_per_hour / 3600)
+                spend_log.estimated(user_id, "stt", seconds * settings.stt_usd_per_hour / 3600)
                 charge_voice(meter, user_id, credits_for_stt(seconds), CreditReason.voice_stt)
                 meter.commit()
             finally:

@@ -1,9 +1,15 @@
 """Recording what a paid call cost.
 
-Same contract as `core/usage.record`, and for the same reason: add a row to the caller's session
-and let the caller's own commit carry it. No commit of its own, no second connection, no
-try/except. A spend row is then exactly as true as the work it describes — if the turn rolls
-back, so does the line saying it cost something.
+Unlike `core/usage.record`, each row is written and committed on its own, the moment the call
+has been priced. It used to follow usage's contract — ride the caller's transaction, so a turn
+that rolled back took its spend with it — and that is right for counting *uses* but wrong for
+counting *money*. The provider bills a call whether or not the work around it lands: a card
+generation whose verification pass failed still paid for its draft, and a memory pass whose reply
+could not be parsed still paid for the reply. Those are exactly the costs a "what it costs to
+run" figure must not lose.
+
+Recording never raises. A spend row is bookkeeping about the work, and a failure to write one is
+logged rather than allowed to break a turn the student is waiting on.
 
 The split between `from_usage` and `estimated` is the point of the module. One records what a
 provider charged; the other records what we worked out because the provider does not say. They
@@ -12,16 +18,38 @@ are different kinds of number and the table keeps them apart.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from decimal import Decimal
 
-from sqlalchemy.orm import Session
+from sqlalchemy import text
 
+from app.db import SessionLocal
 from app.models import SpendEvent
+
+logger = logging.getLogger(__name__)
+
+
+def _write(row: SpendEvent) -> None:
+    """Commit one row in a short session of its own. See the module docstring for why.
+
+    With a lock timeout of its own, because the caller is usually still inside a transaction
+    and waiting on this. The row's foreign key to `users` needs a key-share lock on the user, which
+    an ordinary update does not block — but one to a key column (email, google_sub,
+    stripe_customer_id) does, and the lock would then be held by the very request waiting here: a
+    deadlock no database can see, lasting forever without a timeout. Losing one row is the right
+    price for never hanging a turn.
+    """
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SET LOCAL lock_timeout = '2s'"))
+            db.add(row)
+            db.commit()
+    except Exception:
+        logger.exception("could not record %s spend", row.feature)
 
 
 def from_usage(
-    db: Session,
     user_id: uuid.UUID | None,
     feature: str,
     usage: dict | None,
@@ -44,7 +72,7 @@ def from_usage(
     if not cost:
         return
     details = usage.get("prompt_tokens_details") or {}
-    db.add(
+    _write(
         SpendEvent(
             user_id=user_id,
             feature=feature,
@@ -59,7 +87,6 @@ def from_usage(
 
 
 def estimated(
-    db: Session,
     user_id: uuid.UUID | None,
     feature: str,
     cost_usd: float | Decimal,
@@ -73,7 +100,7 @@ def estimated(
     """
     if not cost_usd:
         return
-    db.add(
+    _write(
         SpendEvent(
             user_id=user_id,
             feature=feature,

@@ -167,7 +167,7 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
         # stub and self-assessed paths, which spend nothing — `from_usage` skips those rather than
         # writing rows of zero that would drag every average down while looking like data.
         if not self_assessed:
-            spend_log.from_usage(db, user.id, "grading", grader.last_usage, model=settings.cloud_grading_model)
+            spend_log.from_usage(user.id, "grading", grader.last_usage, model=settings.cloud_grading_model)
         db.commit()
         db.refresh(card)
 

@@ -208,7 +208,9 @@ Respond with ONLY a JSON object (no markdown fence, no commentary), exactly shap
 {"markdown": "string", "problem": "string or null"}"""
 
 
-def transcribe_notes(images: list[bytes], text: str | None) -> tuple[str, str | None]:
+def transcribe_notes(
+    images: list[bytes], text: str | None, on_usage: Callable[[dict], None] | None = None
+) -> tuple[str, str | None]:
     """Transcribes one note to markdown for the notes library. Returns (markdown, problem).
 
     A text-layer PDF short-circuits entirely — we already have its exact text, so paying for a
@@ -221,6 +223,7 @@ def transcribe_notes(images: list[bytes], text: str | None) -> tuple[str, str | 
         _TRANSCRIBE_SYSTEM_PROMPT,
         # Never cacheable: one call per note, with no second pass to reuse the prefix.
         _user_content(images, text, "Transcribe the material above.", cacheable=False),
+        on_usage,
     )
     return (result.get("markdown") or "").strip(), result.get("problem")
 
@@ -295,6 +298,7 @@ def generate_topic_draft(
     grade_level: str | None = None,
     curriculum: str | None = None,
     notes: str | None = None,
+    on_usage: Callable[[dict], None] | None = None,
 ) -> dict:
     lead_in = _topic_brief(subject, topic, grade_level, curriculum)
     if notes:
@@ -306,7 +310,7 @@ def generate_topic_draft(
         lead_in += f"\n\nThose notes cover more than one topic. Generate flashcards on {topic} specifically."
     else:
         lead_in += "\n\nGenerate flashcards for this."
-    return _call_json(_TOPIC_DRAFT_SYSTEM_PROMPT, [{"type": "text", "text": lead_in}])
+    return _call_json(_TOPIC_DRAFT_SYSTEM_PROMPT, [{"type": "text", "text": lead_in}], on_usage)
 
 
 def verify_topic_cards(
@@ -316,10 +320,11 @@ def verify_topic_cards(
     curriculum: str | None,
     draft_cards: list[dict],
     notes: str | None = None,
+    on_usage: Callable[[dict], None] | None = None,
 ) -> dict:
     lead_in = _topic_brief(subject, topic, grade_level, curriculum)
     if notes:
         lead_in += "\n\nThe student's own notes:\n" + notes[:MAX_GROUNDING_CHARS]
     lead_in += "\n\nDraft flashcards to check:\n" + json.dumps(draft_cards)
     prompt = _TOPIC_VERIFY_GROUNDED_PROMPT if notes else _TOPIC_VERIFY_UNGROUNDED_PROMPT
-    return _call_json(prompt, [{"type": "text", "text": lead_in}])
+    return _call_json(prompt, [{"type": "text", "text": lead_in}], on_usage)

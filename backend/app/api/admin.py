@@ -237,6 +237,7 @@ SPEND_LABELS: tuple[tuple[str, str], ...] = (
     ("grading", "Answer grading"),
     ("deck_generation", "Card generation"),
     ("deck_verify", "Card verification"),
+    ("transcription", "Note transcription"),
     ("memory", "Tutor memory"),
     ("compaction", "Conversation compaction"),
     ("tts", "Speech synthesis"),

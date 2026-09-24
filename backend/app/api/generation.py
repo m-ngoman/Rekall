@@ -65,7 +65,7 @@ def _generate_cards(
     # the verify pass is the one whose value is hardest to argue and easiest to measure.
     yield sse_event("stage", {"label": "Generating flashcards…"})
     draft = generate_draft(
-        images, text, lambda u: spend_log.from_usage(db, user_id, "deck_generation", u, model=settings.card_generation_model)
+        images, text, lambda u: spend_log.from_usage(user_id, "deck_generation", u, model=settings.card_generation_model)
     )
 
     yield sse_event("stage", {"label": "Double-checking against your notes…"})
@@ -73,7 +73,7 @@ def _generate_cards(
         images,
         text,
         draft.get("cards", []),
-        lambda u: spend_log.from_usage(db, user_id, "deck_verify", u, model=settings.card_generation_model),
+        lambda u: spend_log.from_usage(user_id, "deck_verify", u, model=settings.card_generation_model),
     )
 
     yield from _persist_cards(db, user_id, deck_pk, verified, draft.get("deck_name"), deck_name)
@@ -314,7 +314,14 @@ def generate_from_topic(request: Request, payload: GenerateFromTopic, db: Sessio
 
     def stream() -> Generator[str, None, None]:
         yield sse_event("stage", {"label": "Writing flashcards…"})
-        draft = generate_topic_draft(subject, topic, payload.grade_level or None, payload.curriculum or None, grounding)
+        draft = generate_topic_draft(
+            subject,
+            topic,
+            payload.grade_level or None,
+            payload.curriculum or None,
+            grounding,
+            lambda u: spend_log.from_usage(user_id, "deck_generation", u, model=settings.card_generation_model),
+        )
 
         yield sse_event(
             "stage",
@@ -323,6 +330,7 @@ def generate_from_topic(request: Request, payload: GenerateFromTopic, db: Sessio
         verified = verify_topic_cards(
             subject, topic, payload.grade_level or None, payload.curriculum or None,
             draft.get("cards", []), grounding,
+            lambda u: spend_log.from_usage(user_id, "deck_verify", u, model=settings.card_generation_model),
         )
 
         yield from _persist_cards(db, user_id, deck_pk, verified, draft.get("deck_name") or topic, payload.deck_name)
