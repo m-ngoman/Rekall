@@ -55,12 +55,14 @@ export function sendTextTurn(
   /** A graph the tutor drew. Validated server-side, so this is safe to render as-is. Typed turns
    * only — the backend never emits one on a voice turn. */
   onPlot?: (plot: PlotSpec) => void,
+  /** Aborts the reply — starting a new conversation mid-reply, so nothing more lands in the old one. */
+  signal?: AbortSignal,
 ): Promise<TutorTurnResult> {
   const form = new FormData()
   form.append('text', text)
   if (image) form.append('image', image, 'photo.jpg')
 
-  return streamResult<TutorTurnResult>(`/api/tutor/sessions/${sessionId}/text-turn`, { method: 'POST', body: form }, {
+  return streamResult<TutorTurnResult>(`/api/tutor/sessions/${sessionId}/text-turn`, { method: 'POST', body: form, signal }, {
     token: (data: { text: string }) => onToken(data.text),
     suggest_exam: onSuggestExam,
     plot: onPlot,

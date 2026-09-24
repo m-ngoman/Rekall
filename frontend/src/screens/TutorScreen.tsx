@@ -120,6 +120,8 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
    * could go out mid-reply and the typewriter — which always writes into the last assistant
    * message — would splice two replies into one. */
   const textTurnInFlightRef = useRef(false)
+  /** The typed reply in flight, so starting a new conversation can stop it — see handleNewConversation. */
+  const textTurnAbortRef = useRef<AbortController | null>(null)
   const [openPopover, setOpenPopover] = useState<Popover | null>(null)
   const [voices, setVoices] = useState<TutorVoice[] | null>(null)
   const [memoryNotes, setMemoryNotes] = useState<MemoryNote[] | null>(null)
@@ -579,10 +581,19 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     cancelListenRef.current?.()
     voiceTurnAbortRef.current?.abort()
     voiceTurnAbortRef.current = null
+    // A typed reply still streaming would keep Send blocked and could add text, a graph or an
+    // exam offer to the conversation that is about to disappear.
+    textTurnAbortRef.current?.abort()
+    textTurnAbortRef.current = null
+    textTurnInFlightRef.current = false
+    setReplyPending(false)
     mic.stop()
     player.stop()
     stopTypewriter()
 
+    // No session until the new one exists: sending checks for one, so a message typed while this
+    // request is in flight waits rather than landing in the old conversation.
+    setSession(null)
     setMessages([])
     setResumedAt(null)
     setCondensedBefore(-1)
@@ -610,6 +621,8 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     if (text.startsWith('/') && (await handleCommand(text))) return
     if ((!text && !image) || !session || orbState !== 'idle' || textTurnInFlightRef.current) return
     textTurnInFlightRef.current = true
+    const controller = new AbortController()
+    textTurnAbortRef.current = controller
     // Sending takes you to the bottom even if you had scrolled up to re-read something: you just
     // added the newest line yourself.
     rejoin()
@@ -625,15 +638,20 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
         session.id,
         text,
         (chunk) => {
+          if (controller.signal.aborted) return
           setReplyPending(false)
           fullText += chunk
           typeInto(fullText)
         },
         image ?? undefined,
-        offerExam,
-        attachPlot,
+        (exam) => !controller.signal.aborted && offerExam(exam),
+        (plot) => !controller.signal.aborted && attachPlot(plot),
+        controller.signal,
       )
     } catch (e) {
+      // Stopped on purpose by a new conversation, which has already cleared the screen; there is
+      // no failure to report and no placeholder left to remove.
+      if (controller.signal.aborted) return
       // A placeholder that never got its reply. Left in, it sits under the error as an empty
       // line the tutor apparently said. Judged by what arrived, not by what the message shows:
       // the typewriter reveals on a 20ms tick, so a reply that failed just after its first token
@@ -647,8 +665,12 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
       setPaywall(e instanceof PaymentRequired)
       setError(e instanceof PaymentRequired ? e.message : 'Something went wrong reaching the tutor.')
     } finally {
-      textTurnInFlightRef.current = false
-      setReplyPending(false)
+      // Only if it is still this turn's: after a new conversation the flags belong to the next one.
+      if (textTurnAbortRef.current === controller) {
+        textTurnAbortRef.current = null
+        textTurnInFlightRef.current = false
+        setReplyPending(false)
+      }
     }
   }
 
@@ -684,6 +706,11 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
       // Voice mode hides the composer, so an attachment would have nowhere to show and no send
       // button to leave by.
       if (voiceModeActive) return
+      // Pasted into some other field — a memory note, a custom tutor style — belongs to that field.
+      // The composer, and anywhere that isn't a text field at all, are what this is for.
+      const target = e.target as HTMLElement | null
+      const editable = target?.closest('input, textarea, [contenteditable="true"]')
+      if (editable && editable !== textareaRef.current) return
       const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.type.startsWith('image/'))
       const file = item?.getAsFile()
       if (!file) return
@@ -1033,7 +1060,9 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
               </div>
             )}
 
-            {!voiceModeActive && draft.trim() ? (
+            {/* An attached photo is enough to send on its own — handleSendText accepts one without
+                text — so a pasted screenshot in an empty composer still gets a Send button. */}
+            {!voiceModeActive && (draft.trim() || pendingImage) ? (
               <button
                 onClick={handleSendText}
                 className="on-accent flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--r-full)]"
