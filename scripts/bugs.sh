@@ -8,7 +8,9 @@
 #   scripts/bugs.sh done <id>    mark one resolved (id prefix is enough)
 set -euo pipefail
 
-psql() { podman exec -i pipcards-db psql -U pipcards -d pipcards "$@"; }
+# The Postgres container; set REKALL_DB_CONTAINER if yours isn't called pipcards-db.
+CONTAINER="${REKALL_DB_CONTAINER:-pipcards-db}"
+psql() { podman exec -i "$CONTAINER" psql -U pipcards -d pipcards "$@"; }
 
 case "${1:-open}" in
   done)

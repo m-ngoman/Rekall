@@ -1,5 +1,10 @@
 # Handoff: Rekall — "The Countdown" direction pass
 
+> **Historical: applied on 2026-09-03 and superseded.** The refinement pass in
+> `design/handoff-refinement/` was applied over it on 2026-09-16, and the app has moved on again
+> since. The files under `code/` are copies of the app as this pass left it, so applying them now
+> would undo everything after. Kept as the record of the redesign; don't apply it.
+
 Repo: `m-ngoman/Rekall` (branch `main`). Stack: React + TypeScript + Tailwind (Vite) frontend under `frontend/`, FastAPI backend under `backend/`. This handoff applies the redesign to that codebase.
 
 ## Overview

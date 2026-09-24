@@ -1,5 +1,10 @@
 # Rekall design system
 
+> **Snapshot from 2026-09-16,** synced to Claude Design as the input to the refinement pass,
+> before that pass was applied. `frontend/src/index.css` has changed since and is the source of
+> truth. One correction to what follows: the default theme is `system`, which follows the
+> device, rather than dark.
+
 Source of truth is `frontend/src/index.css` in `m-ngoman/Rekall`; `tokens.css` here is a
 derived copy with a `.theme-light` / `.theme-dark` scope added so previews can show both.
 

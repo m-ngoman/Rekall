@@ -1,5 +1,9 @@
 # Handoff: Rekall Countdown refinement pass
 
+> **Historical: applied on 2026-09-16.** The mocks show the app as this pass intended it; the
+> code has moved on since, and `frontend/src` is the source of truth. Kept as the record of the
+> pass.
+
 ## Overview
 A refinement of the live Countdown UI of Rekall (rekall.study), September 2026. Not a new direction: the same seven colour tokens, three radii, two faces, accent rule and copy voice, with fixes for desktop composition, type hierarchy, exposed CRUD, contrast and touch targets. Target codebase: `m-ngoman/Rekall`, `frontend/src` (React + Tailwind, tokens in `frontend/src/index.css`).
 

@@ -11,8 +11,10 @@
 set -euo pipefail
 
 DEST="${REKALL_BACKUP_DIR:-/run/media/system/Home_Backup/Rekall-backups}"
-NOTES_DIR="$HOME/Projects/PipCards/backend/data/notes"
-CONTAINER="pipcards-db"
+# Where the backend keeps uploads: NOTES_STORAGE_DIR, which is backend/data/notes unless set, found
+# from this checkout rather than from one machine's home directory.
+NOTES_DIR="${REKALL_NOTES_DIR:-$(cd "$(dirname "$0")/.." && pwd)/backend/data/notes}"
+CONTAINER="${REKALL_DB_CONTAINER:-pipcards-db}"
 KEEP_DAYS=14
 STAMP="$(date +%Y-%m-%d_%H%M)"
 
@@ -27,8 +29,14 @@ mkdir -p "$DEST"
 podman exec "$CONTAINER" pg_dump -U pipcards -Fc pipcards > "$DEST/rekall-db-$STAMP.dump"
 
 # The notes directory holds the original uploads; the database only stores paths to them, so a
-# database-only backup would restore a library of broken links.
-if [ -d "$NOTES_DIR" ] && [ -n "$(ls -A "$NOTES_DIR" 2>/dev/null)" ]; then
+# database-only backup would restore a library of broken links. A directory that isn't there at all
+# means a wrong path rather than no uploads, so it fails the run, after the database is safe and
+# before anything is pruned: skipping it quietly would look like a working backup for months.
+if [ ! -d "$NOTES_DIR" ]; then
+  echo "No notes directory at $NOTES_DIR: the database is backed up, the uploads are not. Set REKALL_NOTES_DIR." >&2
+  exit 1
+fi
+if [ -n "$(ls -A "$NOTES_DIR" 2>/dev/null)" ]; then
   tar -czf "$DEST/rekall-notes-$STAMP.tar.gz" -C "$(dirname "$NOTES_DIR")" "$(basename "$NOTES_DIR")"
 fi
 

@@ -200,3 +200,8 @@ the live site's callback: point it at one registered for your own client.
 Database names and credentials, the Compose volume, and the keys the browser keeps preferences
 under still use the project's original `pipcards` name. Harmless, and renaming any of them means
 moving live data, so they've been left alone.
+
+The scripts in [`scripts/`](scripts/) back up the database and uploads and read the owner's bug
+inbox. They reach Postgres through a podman container named `pipcards-db`: set
+`REKALL_DB_CONTAINER` if yours is called something else, and `REKALL_NOTES_DIR` if uploads aren't
+kept in `backend/data/notes`.

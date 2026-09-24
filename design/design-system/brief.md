@@ -1,5 +1,8 @@
 # Rekall: refinement pass on the Countdown design
 
+> **Historical:** the brief for the refinement pass of 2026-09-16, kept as it was written. One
+> correction: answers are typed, not spoken. Only the tutor listens to speech.
+
 ## Context
 
 Rekall (rekall.study) is a spaced-repetition study app. You type or speak an answer, an AI grades it, FSRS schedules the next review, and decks link to exam dates so every card is scheduled before the day. The current UI is the "Countdown" direction, shipped September 2026. This pass is refinement of a live product, not a new direction.

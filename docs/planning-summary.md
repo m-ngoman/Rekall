@@ -1,12 +1,30 @@
 # PipCards Rebuild — Planning Summary
 
-Context for Claude Code: this document summarizes architecture and product decisions made during planning conversations with Claude (chat), before any code was written. Nothing described here has been implemented yet — treat all of it as design intent to build toward, not existing code to assume is present.
+> **Historical (pre-build).** This summarizes the architecture and product decisions made in
+> planning conversations with Claude (chat) before any code was written, and it is kept as the
+> record of what was intended and why. Much of it has since been built, some of it differently and
+> some not at all; the table below says which. For what the app does now, read the README and the
+> code, and don't build from this document.
 
+## Planned, and what shipped
 
-> **Correction, 2026-09-18.** This planning document predates the build and several of its
-> decisions were superseded. Most importantly: spoken answers are **not** graded — the study
-> loop is typed-only, and voice is a tutor feature. TTS/STT shipped as Cartesia/Deepgram rather
-> than local Chatterbox/whisper.cpp, and Prometheus 2 lost to a general instruct model.
+| Planned here | What shipped |
+|---|---|
+| Typed or spoken answers, replacing self-assessment | Typed answers only; spoken answers are not graded, and voice is a tutor feature. Self-assessment stayed, as the review path that uses no model. |
+| Grading by Prometheus 2 (2B, or the 7B GGUF) on a local GPU | A general instruct model that grades and teaches in one streamed call: `qwen2.5:7b` through Ollama, or Gemini 2.5 Flash through OpenRouter, which the live site runs. Prometheus 2 is kept for comparison. |
+| Chatterbox TTS on the desktop GPU, with cloned public-domain voices | Cartesia, or Inworld, with their stock voices; Chatterbox remains a local fallback. |
+| whisper.cpp / faster-whisper speech-to-text | Deepgram, transcribing live while you talk; Groq and faster-whisper serve only a batch path the app no longer calls. |
+| A tutor on DeepSeek V4 Flash or Claude Haiku 4.5 | Claude Sonnet 5 through OpenRouter, which caches the prompt Haiku couldn't; Gemini 2.5 Flash picks out its memory notes. Personalities shipped as planned: Direct, Socratic, Encouraging, Terse and Custom. |
+| Notes storage, with OCR as a stretch goal | Built: photos, PDFs and typed notes, read into editable markdown and searchable with Postgres full-text search. Cards can be generated from them or from a topic. |
+| A corner feedback button capturing card ID and raw model output, with two bug classes | "This card doesn't look right" on the review screen, which suspends the card and keeps a copy of it; the owner files bugs with /bug in the tutor. |
+| Google Drive sync, and the `drive.file` scope question | Not built. Sign-in asks only for `openid email profile`. |
+| Friends free, the public at a profitable rate, tracked by hand at first | The `tier` field as planned, with Stripe: a monthly or lifetime plan for AI grading, generation and the tutor, prepaid voice hours, a daily page allowance with page packs, and a daily grading ceiling. New sign-ins start on the public tier; friends are promoted by hand. |
+| A comprehensive settings menu | Built without orb colours, layout density, a default review mode, notifications or Drive sync. FSRS retention and maximum interval sit behind "Scheduling details", as planned. |
+| The voice orb: canvas frequency rings, colour pickers per state | The orb shipped as described, with a fifth "waiting" state; the per-state colour pickers did not. |
+| The laptop as an always-on inference server | Not part of this repository. |
+
+`docs/reference/` holds the pre-rebuild flashcard app that FSRS was ported from, not the orb
+prototype described near the end; that file was never checked in.
 
 ## Project overview
 
@@ -25,7 +43,7 @@ PipCards is a flashcard/study app being rebuilt from the ground up. Not being co
 
 ## Core feature additions
 
-1. **Typed answer entry** — replaces self-assessment difficulty rating. Students type actual answers instead of just rating recall difficulty (active recall > self-assessment). *(Voice entry was planned here and not built — see the correction note above.)*
+1. **Typed answer entry** — replaces self-assessment difficulty rating. Students type actual answers instead of just rating recall difficulty (active recall > self-assessment). *(Voice entry was planned here and not built — see the table above.)*
 
 2. **Answer grading pipeline** — local model grades typed answers against a reference answer, outputs an FSRS-compatible rating (again/hard/good/easy) plus a short explanation. Explanation scales with correctness (brief when correct, more detail when wrong/partial). Explanation and FSRS rating are kept as separate fields in structured JSON output — explanation must never leak into scheduling logic.
 
