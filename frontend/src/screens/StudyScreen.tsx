@@ -4,6 +4,7 @@ import Notice from '../components/Notice'
 import { NotSignedIn, PaymentRequired, TooManyRequests, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
 
 import { daysUntil } from '../lib/dates'
+import { upcomingExams } from '../lib/exams'
 import type { Exam, ReviewResult, StudyCard } from '../types'
 
 interface Props {
@@ -259,9 +260,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
 
   // Cards still ahead of you, counting the one on screen. This is the number the header carries.
   const left = queue.length + (current ? 1 : 0)
-  const nextExam = exams
-    .filter((e) => e.deck_ids.includes(deckId) && daysUntil(e.date) >= 0)
-    .sort((a, b) => a.date.localeCompare(b.date))[0]
+  const nextExam = upcomingExams(exams.filter((e) => e.deck_ids.includes(deckId)))[0]
 
   if (phase === 'loading') return <p className="text-sm text-[var(--text-muted)]">Loading…</p>
 

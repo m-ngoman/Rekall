@@ -1,4 +1,5 @@
-import { NAV_ITEMS, type Tab } from './navIcons'
+import type { Tab } from '../lib/route'
+import { NAV_ITEMS } from './navIcons'
 import { useSlidingPill } from '../hooks/useSlidingPill'
 
 interface Props {

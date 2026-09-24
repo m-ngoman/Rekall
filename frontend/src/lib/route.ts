@@ -1,4 +1,5 @@
-import type { Tab } from '../components/navIcons'
+/** The places the tab bar and the sidebar lead to. */
+export type Tab = 'home' | 'cards' | 'calendar' | 'notes' | 'tutor' | 'settings'
 
 /** Where the app is, as one value. Study carries its deck; everything else is just a place. */
 export type Route =

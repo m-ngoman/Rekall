@@ -1,4 +1,4 @@
-export type Tab = 'home' | 'cards' | 'calendar' | 'notes' | 'tutor' | 'settings'
+import type { Tab } from '../lib/route'
 
 export const NAV_ITEMS: { id: Tab; label: string; icon: (color: string) => JSX.Element }[] = [
   {

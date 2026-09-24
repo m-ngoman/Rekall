@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { exportUrl, getBillingStatus, listTutorVoices, logout } from '../api'
 import { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
-import { ACCENT_PRESETS, DEFAULT_ACCENT, readCustomAccent, writeCustomAccent } from '../hooks/useAccent'
+import { ACCENT_PRESETS, DEFAULT_ACCENT, readCustomAccent, writeCustomAccent } from '../lib/accent'
 import Segmented from '../components/Segmented'
 import Notice from '../components/Notice'
 import type { BillingStatus, GradingStrictness, Me, Settings, SettingsPatch, Theme, TutorVoice } from '../types'

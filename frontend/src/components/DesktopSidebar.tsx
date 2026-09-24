@@ -1,5 +1,6 @@
 import Logo from './Logo'
-import { NAV_ITEMS, SETTINGS_ICON, type Tab } from './navIcons'
+import type { Tab } from '../lib/route'
+import { NAV_ITEMS, SETTINGS_ICON } from './navIcons'
 
 interface Props {
   active: Tab

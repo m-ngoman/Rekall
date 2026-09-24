@@ -9,6 +9,7 @@ import Notice from '../components/Notice'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useConfirm } from '../hooks/useConfirm'
 import { useCategoryDrag } from '../hooks/useCategoryDrag'
+import { kindLabel, type NoteGroup, previewText, UNFILED } from '../lib/notes'
 import type { Deck, Note, NoteDetail } from '../types'
 
 interface Props {
@@ -17,8 +18,6 @@ interface Props {
    * says what you'll get rather than refusing the route. */
   aiGeneration: boolean
 }
-
-const UNFILED = 'Unfiled'
 
 const SEARCH_ICON = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -77,16 +76,6 @@ const UNFILED_KEY = ''
 interface Draft {
   deckId: string | null
   deckName: string
-}
-
-function kindLabel(fileType: Note['file_type']): string {
-  return fileType === 'pdf' ? 'PDF' : fileType === 'image' ? 'Photo' : 'Note'
-}
-
-interface Group {
-  key: string
-  name: string
-  notes: Note[]
 }
 
 function formatDate(iso: string): string {
@@ -345,7 +334,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
     const key = note.deck_id ?? UNFILED_KEY
     byDeck.set(key, [...(byDeck.get(key) ?? []), note])
   }
-  const allGroups: Group[] = [
+  const allGroups: NoteGroup[] = [
     ...[...decks]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((d) => ({ key: d.id, name: d.name, notes: byDeck.get(d.id) ?? [] })),
@@ -669,8 +658,8 @@ function CategoryGroup({
   onMoveNote,
   onGrabNote,
 }: {
-  group: Group
-  categories: Group[]
+  group: NoteGroup
+  categories: NoteGroup[]
   isDropTarget: boolean
   dragging: boolean
   /** Absent for Unfiled, which is the absence of a category rather than one that can be renamed. */
@@ -771,7 +760,7 @@ function NoteTile({
   onGrab,
 }: {
   note: Note
-  categories: Group[]
+  categories: NoteGroup[]
   onOpen: () => void
   onMove: (dropKey: string) => void
   onGrab: (e: React.PointerEvent) => void
@@ -804,7 +793,7 @@ function NoteTile({
           style={{ background: 'color-mix(in oklab, var(--surface) 55%, var(--bg))' }}
         >
           <p className="text-[0.5625rem] leading-[1.5] text-[var(--text-muted)]">
-            {note.preview || (note.file_type === 'text' ? 'Nothing written yet.' : 'No text was read from this file.')}
+            {previewText(note)}
           </p>
           <span
             aria-hidden

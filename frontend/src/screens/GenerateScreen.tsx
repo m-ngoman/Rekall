@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { PaymentRequired, serverDetail, generateDeck, generateDeckFromNotes, generateDeckFromTopic, listDecks, listNotes } from '../api'
 import ActionCard from '../components/ActionCard'
+import { kindLabel, type NoteGroup, previewText, UNFILED } from '../lib/notes'
 import type { Deck, GenerationResult, Note } from '../types'
 
 const BACK_CHEVRON = (
@@ -365,14 +366,6 @@ export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Prop
   )
 }
 
-const UNFILED = 'Unfiled'
-
-interface Group {
-  key: string
-  name: string
-  notes: Note[]
-}
-
 /** Three states, not two: none / some / all. The Settings presets' dot, plus a hollow one for
  * "some of this group" — the only honest thing to show when a category is partly selected. */
 function Check({ state }: { state: 'none' | 'some' | 'all' }) {
@@ -421,7 +414,7 @@ function NotePicker({
   /** A partly-selected category fills up rather than clearing — tapping a half-filled box to
    * discard the selections you already made would be the more destructive reading of an ambiguous
    * gesture, and it's the one that's harder to undo. */
-  const toggleGroup = (group: Group) => {
+  const toggleGroup = (group: NoteGroup) => {
     const ids = new Set(group.notes.map((n) => n.id))
     const all = group.notes.every((n) => chosen.some((c) => c.id === n.id))
     setChosen((prev) =>
@@ -438,7 +431,7 @@ function NotePicker({
     if (list) list.push(note)
     else byDeck.set(key, [note])
   }
-  const groups: Group[] = [...byDeck.entries()]
+  const groups: NoteGroup[] = [...byDeck.entries()]
     .sort(([a], [b]) => (a === UNFILED ? 1 : b === UNFILED ? -1 : a.localeCompare(b)))
     .map(([name, list]) => ({ key: name, name, notes: list }))
 
@@ -500,10 +493,10 @@ function NotePicker({
                       <Check state={on ? 'all' : 'none'} />
                       <span className="min-w-0 flex-1" style={{ color: on ? 'var(--text)' : 'var(--text-muted)' }}>
                         <span className="block truncate text-[0.9375rem] font-semibold">
-                          {note.title || (note.file_type === 'pdf' ? 'PDF' : note.file_type === 'image' ? 'Photo' : 'Note')}
+                          {note.title || kindLabel(note.file_type)}
                         </span>
                         <span className="line-clamp-2 block text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">
-                          {note.preview || (note.file_type === 'text' ? 'Nothing written yet.' : 'No text was read from this file.')}
+                          {previewText(note)}
                         </span>
                       </span>
                     </button>

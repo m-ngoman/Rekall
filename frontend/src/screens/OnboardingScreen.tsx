@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createSampleDeck } from '../api'
 import Logo from '../components/Logo'
 import Segmented from '../components/Segmented'
-import { ACCENT_PRESETS, DEFAULT_ACCENT } from '../hooks/useAccent'
+import { ACCENT_PRESETS, DEFAULT_ACCENT } from '../lib/accent'
 import type { Settings, SettingsPatch, Theme } from '../types'
 
 interface Props {

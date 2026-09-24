@@ -1,6 +1,6 @@
-/** Accent constants only. The stateful hook that used to live here is gone: the accent is now one
- * of the user's server-stored settings, applied by useSettings alongside the theme, and its
- * localStorage mirror is written there and read by the pre-paint script in index.html.
+/** The accent presets, and the custom colour remembered beside them. There is no hook here: the
+ * accent is one of the user's server-stored settings, applied by useSettings alongside the theme,
+ * and its localStorage mirror is written there and read by the pre-paint script in index.html.
  */
 export const DEFAULT_ACCENT = 'oklch(0.7 0.145 40)'
 

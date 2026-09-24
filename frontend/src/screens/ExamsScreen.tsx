@@ -4,6 +4,7 @@ import ExamCalendar, { gridRange } from '../components/ExamCalendar'
 import ExamSheet from '../components/ExamSheet'
 import { useCachedResource } from '../hooks/useCachedResource'
 import { daysUntil, formatDayShort, formatMonth, toISODate } from '../lib/dates'
+import { upcomingExams } from '../lib/exams'
 import { getLoad, loadCache, loadKey, type LoadByDay } from '../lib/load'
 import type { Deck, Exam } from '../types'
 
@@ -66,7 +67,7 @@ export default function ExamsScreen({ onChanged }: Props) {
     onChanged()
   }
 
-  const upcoming = (exams ?? []).filter((e) => daysUntil(e.date) >= 0).sort((a, b) => a.date.localeCompare(b.date))
+  const upcoming = upcomingExams(exams)
   const next = upcoming[0]
   const nextDays = next ? daysUntil(next.date) : null
 

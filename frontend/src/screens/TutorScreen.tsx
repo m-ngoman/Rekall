@@ -9,6 +9,7 @@ import VoiceOrb, { type OrbState } from '../components/VoiceOrb'
 import VoicePicker from '../components/VoicePicker'
 import { createExam, listExams } from '../api'
 import { daysUntil, formatDayLong } from '../lib/dates'
+import { upcomingExams } from '../lib/exams'
 import { useCachedResource } from '../hooks/useCachedResource'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import { useMicRecorder } from '../hooks/useMicRecorder'
@@ -212,10 +213,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
   // Only used by the empty state's starters, and it rides the same cache the Calendar tab fills,
   // so opening Tutor after Calendar costs no request.
   const [exams] = useCachedResource<Exam[]>('exams', listExams, () => [])
-  const nextExam = useMemo(() => {
-    const upcoming = (exams ?? []).filter((e) => daysUntil(e.date) >= 0)
-    return upcoming.sort((a, b) => a.date.localeCompare(b.date))[0] ?? null
-  }, [exams])
+  const nextExam = useMemo(() => upcomingExams(exams)[0] ?? null, [exams])
   const [orbState, setOrbState] = useState<OrbState>('idle')
   const [voiceModeActive, setVoiceModeActive] = useState(false)
   const [orbMounted, setOrbMounted] = useState(false) // in the DOM at all
