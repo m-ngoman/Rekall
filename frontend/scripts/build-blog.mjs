@@ -1,5 +1,6 @@
 /**
- * Build the blog: content/blog/*.md -> public/blog/**.html
+ * Build the blog: content/blog/*.md -> a page per post under public/blog/, plus the blog's index,
+ * style.css and feed.xml there, and public/sitemap.xml for the whole site.
  *
  * Static generation on purpose. A client-rendered SPA route would produce no link
  * preview on HN, Slack, or X — none of those crawlers run JavaScript — and being
@@ -86,8 +87,12 @@ ${published ? `<meta property="article:published_time" content="${esc(published)
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
-<!-- TODO: add an OG image once you have one. A text-only preview still works, it just gets fewer clicks.
-     <meta property="og:image" content="${SITE.origin}/blog/og/<slug>.png"> -->
+<!-- The site's own card image until a post has one of its own: a preview with an image gets
+     the clicks a text-only one doesn't. -->
+<meta property="og:image" content="${SITE.origin}/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:image" content="${SITE.origin}/og-image.png">
 </head>
 <body>`;
 }

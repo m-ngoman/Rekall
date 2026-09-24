@@ -30,11 +30,11 @@ Measured over real voice sessions, Sonnet 5 came out at ~$0.045 per voice-hour a
 The reason is prompt caching. Cache minimums are not monotonic across a model family: Haiku 4.5
 needs a 4,096-token prefix before anything caches, and Sonnet 5 needs 1,024.
 
-My system prompt is ~1,680 tokens. On Sonnet it caches from the very first turn. On Haiku it sits
-under the threshold and caches nothing, not until conversation history alone pushes the prefix past
-4,096 tokens, somewhere around turn 19. Most conversations never get there. A cached read costs
-about a tenth of the input price, so Sonnet was paying a tenth on nearly every turn while Haiku
-paid full freight on nearly all of them.
+My system prompt was ~1,680 tokens at the time. On Sonnet it caches from the very first turn. On
+Haiku it sits under the threshold and caches nothing, not until conversation history alone pushes
+the prefix past 4,096 tokens, somewhere around turn 19. Most conversations never get there. A cached
+read costs about a tenth of the input price, so Sonnet was paying a tenth on nearly every turn while
+Haiku paid full freight on nearly all of them.
 
 The lesson goes past these two models. If you have a stable prompt prefix, the cache minimum is
 often the dominant term in what you actually pay, and it doesn't move in the direction you'd assume
@@ -117,8 +117,7 @@ have completely different fixes, and I'd have optimised the wrong one for a week
 A subtle one, and my favourite bug in the project.
 
 The grader streams its explanation token by token so feedback appears immediately. But the actual
-verdict arrives as a marker in that same stream, `###SCORE: 4`, or `[RESULT] (4)` for Prometheus,
-typically at the end.
+verdict arrives as a marker in that same stream, `###SCORE: 4`, typically at the end.
 
 So you're flushing tokens to the UI as they arrive, and the last few tokens are a machine-readable
 score you were going to parse out and never display. Naively, the user watches `###SCORE:` type
@@ -127,7 +126,8 @@ away.
 
 The fix is a holdback margin: never flush the trailing 24 characters. Hold them until you either
 see more content, which proves they were real text, or the stream ends, at which point you parse
-the marker out of the tail. 24 characters is just over the longest possible marker.
+the marker out of the tail. 24 characters is about twice the marker's length, so it stays held
+however the stream happens to be split into chunks.
 
 Anything that mixes display text and structured output in one stream has this problem, and the
 flush boundary has to lag the control token's maximum length. It only shows up in front of real
@@ -195,8 +195,8 @@ Compressed:
 - Verify providers end to end before comparing prices.
 
 The code is at [github.com/m-ngoman/Rekall](https://github.com/m-ngoman/Rekall). The grading
-pipeline is in `backend/app/services/grading.py`, and the reasoning behind every model choice is
-in the config comments in `backend/app/config.py`.
+pipeline is in `backend/app/services/grading.py`, and the reasoning behind the model choices in
+this post is in the config comments in `backend/app/config.py`.
 
 ---
 
