@@ -288,12 +288,15 @@ def stream_reply(
     schedule_if_due(db, session.id, session.user_id)
 
     # Same deal for compaction, and it has to come after the commit above so the turn just taken
-    # is part of what gets summarised. Only the OpenRouter path reports usage; on the stub and
-    # Ollama paths this stays None and compaction simply never fires, which is correct — neither
-    # is billed per token.
+    # is part of what gets summarised. Only the OpenRouter path reports usage, so on the stub and
+    # Ollama paths only the message count can make a pass due.
     if prompt_tokens := usage_seen.get("prompt_tokens"):
         session.last_prompt_tokens = prompt_tokens
         db.commit()
-        compact_if_due(session)
+    carried = history
+    if session.summary and session.summarized_through:
+        carried = [m for m in history if m.created_at > session.summarized_through]
+    # +1 for the reply just stored, which `history` was read before.
+    compact_if_due(session, len(carried) + 1)
 
     yield sse_event("done", {"transcript": user_text, "reply": full_reply.strip()})

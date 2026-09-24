@@ -62,6 +62,19 @@ what happened, not how good they are at it.
 
 Write only the paragraph."""
 
+# Due by length as well as by tokens. `tutor_reply.history_window` trims by message count, at 80,
+# and a conversation of short exchanges can reach that while its prompt is still under
+# `tutor_compact_at_tokens` — at which point the window drops the opening with no summary behind
+# it, the amnesia this module exists to prevent. 64 leaves eight turns of slack for a pass that
+# runs in the background to land before the window would trim.
+COMPACT_AT_MESSAGES = 64
+
+# New messages a pass must have to fold in, beyond the ones kept verbatim. Without a floor, a
+# conversation whose system prompt and kept tail alone exceed the token threshold is due again on
+# every turn, and each pass rewrites the summary — changing the cached prefix every turn, which is
+# the opposite of the point.
+_MIN_NEW = 8
+
 # One compaction per session at a time. Turns can overlap (a fast typist, or a voice turn landing
 # while the previous thread is still working), and two concurrent passes would both read the same
 # history and write competing summaries.
@@ -118,15 +131,23 @@ def _compact(session_id: uuid.UUID) -> None:
             _in_flight.discard(session_id)
 
 
-def schedule_if_due(session: TutorSession) -> None:
+def schedule_if_due(session: TutorSession, unsummarized: int) -> None:
     """Called at the end of a tutor turn, after `last_prompt_tokens` has been recorded.
 
-    Reads the session object the caller already has rather than re-querying, and hands off to a
-    thread only when a pass is actually due.
+    `unsummarized` is how many messages the model is carrying verbatim: everything after
+    `summarized_through`, or the whole conversation if it has never been compacted.
+
+    Due when the prompt has grown past `tutor_compact_at_tokens` or the conversation has grown
+    past `COMPACT_AT_MESSAGES`, and only once there is something new to fold in. Reads the session
+    object the caller already has rather than re-querying, and hands off to a thread only when a
+    pass is actually due.
     """
     if not settings.tutor_compact_at_tokens:
         return
-    if (session.last_prompt_tokens or 0) <= settings.tutor_compact_at_tokens:
+    if unsummarized < settings.tutor_compact_keep + _MIN_NEW:
+        return
+    long_by_tokens = (session.last_prompt_tokens or 0) > settings.tutor_compact_at_tokens
+    if not long_by_tokens and unsummarized < COMPACT_AT_MESSAGES:
         return
 
     session_id = session.id
