@@ -2,9 +2,8 @@
 comes next) satisfies, so callers only ever depend on `GradeResult` — swapping `get_grader()`'s
 return value is the only change needed anywhere else in the app.
 
-`grade_stream()` is the primary method: it yields explanation text incrementally (for the
-frontend's typewriter display) and finishes by yielding a `GradeResult`. `grade()` is a thin
-blocking wrapper over the same stream, kept for tests/callers that just want the final result.
+`grade_stream()` is the whole interface: it yields explanation text incrementally (for the
+frontend's typewriter display) and finishes by yielding a `GradeResult`.
 """
 
 from __future__ import annotations
@@ -14,6 +13,7 @@ import logging
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+from functools import partial
 from typing import Protocol, Union
 
 from app.config import settings
@@ -61,33 +61,15 @@ GradeStreamItem = Union[str, GradeResult]
 
 
 class Grader(Protocol):
-    def grade(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
-    ) -> GradeResult: ...
-    def _explain_tokens(self, prompt: str) -> Iterator[str]: ...
     def grade_stream(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> Iterator[GradeStreamItem]: ...
-
-
-def _collect(stream: Iterator[GradeStreamItem]) -> GradeResult:
-    result: GradeResult | None = None
-    for item in stream:
-        if isinstance(item, GradeResult):
-            result = item
-    assert result is not None, "grade_stream() must yield a GradeResult before finishing"
-    return result
 
 
 class StubGrader:
     """Fuzzy string-match placeholder — kept around as a fallback / for tests that don't want
     to depend on a running Ollama instance.
     """
-
-    def grade(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
-    ) -> GradeResult:
-        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness, math))
 
     def grade_stream(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
@@ -217,11 +199,6 @@ class PrometheusGrader:
         self._base_url = base_url
         self._model = model
         self._rewrite_model = rewrite_model
-
-    def grade(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
-    ) -> GradeResult:
-        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness, math))
 
     def _judge(self, question: str, reference_answer: str, submitted_answer: str) -> tuple[int, str]:
         prompt = _PROMETHEUS_PROMPT.format(
@@ -465,40 +442,22 @@ def _dont_know_fallback(reference_answer: str) -> GradeResult:
     return GradeResult(grade=1, explanation="No problem — here's the answer:\n\n" + reference_answer.strip(), score=1)
 
 
-class LocalLLMGrader:
-    """Grades and explains in one streamed call using a general instruct model — see the
-    `local_grading_model` setting docstring in config.py for why this replaced Prometheus as the
-    default: Prometheus critiques against a rubric, this actually teaches wrong answers.
+class _RubricGrader:
+    """The rubric grader less its transport. Grades and explains in one streamed call using a
+    general instruct model: LocalLLMGrader runs it on Ollama, CloudGrader on OpenRouter, and the
+    prompt, the holdback and the score mapping are defined once, here, for both.
     """
 
-    def __init__(self, base_url: str, model: str):
-        self._base_url = base_url
-        self._model = model
-
-    def grade(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
-    ) -> GradeResult:
-        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness, math))
-
-    def _explain_tokens(self, prompt: str) -> Iterator[str]:
-        return stream_ollama(
-            self._base_url,
-            "/api/generate",
-            {
-                "model": self._model,
-                "prompt": prompt,
-                "stream": True,
-                "options": {"temperature": 0.3, "num_predict": 220},
-            },
-            timeout=60.0,
-        )
+    def _tokens(self, prompt: str, *, temperature: float, max_tokens: int) -> Iterator[str]:
+        raise NotImplementedError
 
     def grade_stream(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> Iterator[GradeStreamItem]:
         submitted = submitted_answer.strip()
         if _is_dont_know(submitted):
-            yield from _explain_only(self._explain_tokens, question, reference_answer, math)
+            teach = partial(self._tokens, temperature=0.3, max_tokens=220)
+            yield from _explain_only(teach, question, reference_answer, math)
             return
 
         prompt = _LOCAL_PROMPT.format(
@@ -511,17 +470,7 @@ class LocalLLMGrader:
 
         full_text = ""
         sent_len = 0
-        for piece in stream_ollama(
-            self._base_url,
-            "/api/generate",
-            {
-                "model": self._model,
-                "prompt": prompt,
-                "stream": True,
-                "options": {"temperature": 0.2, "num_predict": 250},
-            },
-            timeout=60.0,
-        ):
+        for piece in self._tokens(prompt, temperature=0.2, max_tokens=250):
             full_text += piece
             # Recomputed on the whole text each step (cheap at this length) so a LaTeX pair
             # split across two network chunks still gets cleaned correctly — sent_len and the
@@ -540,13 +489,35 @@ class LocalLLMGrader:
 
         score = min(5, max(1, int(match.group(1)))) if match else 3
         explanation = cleaned[:explanation_end].strip()
-        mapping = _strictness_mapping(strictness)
-
-        yield GradeResult(grade=mapping[score], explanation=explanation, score=score)
+        yield GradeResult(grade=_strictness_mapping(strictness)[score], explanation=explanation, score=score)
 
 
-class CloudGrader:
-    """The same rubric as LocalLLMGrader, run on a hosted model via OpenRouter.
+class LocalLLMGrader(_RubricGrader):
+    """The rubric on a local model, through Ollama — see the `local_grading_model` setting's
+    comment in config.py for why this replaced Prometheus as the default: Prometheus critiques
+    against a rubric, this actually teaches wrong answers.
+    """
+
+    def __init__(self, base_url: str, model: str):
+        self._base_url = base_url
+        self._model = model
+
+    def _tokens(self, prompt: str, *, temperature: float, max_tokens: int) -> Iterator[str]:
+        return stream_ollama(
+            self._base_url,
+            "/api/generate",
+            {
+                "model": self._model,
+                "prompt": prompt,
+                "stream": True,
+                "options": {"temperature": temperature, "num_predict": max_tokens},
+            },
+            timeout=60.0,
+        )
+
+
+class CloudGrader(_RubricGrader):
+    """The same rubric, run on a hosted model via OpenRouter.
 
     Deliberately shares `_LOCAL_PROMPT` rather than owning a copy. That prompt carries a lot of
     hard-won scaffolding — the scope rule, the grade-banded voice examples, the slot markers — and
@@ -559,69 +530,18 @@ class CloudGrader:
         self._api_key = api_key
         self._model = model
 
-    def grade(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
-    ) -> GradeResult:
-        return _collect(self.grade_stream(question, reference_answer, submitted_answer, strictness, math))
-
-    def _explain_tokens(self, prompt: str) -> Iterator[str]:
+    def _tokens(self, prompt: str, *, temperature: float, max_tokens: int) -> Iterator[str]:
         return stream_openrouter(
             {
                 "model": self._model,
                 "stream": True,
-                "max_tokens": 220,
-                "temperature": 0.3,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
                 "messages": [{"role": "user", "content": prompt}],
             },
             headers={**bearer(self._api_key), "Content-Type": "application/json"},
             timeout=60.0,
         )
-
-    def grade_stream(
-        self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
-    ) -> Iterator[GradeStreamItem]:
-        submitted = submitted_answer.strip()
-        if _is_dont_know(submitted):
-            yield from _explain_only(self._explain_tokens, question, reference_answer, math)
-            return
-
-        prompt = _LOCAL_PROMPT.format(
-            question=question,
-            reference=reference_answer.strip(),
-            submitted=submitted,
-            strictness=_STRICTNESS_CLAUSES.get(strictness, _STRICTNESS_CLAUSES[DEFAULT_STRICTNESS]),
-            notation=_notation(math),
-        )
-
-        full_text = ""
-        sent_len = 0
-        for piece in stream_openrouter(
-            {
-                "model": self._model,
-                "stream": True,
-                "max_tokens": 250,
-                "temperature": 0.2,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-            headers={**bearer(self._api_key), "Content-Type": "application/json"},
-            timeout=60.0,
-        ):
-            full_text += piece
-            cleaned = _clean_latex(full_text, math)
-            safe_len = max(0, len(cleaned) - _HOLDBACK_CHARS)
-            if safe_len > sent_len:
-                yield cleaned[sent_len:safe_len]
-                sent_len = safe_len
-
-        cleaned = _clean_latex(full_text, math)
-        match = _LOCAL_RESULT_RE.search(cleaned)
-        explanation_end = match.start() if match else len(cleaned)
-        if explanation_end > sent_len:
-            yield cleaned[sent_len:explanation_end]
-
-        score = min(5, max(1, int(match.group(1)))) if match else 3
-        mapping = _strictness_mapping(strictness)
-        yield GradeResult(grade=mapping[score], explanation=cleaned[:explanation_end].strip(), score=score)
 
 
 def get_grader(prefer_cloud: bool | None = None) -> Grader:
