@@ -120,6 +120,14 @@ def bills(user: User) -> bool:
     return user.tier is not UserTier.friend
 
 
+def charge_voice(db: Session, user_id: uuid.UUID, credits: int, reason: CreditReason) -> None:
+    """Take voice already delivered off the user's balance, if theirs is an account that funds
+    itself (see `bills`). Pending until the caller commits, like `spend`."""
+    speaker = db.query(User).filter(User.id == user_id).one_or_none()
+    if speaker and bills(speaker):
+        spend(db, speaker.id, credits, reason)
+
+
 def require_text_ai(user: User) -> None:
     """Guard for grading, card generation and the text tutor.
 

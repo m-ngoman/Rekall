@@ -1,7 +1,7 @@
 import { compile } from './expr'
 
 /** What the tutor asked us to draw. Parsed and validated server-side, so by the time it reaches
- * the renderer every field is known good — see `_PLOT` in backend/app/api/tutor.py. */
+ * the renderer every field is known good — see `_PLOT` in backend/app/services/tutor_markers.py. */
 export interface PlotSpec {
   fn: string
   domain: [number, number]

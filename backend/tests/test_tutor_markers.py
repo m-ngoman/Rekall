@@ -6,23 +6,23 @@ from the spoken sentences, from the streamed text, and from the transcript that 
 later read by memory extraction.
 
 That is harder than it looks because a marker arrives a few characters at a time like everything
-else. `_split_safe` is what holds text back until it is known not to be the start of one, and
+else. `split_safe` is what holds text back until it is known not to be the start of one, and
 these pin what it does, for each kind of marker.
 
-`replay` below is the point of the file: it drives the real functions the way `_stream_reply`
+`replay` below is the point of the file: it drives the real functions the way `stream_reply`
 does, one chunk at a time, so a marker split across any boundary is exercised rather than
 assumed.
 """
 
 import pytest
 
-from app.api.tutor import _MAX_HOLD, _pop_markers, _split_safe
+from app.services.tutor_markers import MAX_HOLD, pop_markers, split_safe
 
 EXAM = '<<add-exam name="Pharmacology mock" date="2026-09-26">>'
 
 
 def replay(chunks: list[str]) -> tuple[str, list[tuple[str, dict]], list[str]]:
-    """Run chunks through the same pending/pop/split cycle `_stream_reply` uses.
+    """Run chunks through the same pending/pop/split cycle `stream_reply` uses.
 
     Returns everything the student would have seen, plus every (event, payload) popped and every
     line left for the stored transcript.
@@ -34,14 +34,14 @@ def replay(chunks: list[str]) -> tuple[str, list[tuple[str, dict]], list[str]]:
     found: list[tuple[str, dict]] = []
     traces: list[str] = []
     for chunk in chunks:
-        pending, markers, new_traces = _pop_markers(pending + chunk)
+        pending, markers, new_traces = pop_markers(pending + chunk)
         found += markers
         traces += new_traces
-        safe, hold = _split_safe(pending)
+        safe, hold = split_safe(pending)
         emitted += safe
         pending = hold
     # The final flush: anything still held was never going to become a marker.
-    pending, markers, new_traces = _pop_markers(pending)
+    pending, markers, new_traces = pop_markers(pending)
     found += markers
     traces += new_traces
     return emitted + pending, found, traces
@@ -52,7 +52,7 @@ def char_by_char(text: str) -> list[str]:
 
 
 def test_a_marker_arriving_one_character_at_a_time_never_leaks() -> None:
-    """The worst case, and the reason `_split_safe` exists. Every prefix of the marker is a
+    """The worst case, and the reason `split_safe` exists. Every prefix of the marker is a
     moment where the wrong answer would put "<<add-e" on screen or into the synthesizer."""
     seen, found, _ = replay(char_by_char(f"Your exam is on the 26th.\n\n{EXAM}"))
     assert "<<" not in seen
@@ -192,7 +192,7 @@ def test_a_plot_that_cannot_be_honoured_is_dropped_silently(bad: str) -> None:
 def test_a_truncated_marker_is_dropped_rather_than_printed() -> None:
     """A stream that dies mid-marker used to release the fragment as text at the final flush,
     which put raw markup on screen. Beyond the longest legal marker it can only be truncated."""
-    seen, found, _ = replay(["Nearly there.\n\n<<plot fn=\"x^2\" domain=\"" + "9" * (_MAX_HOLD + 100)])
+    seen, found, _ = replay(["Nearly there.\n\n<<plot fn=\"x^2\" domain=\"" + "9" * (MAX_HOLD + 100)])
     assert "<<plot" not in seen
     assert seen.startswith("Nearly there.")
     assert found == []
@@ -273,7 +273,7 @@ def test_the_longest_legal_marker_still_matches() -> None:
         f'mark="1,1; 2,2; 3,3; 4,4" note="{"N" * 60}" xlabel="{"X" * 28}" '
         f'ylabel="{"Y" * 28}" shade="-1000,1000">>'
     )
-    assert len(marker) < _MAX_HOLD, "a legal marker must never be long enough to be dropped"
+    assert len(marker) < MAX_HOLD, "a legal marker must never be long enough to be dropped"
     seen, found, _ = replay(char_by_char(marker))
     assert "<<" not in seen
     assert len(found) == 1

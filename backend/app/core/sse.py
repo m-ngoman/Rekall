@@ -10,6 +10,8 @@ import json
 import logging
 from collections.abc import Iterator
 
+from fastapi.responses import StreamingResponse
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,3 +34,8 @@ def guard(stream: Iterator[str], message: str) -> Iterator[str]:
     except Exception:
         logger.exception("SSE stream failed: %s", message)
         yield sse_event("error", {"message": message})
+
+
+def sse_response(stream: Iterator[str], message: str) -> StreamingResponse:
+    """A streaming endpoint's response: `stream`, guarded (see `guard`), as server-sent events."""
+    return StreamingResponse(guard(stream, message), media_type="text/event-stream")
