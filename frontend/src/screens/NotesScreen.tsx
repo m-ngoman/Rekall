@@ -149,8 +149,6 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
     const keepsDeck = (decks.find((d) => d.id === deckId)?.total ?? 0) > 0
     // Mid-search the list only holds the matches, so a count from it would understate what the
     // server is about to move. The wording goes general rather than quoting a wrong number.
-    // Mid-search the list only holds the matches, so a count from it would understate what the
-    // server is about to move. The wording goes general rather than quoting a wrong number.
     const moved = query.trim()
       ? "Every note in it moves to Unfiled."
       : count === 0
