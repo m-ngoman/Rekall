@@ -12,14 +12,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from app.core.auth import get_current_user
 from app.core.allowance import charge_pages, has_pages, pages_for, require_pages
+from app.core.auth import get_current_user
 from app.core.entitlements import has_text_ai, require_text_ai
 from app.core.settings_store import get_settings_row, require_ai
 from app.core.sse import guard, sse_event
 from app.core.usage import record
 from app.db import get_db
-from app.models import PageReason, Card, Deck, Note, NoteFileType, UsageEventType
+from app.models import Card, Deck, Note, NoteFileType, PageReason, UsageEventType
 from app.schemas import (
     DroppedCardOut,
     GeneratedCardOut,
@@ -34,10 +34,10 @@ from app.schemas import (
     UnfileResult,
 )
 from app.services.deck_generation import (
-    looks_like_latex,
     extract_pdf,
     generate_draft,
     generate_topic_draft,
+    looks_like_latex,
     transcribe_notes,
     verify_cards,
     verify_topic_cards,
@@ -257,7 +257,8 @@ def list_notes(request: Request, q: str = "", db: Session = Depends(get_db)) -> 
 
 
 @router.post("", response_model=list[NoteOut], status_code=201)
-async def upload_notes(request: Request, 
+async def upload_notes(
+    request: Request,
     deck_id: str = Form(""),
     deck_name: str = Form(""),
     files: list[UploadFile] = File(...),
@@ -313,7 +314,7 @@ async def upload_notes(request: Request,
         markdowns = _transcribe_all(uploads) if transcribe else [u.text for u in uploads]
         created = [
             _save_note(db, user_id, deck.id if deck else None, upload, markdown)
-            for upload, markdown in zip(uploads, markdowns)
+            for upload, markdown in zip(uploads, markdowns, strict=True)
         ]
         # One event for the batch, counting the files: a stack of twenty photos dropped in at once
         # is one upload, not twenty.
@@ -583,7 +584,8 @@ def _persist_cards(
 
 
 @router.post("/generate")
-async def generate(request: Request, 
+async def generate(
+    request: Request,
     deck_id: str = Form(""),
     deck_name: str = Form(""),
     files: list[UploadFile] = File(...),

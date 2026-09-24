@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.services.fsrs import W, SchedulingState, review_card
+from app.services.fsrs import SchedulingState, W, review_card
 
 
 def new_card() -> SchedulingState:

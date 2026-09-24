@@ -5,8 +5,8 @@ grading.py), so it is the half worth pinning down.
 """
 
 from app.services.grading import (
-    DEFAULT_STRICTNESS,
     _SCORE_TO_GRADE_BY_STRICTNESS,
+    DEFAULT_STRICTNESS,
     _strictness_mapping,
 )
 

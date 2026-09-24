@@ -6,14 +6,24 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_user
-from app.core.settings_store import get_settings_row
 from app.core.allowance import charge_grade, require_grading_headroom
+from app.core.auth import get_current_user
 from app.core.entitlements import require_text_ai
+from app.core.settings_store import get_settings_row
 from app.core.sse import guard, sse_event
 from app.core.usage import record
 from app.db import get_db
-from app.models import Card, CardState, Deck, Feedback, FeedbackCategory, InputMode, ReviewLog, StudyListEntry, UsageEventType
+from app.models import (
+    Card,
+    CardState,
+    Deck,
+    Feedback,
+    FeedbackCategory,
+    InputMode,
+    ReviewLog,
+    StudyListEntry,
+    UsageEventType,
+)
 from app.schemas import CardOut, CardUpdate, ReviewRequest
 from app.services.fsrs import SchedulingState, review_card
 from app.services.grading import GradeResult, get_grader

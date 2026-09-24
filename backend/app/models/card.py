@@ -1,12 +1,18 @@
 import enum
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPKMixin
+
+if TYPE_CHECKING:
+    from app.models.deck import Deck
+    from app.models.feedback import Feedback
+    from app.models.review_log import ReviewLog
 
 
 class CardState(str, enum.Enum):

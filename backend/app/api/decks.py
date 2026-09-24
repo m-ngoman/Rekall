@@ -1,8 +1,8 @@
 import csv
 import io
 import json
-import re
 import random
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -13,8 +13,6 @@ from app.core.auth import get_current_user
 from app.core.settings_store import get_settings_row
 from app.db import get_db
 from app.models import Card, CardState, Deck
-from app.services.exam_status import boosted_new_cap, exam_paused, next_exam, today_utc
-from app.services.sample_deck import SAMPLE_CARDS, SAMPLE_DECK_NAME
 from app.schemas import (
     CardCreate,
     CardOut,
@@ -27,6 +25,8 @@ from app.schemas import (
     StudyCardOut,
     StudyQueueOut,
 )
+from app.services.exam_status import boosted_new_cap, exam_paused, next_exam, today_utc
+from app.services.sample_deck import SAMPLE_CARDS, SAMPLE_DECK_NAME
 
 router = APIRouter(prefix="/api/decks", tags=["decks"])
 

@@ -1,11 +1,16 @@
 import enum
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPKMixin
+
+if TYPE_CHECKING:
+    from app.models.card import Card
+    from app.models.user import User
 
 
 class FeedbackCategory(str, enum.Enum):

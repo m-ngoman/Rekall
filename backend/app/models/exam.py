@@ -1,11 +1,15 @@
 import uuid
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Column, Date, ForeignKey, String, Table
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPKMixin
+
+if TYPE_CHECKING:
+    from app.models.deck import Deck
 
 # Plain association table (no model class): the link carries no data of its own, and SQLAlchemy
 # manages secondary-table rows automatically on either side's delete.

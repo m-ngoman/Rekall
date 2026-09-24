@@ -12,8 +12,7 @@ made by this file.
 from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import Date as SADate
-from sqlalchemy import cast, distinct, func
+from sqlalchemy import Date as SADate, cast, distinct, func
 from sqlalchemy.orm import Session
 
 from app.core.auth import require_owner

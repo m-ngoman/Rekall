@@ -9,8 +9,8 @@ Inworld's tokens are not words. Whitespace is its own entry and punctuation spli
 it follows, so a ten-word sentence arrives as twenty-one tokens.
 """
 
-from app.services.tts import _inworld_voice, _inworld_words
 from app.config import settings
+from app.services.tts import _inworld_voice, _inworld_words
 
 # Exactly what the API returned for "Tertiary substrates go SN1; primary ones almost always go
 # SN2." — the line the brag video uses, kept verbatim so this test breaks if their tokenisation

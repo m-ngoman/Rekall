@@ -1,10 +1,21 @@
 import enum
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPKMixin
+
+if TYPE_CHECKING:
+    from app.models.billing import CreditLedger
+    from app.models.deck import Deck
+    from app.models.feedback import Feedback
+    from app.models.note import Note
+    from app.models.page_ledger import PageLedger
+    from app.models.review_log import ReviewLog
+    from app.models.tutor import TutorSession
+    from app.models.user_settings import UserSettings
 
 
 class UserTier(str, enum.Enum):

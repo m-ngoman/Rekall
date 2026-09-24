@@ -1,11 +1,16 @@
 import enum
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPKMixin
+
+if TYPE_CHECKING:
+    from app.models.deck import Deck
+    from app.models.user import User
 
 
 class NoteFileType(str, enum.Enum):

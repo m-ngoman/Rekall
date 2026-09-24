@@ -37,6 +37,25 @@ markers = [
     "pg: drives the API against a real Postgres; runs only when TEST_DATABASE_URL is set (see tests/conftest.py)",
 ]
 
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+# tests/ is on sys.path when pytest runs, so its helper modules import as top-level names.
+src = [".", "tests"]
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+# Mistakes rather than style: pyflakes, import order, bugbear, and pycodestyle's error-level
+# checks. Line length isn't enforced; it only sets where sorted imports wrap.
+select = ["E4", "E7", "E9", "F", "I", "B", "W"]
+# Depends(), Query() and File() in argument defaults are how FastAPI declares parameters.
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+# The migrations live in a directory called alembic/, which would otherwise pass for the package.
+known-third-party = ["alembic"]
+combine-as-imports = true
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

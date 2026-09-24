@@ -566,7 +566,8 @@ def voice_turn_text(request: Request, session_id: uuid.UUID, payload: VoiceTurnT
 
 
 @router.post("/sessions/{session_id}/text-turn")
-async def text_turn(request: Request, 
+async def text_turn(
+    request: Request,
     session_id: uuid.UUID,
     text: str = Form(""),
     image: UploadFile | None = None,

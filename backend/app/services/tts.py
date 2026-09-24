@@ -11,13 +11,12 @@ from __future__ import annotations
 import base64
 import io
 import json
+import re
 import struct
 import uuid
 import wave
 
 import httpx
-
-import re
 
 from app.config import settings
 

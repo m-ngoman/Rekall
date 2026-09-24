@@ -21,8 +21,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.auth import get_current_user
 from app.core.allowance import allowance_left, grant_pages, page_balance
+from app.core.auth import get_current_user
 from app.core.entitlements import balance, grant, has_text_ai
 from app.db import get_db
 from app.models import CREDITS_PER_HOUR, TOPUP_PAGES, CreditReason, PageReason, StripeEvent, User
@@ -279,7 +279,7 @@ async def webhook(request: Request, db: Session = Depends(get_db)) -> dict:
     try:
         stripe.Webhook.construct_event(payload, sig, settings.stripe_webhook_secret)
     except (ValueError, stripe.SignatureVerificationError):
-        raise HTTPException(400, "Bad signature")
+        raise HTTPException(400, "Bad signature") from None
 
     # Verified above; parsed here. construct_event hands back StripeObjects, which are neither
     # dicts nor mappings and raise on `.get` and on `dict()`, and whose nesting has to be unwrapped

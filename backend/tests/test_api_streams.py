@@ -7,7 +7,6 @@ work — which matters, because several of these charge before they stream.
 """
 
 import base64
-import io
 import json
 import uuid
 from datetime import datetime, timedelta, timezone

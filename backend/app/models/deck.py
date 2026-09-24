@@ -1,10 +1,17 @@
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPKMixin
+
+if TYPE_CHECKING:
+    from app.models.card import Card
+    from app.models.exam import Exam
+    from app.models.note import Note
+    from app.models.user import User
 
 
 class Deck(UUIDPKMixin, TimestampMixin, Base):

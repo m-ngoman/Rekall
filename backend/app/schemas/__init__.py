@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 
 # Aliased because exam schemas have a *field* named `date`: the class-body assignment
 # `date: date | None = None` would shadow the type in its own annotation (pydantic resolves
 # annotation strings against the class namespace, where `date` is then the None default).
-from datetime import date as Date
+from datetime import date as Date, datetime
 
 from pydantic import BaseModel
 

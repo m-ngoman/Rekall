@@ -1,12 +1,16 @@
 import enum
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDPKMixin
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 # A page is one page of source material handed to a vision model — a photo, or one rendered page
 # of a PDF. Both passes of a generation run see the same page, and that whole round trip is what a
