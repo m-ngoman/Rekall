@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getBillingStatus, getCatalogue, serverDetail, startCheckout, type BillingStatus, type Catalogue, type CatalogueProduct, type ProductKind } from '../api'
+import { getBillingStatus, getCatalogue, serverDetail, startCheckout } from '../api'
+import type { BillingStatus, Catalogue, CatalogueProduct, ProductKind } from '../types'
 
 interface Props {
   onBack: () => void

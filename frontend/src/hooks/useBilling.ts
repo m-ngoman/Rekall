@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getBillingStatus, type BillingStatus } from '../api'
+import { getBillingStatus } from '../api'
+import type { BillingStatus } from '../types'
 
 /** What this account has paid for. Read once on load; nothing here changes without a round trip
  * through Stripe, and the webhook that grants it lands long before the next page view.

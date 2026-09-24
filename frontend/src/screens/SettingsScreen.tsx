@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { exportUrl, getBillingStatus, listTutorVoices, logout, type BillingStatus, type Me } from '../api'
+import { exportUrl, getBillingStatus, listTutorVoices, logout } from '../api'
 import { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
 import { ACCENT_PRESETS, DEFAULT_ACCENT, readCustomAccent, writeCustomAccent } from '../hooks/useAccent'
 import Segmented from '../components/Segmented'
 import Notice from '../components/Notice'
-import type { GradingStrictness, Settings, SettingsPatch, Theme, TutorVoice } from '../types'
+import type { BillingStatus, GradingStrictness, Me, Settings, SettingsPatch, Theme, TutorVoice } from '../types'
 
 interface Props {
   me: Me

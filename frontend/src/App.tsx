@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getMe, type Me } from './api'
+import { getMe } from './api'
+import type { Me } from './types'
 import type { Tab } from './components/navIcons'
 import DesktopSidebar from './components/DesktopSidebar'
 import Logo from './components/Logo'

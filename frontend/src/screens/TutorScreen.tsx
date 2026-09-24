@@ -1,6 +1,5 @@
 import { type ChangeEvent, Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { PaymentRequired, createMemoryNote, createTutorSession, deleteMemoryNote, listBugs, listMemoryNotes, listTutorVoices, reportBug, resolveBug, sendTextTurn, sendVoiceTurnText, updateTutorSession } from '../api'
-import type { BugReport } from '../api'
 import MemoryPicker from '../components/MemoryPicker'
 import PersonalityPicker, { PERSONALITY_PRESETS } from '../components/PersonalityPicker'
 import PlainMath from '../components/PlainMath'
@@ -14,16 +13,7 @@ import { useCachedResource } from '../hooks/useCachedResource'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import { useMicRecorder } from '../hooks/useMicRecorder'
 import { useRevealText } from '../hooks/useRevealText'
-import type {
-  Exam,
-  MemoryCategory,
-  MemoryNote,
-  Settings,
-  TutorPersonality,
-  TutorSession,
-  TutorVoice,
-  WordTiming,
-} from '../types'
+import type { BugReport, Exam, MemoryCategory, MemoryNote, Settings, TutorPersonality, TutorSession, TutorVoice, WordTiming } from '../types'
 
 /** Typed replies carry LaTeX (the prompt asks for it — see tutor_prompt._TYPED_PROMPT), so every
  * assistant message is rendered through KaTeX. Lazy for the same reason as on the study screen:

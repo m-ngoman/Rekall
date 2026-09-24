@@ -238,3 +238,53 @@ export interface AdminStats {
   library: { decks: number; cards: number; notes: number; tutor_sessions: number }
   daily: DailyUsage[]
 }
+
+export type ProductKind = 'subscription' | 'lifetime' | 'credits' | 'pages'
+
+export interface CatalogueProduct {
+  id: string
+  label: string
+  description: string
+  kind: ProductKind
+  /** Minor units — cents. */
+  amount: number
+  recurring: boolean
+  credit_hours: number
+  pages: number
+}
+
+export interface Catalogue {
+  currency: string
+  products: CatalogueProduct[]
+}
+
+export interface BillingStatus {
+  text_ai: boolean
+  text_ai_lifetime: boolean
+  text_ai_expires_at: string | null
+  voice_credits: number
+  voice_hours: number
+  /** Purchased pages on hand. Never expires. */
+  generation_pages: number
+  /** What's left of today's included allowance. Refills; not a balance. */
+  generation_pages_today: number
+  tier: string
+}
+
+export interface Me {
+  id: string
+  email: string
+  name: string | null
+  avatar_url: string | null
+  tier: string
+  /** True only for the account named by OWNER_EMAIL on the server. Gates the tutor's /bug
+   * command; the endpoints behind it re-check it, so this is presentation only. */
+  is_owner: boolean
+}
+
+export interface BugReport {
+  id: string
+  text: string
+  created_at: string
+  resolved_at: string | null
+}
