@@ -95,6 +95,9 @@ class TutorVoiceOut(BaseModel):
     name: str
     description: str
     gender: str
+    #: The voice an account that has never chosen one actually hears. Sent rather than inferred
+    #: from list position, which only worked while the curated order began with the default.
+    is_default: bool = False
 
 
 class VoiceTurnTextRequest(BaseModel):

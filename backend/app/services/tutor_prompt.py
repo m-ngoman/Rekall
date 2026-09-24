@@ -86,8 +86,13 @@ whiteboard goes in notation here — never spelled out in words ("x squared") an
 ASCII ("x^2", "sqrt(2)"). A formula the student should look at on its own goes on its own line \
 between double dollar signs.
 - Dollar signs are only ever maths delimiters. Write money in words: "five dollars", never "$5".
-- No other markup: no markdown headings, bold, bullet points or code fences — plain sentences with \
-the maths set inside them.
+- You may use **double asterisks** for bold and *single asterisks* for italic, and only for a term \
+worth the student's eye landing on it — the name of the concept, the word that changes the answer. \
+One or two per reply at most. A sentence with four bold phrases has emphasised nothing. Never put \
+them around maths: emphasis cannot span a formula and the asterisks will show.
+- No other markup: no markdown headings, bullet points, numbered lists, tables, code fences, links \
+or underscores-for-italic — plain sentences with the maths set inside them. Underscores especially: \
+they are subscripts here, not emphasis.
 - Keep it conversational — a real exchange, not a lecture. A quick check or a yes-or-no takes a \
 sentence or two; an explanation takes as many short sentences as the reasoning needs, usually three \
 to six, and says why as well as what. At most one displayed formula, and never a long paragraph or a list.
@@ -381,15 +386,52 @@ def _exam_offer(today: date) -> str:
     )
 
 
-def build_system_prompt(db: Session, session, spoken: bool = True) -> str:
-    """`spoken` picks the delivery rules: True for a voice turn (plain words for the synthesizer),
-    False for a typed one (LaTeX the screen renders, and the option to draw a graph).
+def _draws_graphs(db: Session, user_id) -> bool:
+    """Whether this student's material is the kind a graph could help with.
 
-    The system prompt is the first prompt-cache breakpoint (see tutor_llm._with_cache_breakpoints)
-    and every cached prefix starts with it, so a session that switches between typing and talking
-    re-caches the whole conversation so far at each switch, not just the prompt. That is rare
-    enough to be the right trade against the alternative — one prompt for both, which is exactly
-    what produced "x squared" in prose on screen.
+    The graph instruction is ~600 tokens — a quarter of the whole system prompt — and before this
+    it was re-sent on every typed turn of every conversation, including ones about French
+    vocabulary. Measured against real traffic that block alone was 14% of what the tutor's cached
+    prefix costs, paid whether or not a graph was ever plausible.
+
+    One indexed existence check, and it reuses the flag the card generator already sets rather
+    than inventing a second notion of "mathematical". The trade is explicit: a student with no
+    maths cards at all cannot get a graph, even if they ask about projectile motion in passing.
+    That is the right way round — the block says to draw only when the shape of something is the
+    point, so a conversation with no maths in it was never going to use it.
+    """
+    if db is None:
+        return False
+    return (
+        db.query(Card.id)
+        .join(Deck, Card.deck_id == Deck.id)
+        .filter(Deck.user_id == user_id, Card.is_math.is_(True))
+        .first()
+        is not None
+    )
+
+
+def build_system_parts(db: Session, session, spoken: bool = True) -> tuple[str, str]:
+    """The system prompt in two halves, split where its volatility changes.
+
+    Returns (stable, volatile). Everything in the first half is fixed for the life of a session:
+    the base rules, the delivery rules, the personality. Everything in the second changes
+    underneath a conversation that is still going — the weak-card list moves when a card is
+    reviewed in another tab, the exam countdown and the date table roll over at midnight, and the
+    memory block changes whenever the extractor writes.
+
+    They are split because the two halves want different cache lifetimes and used to share one.
+    A single breakpoint covering both meant a card review invalidated the ~1,800 tokens of fixed
+    rules along with the ~640 that actually changed, and every such turn paid a full-price rewrite
+    of the lot. Measured over real traffic: 5 of 16 cache misses were this, and none of them
+    needed to be. See tutor_llm._with_cache_breakpoints for where the boundary is marked.
+
+    `spoken` picks the delivery rules: True for a voice turn (plain words for the synthesizer),
+    False for a typed one (LaTeX the screen renders, and — for a student with maths cards — the
+    option to draw a graph). Delivery sits in the stable half, so switching between typing and
+    talking still re-caches: that is unavoidable, the two prompts genuinely differ, and it is
+    rare enough to be the right trade against one prompt for both, which is exactly what produced
+    "x squared" in prose on screen.
     """
     personality_text = (
         session.custom_prompt
@@ -398,9 +440,23 @@ def build_system_prompt(db: Session, session, spoken: bool = True) -> str:
         # sentence of tone, not a reason to fail the whole conversation.
         else _PERSONALITY_PROMPTS.get(session.personality, _PERSONALITY_PROMPTS[TutorPersonality.direct])
     )
-    context = _weak_cards_context(db, session.user_id, session.deck_id)
-    exams = _exam_context(db, session.user_id)
-    memory = _memory_context(db, session.user_id)
-    offer = _exam_offer(today_utc())
-    delivery = _SPOKEN_PROMPT if spoken else _TYPED_PROMPT + _PLOT_INSTRUCTION
-    return f"{_BASE_PROMPT}\n\n{delivery}\n\n{personality_text}{context}{exams}{memory}{offer}"
+    if spoken:
+        delivery = _SPOKEN_PROMPT
+    else:
+        delivery = _TYPED_PROMPT + (_PLOT_INSTRUCTION if _draws_graphs(db, session.user_id) else "")
+
+    stable = f"{_BASE_PROMPT}\n\n{delivery}\n\n{personality_text}"
+    volatile = (
+        _weak_cards_context(db, session.user_id, session.deck_id)
+        + _exam_context(db, session.user_id)
+        + _memory_context(db, session.user_id)
+        + _exam_offer(today_utc())
+    )
+    return stable, volatile
+
+
+def build_system_prompt(db: Session, session, spoken: bool = True) -> str:
+    """The whole system prompt as one string. `build_system_parts` is what the turn path uses —
+    this is the flattened form, for the providers that cannot cache and for tests."""
+    stable, volatile = build_system_parts(db, session, spoken=spoken)
+    return stable + volatile

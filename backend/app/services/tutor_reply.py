@@ -15,6 +15,7 @@ from collections.abc import Generator
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core import spend as spend_log
 from app.core.entitlements import charge_voice, credits_for_tts
 from app.core.sse import sse_event
 from app.core.usage import record
@@ -25,7 +26,7 @@ from app.services.memory_extraction import schedule_if_due
 from app.services.tts import synthesize_timed
 from app.services.tutor_llm import stream_chat
 from app.services.tutor_markers import pop_markers, split_safe
-from app.services.tutor_prompt import build_system_prompt
+from app.services.tutor_prompt import build_system_parts
 
 # What the student sees when the model or the synthesizer fails partway through a reply. The turn
 # is genuinely lost at that point — the user message is already stored but no assistant message
@@ -133,7 +134,11 @@ def stream_reply(
     history = db.query(TutorMessage).filter(TutorMessage.session_id == session.id).order_by(TutorMessage.created_at).all()
     # `synth` is also what decides how the reply may be written: spoken turns get plain words for
     # the synthesizer, typed turns get LaTeX the screen renders.
-    messages = [{"role": "system", "content": build_system_prompt(db, session, spoken=synth)}]
+    # Two halves, and the boundary is handed to the provider so it can cache them separately:
+    # the fixed rules survive a card review or a memory write, which used to invalidate the
+    # lot. See tutor_prompt.build_system_parts.
+    stable, volatile = build_system_parts(db, session, spoken=synth)
+    messages = [{"role": "system", "content": stable + volatile}]
     messages += conversation_context(session, history)
 
     if image_bytes:
@@ -194,7 +199,7 @@ def stream_reply(
     # outgrown carrying its opening verbatim. Captured in a cell rather than assigned directly
     # because the callback fires inside the generator.
     usage_seen: dict = {}
-    for piece in stream_chat(messages, on_usage=usage_seen.update):
+    for piece in stream_chat(messages, on_usage=usage_seen.update, system_prefix_chars=len(stable)):
         pending, markers, new_traces = pop_markers(pending + piece)
         # Every trace is a graph's — an exam offer leaves none — and a voice turn never shows a
         # graph, so keeping one there stored "[Graph shown: …]" for a graph nobody saw, which the
@@ -261,10 +266,20 @@ def stream_reply(
     # billed nothing, and a zero-count row would say it did.
     if spoken_chars:
         record(db, session.user_id, UsageEventType.tts_characters, count=spoken_chars)
+        spend_log.estimated(db, session.user_id, "tts", spoken_chars * settings.tts_usd_per_million_chars / 1e6)
         # Recorded for everyone, charged only to accounts that fund themselves. The meter answers
         # "what did this cost"; the ledger answers "who owes for it", and friends are absorbed by
         # design without making their usage invisible.
         charge_voice(db, session.user_id, credits_for_tts(spoken_chars), CreditReason.voice_tts)
+    # What this turn actually cost, as the provider priced it. Recorded before the commit so it
+    # shares the transaction with the turn it describes.
+    spend_log.from_usage(
+        db,
+        session.user_id,
+        "tutor_voice" if synth else "tutor_text",
+        usage_seen,
+        model=settings.openrouter_model,
+    )
     db.commit()
 
     # Periodically let the tutor write to its own memory file. Scheduled before `done` is yielded

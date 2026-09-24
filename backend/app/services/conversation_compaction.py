@@ -37,6 +37,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core import spend as spend_log
 from app.db import SessionLocal
 from app.models import TutorMessage, TutorSession
 from app.services.tutor_llm import complete_chat
@@ -88,13 +89,16 @@ def _compact(session_id: uuid.UUID) -> None:
             return
 
         transcript = "\n".join(f"{m.role.value}: {m.content}" for m in fold)
+        spent: dict = {}
         summary = complete_chat(
             [
                 {"role": "system", "content": _PROMPT},
                 {"role": "user", "content": transcript},
             ],
             model=settings.memory_model,
+            on_usage=spent.update,
         ).strip()
+        spend_log.from_usage(db, session.user_id, "compaction", spent, model=settings.memory_model)
         if not summary:
             return
 

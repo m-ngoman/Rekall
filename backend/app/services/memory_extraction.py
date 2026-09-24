@@ -50,6 +50,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core import spend as spend_log
 from app.core.settings_store import get_settings_row
 from app.db import SessionLocal
 from app.models import (
@@ -295,6 +296,7 @@ def _extract(user_id: uuid.UUID, session_id: uuid.UUID) -> None:
         )
         transcript = "\n".join(f"{m.role.value}: {m.content}" for m in history)
 
+        spent: dict = {}
         raw = complete_chat(
             [
                 {"role": "system", "content": _PROMPT},
@@ -305,7 +307,9 @@ def _extract(user_id: uuid.UUID, session_id: uuid.UUID) -> None:
                 },
             ],
             model=settings.memory_model,
+            on_usage=spent.update,
         )
+        spend_log.from_usage(db, user_id, "memory", spent, model=settings.memory_model)
         parsed = _parse_response(raw)
         if parsed is None:
             logger.info("memory pass returned nothing parseable")

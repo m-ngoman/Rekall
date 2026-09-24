@@ -42,12 +42,43 @@ def _mark(message: dict) -> dict:
     }
 
 
-def _with_cache_breakpoints(messages: list[dict], model: str) -> list[dict]:
-    """Mark the two prefixes worth caching: the system prompt, and everything said before now.
+# Sonnet 5 caches a prefix of 1024 tokens or more; below that a breakpoint is ignored, silently.
+# Four characters per token is the same rough conversion used elsewhere in the app, and the 15%
+# headroom is deliberate — the cost of not splitting is losing an optimisation, while the cost of
+# splitting too small is a wasted breakpoint nobody would ever notice. See config.openrouter_model
+# for why the model choice turns on this number, and llm_cache.log_cache for how it shows up.
+_MIN_CACHEABLE_CHARS = 1024 * 4 * 1.15
 
-    Two breakpoints of the four allowed. The system prompt is marked separately from the history
-    because it is the only part guaranteed to exist on turn one, and it alone is large enough to
-    clear the minimum cacheable size on its own.
+
+def _split_system(message: dict, prefix_chars: int) -> dict:
+    """The system prompt as two separately-cached content parts, cut at `prefix_chars`.
+
+    Anthropic caches *prefixes*, so two breakpoints inside one message give two nested caches: the
+    first covers the fixed rules alone, the second covers those plus the volatile context. When
+    only the volatile half changes — a card reviewed in another tab, a memory written, midnight —
+    the first still hits and only the second is rewritten.
+
+    Worth about 11% of the prefix cost on measured traffic. The first part has to clear the
+    model's minimum cacheable size on its own or it is silently ignored; at ~1,800 tokens against
+    Sonnet 5's 1,024 it does, which is also why this is not worth attempting on Haiku, whose
+    minimum is 4,096.
+    """
+    text = message["content"]
+    head, tail = text[:prefix_chars], text[prefix_chars:]
+    parts = [{"type": "text", "text": head, "cache_control": {"type": "ephemeral"}}]
+    if tail:
+        parts.append({"type": "text", "text": tail, "cache_control": {"type": "ephemeral"}})
+    return {**message, "content": parts}
+
+
+def _with_cache_breakpoints(messages: list[dict], model: str, system_prefix_chars: int | None = None) -> list[dict]:
+    """Mark the prefixes worth caching: the fixed rules, the volatile context, and everything
+    said before now.
+
+    Three breakpoints of the four allowed, or two when `system_prefix_chars` is None and the
+    system prompt is cached whole. The system prompt is marked separately from the history because
+    it is the only part guaranteed to exist on turn one, and it alone clears the minimum cacheable
+    size.
 
     Nothing is marked on the final message — that is this turn's new input, which by definition
     has never been seen before and is what the next turn will read from cache.
@@ -58,7 +89,17 @@ def _with_cache_breakpoints(messages: list[dict], model: str) -> list[dict]:
     out = list(messages)
     for i, m in enumerate(out):
         if m.get("role") == "system":
-            out[i] = _mark(m)
+            # Split only when the fixed half is big enough to cache on its own. A spoken turn's
+            # is not — no graph instruction and terser delivery rules put it around 900 tokens —
+            # and a breakpoint under the minimum is not an error, it is just ignored. Falling
+            # back to one breakpoint over the whole prompt is what that turn had before, so this
+            # degrades to the old behaviour rather than to nothing.
+            splittable = (
+                system_prefix_chars
+                and isinstance(m.get("content"), str)
+                and system_prefix_chars >= _MIN_CACHEABLE_CHARS
+            )
+            out[i] = _split_system(m, system_prefix_chars) if splittable else _mark(m)
             break
 
     # The last message is the new turn; the one before it ends the reusable history.
@@ -92,23 +133,37 @@ def _reasoning() -> dict:
     return {} if settings.tutor_reasoning else {"reasoning": {"enabled": False}}
 
 
-def _stream_openrouter(messages: list[dict], on_usage: Callable[[dict], None] | None = None) -> Iterator[str]:
+def _stream_openrouter(
+    messages: list[dict],
+    on_usage: Callable[[dict], None] | None = None,
+    system_prefix_chars: int | None = None,
+) -> Iterator[str]:
     model = settings.openrouter_model
     return stream_openrouter(
         {
             "model": model,
-            "messages": _with_cache_breakpoints(messages, model),
+            "messages": _with_cache_breakpoints(messages, model, system_prefix_chars),
             "stream": True,
             # Cache hits and writes come back on the final chunk; without this the usage block is
             # omitted from a stream entirely and there is no way to tell whether caching worked.
             "stream_options": {"include_usage": True},
             # Thinking is the wait before the first word — see `_reasoning`.
             **_reasoning(),
+            # See config.tutor_max_tokens: a ceiling for runaways, not a length target.
+            "max_tokens": settings.tutor_max_tokens,
         },
         headers=bearer(settings.openrouter_api_key),
         timeout=60.0,
         on_usage=lambda usage: _usage_seen(usage, on_usage),
+        on_finish=lambda reason: _finished(reason, model),
     )
+
+
+def _finished(reason: str | None, model: str) -> None:
+    if reason == "length":
+        # The student got a reply cut off mid-thought. Rare by design — the cap sits well above
+        # any real reply — so each one is worth reading: a runaway, or a cap now set too low.
+        logger.warning("tutor reply hit max_tokens=%d and was cut off (model=%s)", settings.tutor_max_tokens, model)
 
 
 def _usage_seen(usage: dict, on_usage: Callable[[dict], None] | None) -> None:
@@ -160,18 +215,31 @@ def _stream_stub() -> Iterator[str]:
         yield _STUB_REPLY[i : i + 7]
 
 
-def stream_chat(messages: list[dict], on_usage: Callable[[dict], None] | None = None) -> Iterator[str]:
+def stream_chat(
+    messages: list[dict],
+    on_usage: Callable[[dict], None] | None = None,
+    system_prefix_chars: int | None = None,
+) -> Iterator[str]:
     """`on_usage` receives the provider's usage block when there is one — only the OpenRouter
-    path reports it, and only on the final chunk."""
+    path reports it, and only on the final chunk.
+
+    `system_prefix_chars` is where the system prompt stops being fixed and starts being
+    volatile (see tutor_prompt.build_system_parts). Only the OpenRouter path uses it; the
+    others receive the prompt as one plain string, which is what Ollama expects.
+    """
     if settings.tutor_provider == "stub":
         yield from _stream_stub()
     elif settings.tutor_provider == "ollama":
         yield from _stream_ollama(messages)
     else:
-        yield from _stream_openrouter(messages, on_usage)
+        yield from _stream_openrouter(messages, on_usage, system_prefix_chars)
 
 
-def complete_chat(messages: list[dict], model: str | None = None) -> str:
+def complete_chat(
+    messages: list[dict],
+    model: str | None = None,
+    on_usage: Callable[[dict], None] | None = None,
+) -> str:
     """One-shot, non-streamed completion for background jobs (memory extraction).
 
     Streaming exists to get words on screen sooner; a job whose output is parsed as a whole
@@ -191,10 +259,14 @@ def complete_chat(messages: list[dict], model: str | None = None) -> str:
         )
         return (body.get("message") or {}).get("content") or ""
 
-    return completion_text(
-        post_openrouter(
-            {"model": model or settings.openrouter_model, "messages": messages},
-            headers=bearer(settings.openrouter_api_key),
-            timeout=60.0,
-        )
+    body = post_openrouter(
+        {"model": model or settings.openrouter_model, "messages": messages, "usage": {"include": True}},
+        headers=bearer(settings.openrouter_api_key),
+        timeout=60.0,
     )
+    # Background jobs are the easiest spend to lose sight of, precisely because nobody is waiting
+    # on one. The provider prices every call; handing that back is what lets memory extraction and
+    # compaction appear on the bill beside the turns that triggered them.
+    if on_usage and (usage := body.get("usage")):
+        on_usage(usage)
+    return completion_text(body)

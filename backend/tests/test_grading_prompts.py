@@ -188,7 +188,8 @@ def test_real_values_still_parse(monkeypatch, value, expected) -> None:
 def test_the_default_request_is_exactly_what_was_measured(sent, monkeypatch, strictness, math) -> None:
     """The whole body, compared as a whole — so a dropped "stream", a changed temperature, a
     hard-coded model or an extra key all fail here. Only the prompt text changed from what
-    production sent before; everything else is byte-for-byte the old request."""
+    production sent before; everything else is byte-for-byte the old request, plus
+    `stream_options`, which asks for the usage block that spend tracking reads."""
     monkeypatch.setattr(settings, "grading_reasoning", None)
     _grade(_grader(), "  What is 2+2? ", " 4 ", "  four  ", strictness=strictness, math=math)
 
@@ -196,6 +197,7 @@ def test_the_default_request_is_exactly_what_was_measured(sent, monkeypatch, str
         {
             "model": "test/model",
             "stream": True,
+            "stream_options": {"include_usage": True},
             "max_tokens": 250,
             "temperature": 0.2,
             "messages": [{"role": "user", "content": _rendered("  What is 2+2? ", " 4 ", "  four  ", strictness, math)}],
@@ -209,7 +211,7 @@ def test_the_default_explanation_request_is_unchanged(sent, monkeypatch) -> None
     _grade(_grader(), "What makes ATP?", "mitochondria", "i don't know")
 
     body = sent.bodies[0]
-    assert set(body) == {"model", "stream", "max_tokens", "temperature", "messages"}
+    assert set(body) == {"model", "stream", "stream_options", "max_tokens", "temperature", "messages"}
     assert body["max_tokens"] == 220
     assert body["temperature"] == 0.3
     assert body["stream"] is True

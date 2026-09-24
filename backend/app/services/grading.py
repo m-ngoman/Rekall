@@ -61,6 +61,8 @@ GradeStreamItem = Union[str, GradeResult]
 
 
 class Grader(Protocol):
+    #: What the last call cost, per the provider. None for the graders that cost nothing.
+    last_usage: dict | None
     def grade_stream(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
     ) -> Iterator[GradeStreamItem]: ...
@@ -70,6 +72,9 @@ class StubGrader:
     """Fuzzy string-match placeholder — kept around as a fallback / for tests that don't want
     to depend on a running Ollama instance.
     """
+
+    #: Free: nothing to record in the spend log.
+    last_usage: dict | None = None
 
     def grade_stream(
         self, question: str, reference_answer: str, submitted_answer: str, strictness: str = DEFAULT_STRICTNESS, math: bool = False
@@ -201,6 +206,9 @@ class PrometheusGrader:
     silent-then-visible stages: Prometheus judges (not shown), then `rewrite_model` compresses
     that judgment into one short, second-person sentence, which *is* streamed to the client.
     """
+
+    #: Free: nothing to record in the spend log.
+    last_usage: dict | None = None
 
     def __init__(self, base_url: str, model: str, rewrite_model: str):
         self._base_url = base_url
@@ -512,6 +520,12 @@ class _RubricGrader:
     #: Only the hosted grader's transport reports one; Ollama's leaves it None.
     _finish_reason: str | None = None
     _model: str = ""
+    #: What the provider charged for the most recent call, or None for a grader that costs
+    #: nothing. Read by the caller after the stream is consumed, rather than pushed through a
+    #: callback, because `get_grader()` hands out a fresh instance per grading — so there is one
+    #: call per object and no sharing to get wrong. Declared here so the free graders answer
+    #: `None` to the same question without implementing anything.
+    last_usage: dict | None = None
 
     def _tokens(self, prompt: str, *, temperature: float, max_tokens: int) -> Iterator[str]:
         raise NotImplementedError
@@ -664,6 +678,9 @@ class CloudGrader(_RubricGrader):
         body: dict = {
             "model": self._model,
             "stream": True,
+            # The usage block carries the provider's own price for the call, which the spend
+            # tracker records; a stream only includes it when asked.
+            "stream_options": {"include_usage": True},
             "max_tokens": answer_tokens + (_REASONING_HEADROOM_TOKENS if settings.grading_reasoning else 0),
             "temperature": temperature,
             "messages": [{"role": "user", "content": prompt}],
@@ -678,8 +695,12 @@ class CloudGrader(_RubricGrader):
             self._body(prompt, answer_tokens=max_tokens, temperature=temperature),
             headers={**bearer(self._api_key), "Content-Type": "application/json"},
             timeout=60.0,
+            on_usage=self._record_usage,
             on_finish=self._record_finish,
         )
+
+    def _record_usage(self, usage: dict) -> None:
+        self.last_usage = usage
 
     def _record_finish(self, reason: str | None) -> None:
         self._finish_reason = reason

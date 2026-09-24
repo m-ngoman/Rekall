@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import katex from 'katex'
+import { EMPHASIS, isBold, unwrapEmphasis } from '../lib/emphasis'
 // Imported here rather than in index.css so it travels in this component's lazy chunk: a user
 // who never meets a maths card should not download a maths stylesheet.
 import 'katex/dist/katex.min.css'
@@ -58,9 +59,37 @@ export default function MathText({ text }: { text: string }) {
         p.math ? (
           <span key={p.key} className={p.display ? 'my-2 block overflow-x-auto' : ''} dangerouslySetInnerHTML={{ __html: p.value }} />
         ) : (
-          <span key={p.key}>{p.value}</span>
+          <Emphasised key={p.key} text={p.value} />
         ),
       )}
     </span>
+  )
+}
+
+/** `**bold**` and `*italic*` inside one prose chunk. See lib/emphasis for why it is these two and
+ * nothing else.
+ *
+ * Built as React elements rather than an HTML string, which is the point: this text comes from a
+ * language model, and there is no `dangerouslySetInnerHTML` anywhere on this path for it to
+ * escape through. The maths branch above has to use one because KaTeX emits markup; emphasis does
+ * not, so it does not get the same latitude.
+ */
+function Emphasised({ text }: { text: string }) {
+  const parts = useMemo(() => text.split(EMPHASIS), [text])
+  return (
+    <>
+      {parts.map((chunk, i) => {
+        // Parity, matching the segmenter above: even indices are plain text, odd ones matched.
+        if (i % 2 === 0) return <span key={i}>{chunk}</span>
+        const body = unwrapEmphasis(chunk)
+        return isBold(chunk) ? (
+          <strong key={i} className="font-bold">
+            {body}
+          </strong>
+        ) : (
+          <em key={i}>{body}</em>
+        )
+      })}
+    </>
   )
 }

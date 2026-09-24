@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 
 import pymupdf
 
@@ -121,7 +122,17 @@ def _user_content(images: list[bytes], text: str | None, task: str, cacheable: b
     return content
 
 
-def _call_json(system_prompt: str, user_content: list[dict]) -> dict:
+def _call_json(
+    system_prompt: str,
+    user_content: list[dict],
+    on_usage: Callable[[dict], None] | None = None,
+) -> dict:
+    """`on_usage` receives the provider's usage block, which prices the call.
+
+    Threaded through every public function here rather than accumulated in module state: a
+    generation run is three calls and two users can be generating at once, so a shared sink would
+    bill one student for the other's pages.
+    """
     body = post_openrouter(
         {
             "model": settings.card_generation_model,
@@ -136,7 +147,10 @@ def _call_json(system_prompt: str, user_content: list[dict]) -> dict:
     )
     # A plain POST, so usage is in the body — no stream_options needed, unlike the tutor's
     # streaming call which gets nothing back without it.
-    log_cache("generation", body.get("usage") or {})
+    usage = body.get("usage") or {}
+    log_cache("generation", usage)
+    if on_usage:
+        on_usage(usage)
     # response_format: json_object still comes back fenced now and then; see strip_fence.
     return json.loads(strip_fence(completion_text(body)))
 
@@ -172,14 +186,16 @@ def _cacheable() -> bool:
     return supports_cache_control(settings.card_generation_model)
 
 
-def generate_draft(images: list[bytes], text: str | None) -> dict:
+def generate_draft(images: list[bytes], text: str | None, on_usage: Callable[[dict], None] | None = None) -> dict:
     content = _user_content(images, text, _DRAFT_TASK, _cacheable())
-    return _call_json(_GENERATION_SYSTEM_PROMPT, content)
+    return _call_json(_GENERATION_SYSTEM_PROMPT, content, on_usage)
 
 
-def verify_cards(images: list[bytes], text: str | None, draft_cards: list[dict]) -> dict:
+def verify_cards(
+    images: list[bytes], text: str | None, draft_cards: list[dict], on_usage: Callable[[dict], None] | None = None
+) -> dict:
     content = _user_content(images, text, _VERIFY_TASK + json.dumps(draft_cards), _cacheable())
-    return _call_json(_GENERATION_SYSTEM_PROMPT, content)
+    return _call_json(_GENERATION_SYSTEM_PROMPT, content, on_usage)
 
 
 _TRANSCRIBE_SYSTEM_PROMPT = """You are transcribing a student's notes for a study app's searchable notes library. Read the provided material — a photo of handwritten or printed notes, or text extracted from a PDF.

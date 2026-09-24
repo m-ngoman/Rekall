@@ -109,6 +109,9 @@ export interface TutorVoice {
   name: string
   description: string
   gender: string
+  /** What you hear if you have never picked one. The picker highlights this rather than the
+   * first row, which was only ever right by coincidence of ordering. */
+  is_default: boolean
 }
 
 export interface TutorTurnResult {
@@ -254,6 +257,34 @@ export interface FeatureUsage {
   /** Uses per day, index-aligned with `AdminStats.daily` — same length, same order. Feeds the
    * per-feature sparkline; the dates come from `daily`, not from here. */
   daily_uses: number[]
+}
+
+/** One feature's share of what the app costs to run. */
+export interface SpendFeature {
+  key: string
+  label: string
+  usd: number
+  /** Share of window spend, 0-1. */
+  share: number
+  /** Index-aligned with `Spend.days`. */
+  daily_usd: number[]
+  /** True when no provider priced this and the figure is computed from config rates. Shown,
+   * because a calculated number sitting beside billed ones reads as billed. */
+  estimated: boolean
+  calls: number
+  tokens_in: number
+  tokens_out: number
+  tokens_cached: number
+}
+
+export interface Spend {
+  /** `YYYY-MM-DD`, UTC. Parse with parseISODate. */
+  days: string[]
+  features: SpendFeature[]
+  total_usd: number
+  estimated_usd: number
+  all_time_usd: number
+  tracking_since: string | null
 }
 
 export interface DailyUsage {

@@ -289,6 +289,9 @@
     ],
     "model": "google/gemini-2.5-flash",
     "stream": true,
+    "stream_options": {
+     "include_usage": true
+    },
     "temperature": 0.2
    },
    "method": "POST",
@@ -315,6 +318,9 @@
     ],
     "model": "google/gemini-2.5-flash",
     "stream": true,
+    "stream_options": {
+     "include_usage": true
+    },
     "temperature": 0.3
    },
    "method": "POST",
@@ -607,6 +613,7 @@
     "Authorization": "Bearer test-openrouter_api_key"
    },
    "json": {
+    "max_tokens": 1500,
     "messages": [
      {
       "content": [
@@ -672,7 +679,10 @@
       "role": "user"
      }
     ],
-    "model": "google/gemini-2.5-flash"
+    "model": "google/gemini-2.5-flash",
+    "usage": {
+     "include": true
+    }
    },
    "method": "POST",
    "streamed": false,

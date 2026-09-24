@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.config import settings
+from app.core import spend as spend_log
 from app.core.allowance import charge_grade, require_grading_headroom
 from app.core.auth import get_current_user
 from app.core.entitlements import require_text_ai
@@ -103,7 +105,8 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
             # code path for both kinds of review.
             result = GradeResult(grade=payload.grade, explanation="")
         else:
-            for item in get_grader().grade_stream(
+            grader = get_grader()
+            for item in grader.grade_stream(
                 question=card.question,
                 reference_answer=card.answer,
                 submitted_answer=payload.answer_input,
@@ -160,6 +163,11 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
         # Rides the same commit as the review itself, so the usage log can't claim a review that
         # didn't land. Recorded separately from ReviewLog because that row goes away with its card.
         record(db, user.id, UsageEventType.card_review)
+        # And what it cost, when a paid grader did the work. `last_usage` is None for the local,
+        # stub and self-assessed paths, which spend nothing — `from_usage` skips those rather than
+        # writing rows of zero that would drag every average down while looking like data.
+        if not self_assessed:
+            spend_log.from_usage(db, user.id, "grading", grader.last_usage, model=settings.cloud_grading_model)
         db.commit()
         db.refresh(card)
 

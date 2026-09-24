@@ -58,7 +58,11 @@ def _list_voices_cartesia() -> list[dict]:
     data = response.json()
     items = data if isinstance(data, list) else data.get("data", data.get("voices", []))
     return [
-        {**v, "description": _characteristics(v.get("description") or "")}
+        {
+            **v,
+            "description": _characteristics(v.get("description") or ""),
+            "is_default": v.get("id") == settings.cartesia_voice_id,
+        }
         for v in items
         if v.get("language") == "en"
     ]
@@ -147,28 +151,36 @@ def _inworld_headers() -> dict[str, str]:
     return {"Authorization": f"Basic {settings.inworld_api_key}", "Content-Type": "application/json"}
 
 
-# Eight, in this order, out of the 159 English voices the provider returns. The full list is not
-# a menu — it is a catalogue for every product Inworld sells, so most of it is villains, ASMR,
-# game-show hosts and anime dubbing, and a student scrolling it is being asked to audition a
-# stranger rather than pick a tutor.
+# Six, in this order, out of the 282 voices the provider returns. The full list is not a menu —
+# it is a catalogue for every product Inworld sells, so most of it is villains, ASMR, game-show
+# hosts and anime dubbing, and a student scrolling it is being asked to audition a stranger
+# rather than pick a tutor.
 #
-# Chosen for the job: clear, warm, unhurried, nobody performing a character. Spread across
-# American, British, Indian and Australian because the students are, and evenly split by gender.
-# Ashley leads because she is the default, so the first entry is what an untouched account hears.
+# Hand-picked by Adam for teaching specifically, replacing an earlier eight chosen for accent and
+# gender spread. The through-line here is different and better: every one of these is described
+# by the provider for tutorials, training or support — explaining something to someone who does
+# not yet understand it — rather than for narration or performance.
 #
 # Curated in code rather than filtered by the provider's own `tutoring` tag: the tag is theirs to
 # redefine, and a voice quietly appearing in a study app because a marketing label moved is the
 # thing this list exists to prevent.
-_CURATED_INWORLD = (
-    "Ashley",    # warm, natural American female
-    "Arthur",    # warm, mature male; encouraging and knowledgeable
-    "Eleanor",   # polished, approachable British female
-    "Brian",     # friendly, encouraging American male
-    "Jessica",   # encouraging, articulate American female
-    "Alistair",  # clear, articulate British male
-    "Saanvi",    # crisp, articulate Indian female
-    "Pippa",     # friendly, casual Australian female
-)
+#
+# Order is the order the picker shows. Note it no longer leads with the default — `Ashley` is
+# still what an untouched account hears (see `inworld_voice_id`) but now sits fourth, so the
+# first entry and the default voice are deliberately not the same thing.
+# The descriptions are ours, not the provider's. Theirs are written to sell a voice to whoever is
+# buying — "ideal for phone support, appointment confirmations, and customer success calls" — and
+# a student picking a tutor is answering a different question: which of these do I want explaining
+# something to me when I am stuck. So each one names the teaching situation it suits rather than
+# cataloguing timbre. Kept to roughly two lines at the picker's width.
+_CURATED_INWORLD = {
+    "Jason": "Bright and engaging — holds attention through a long explanation.",
+    "Simon": "Precise and measured. Suits definitions and technical detail.",
+    "Kelsey": "Patient and encouraging, for when a topic isn't going well.",
+    "Ashley": "Warm and natural. An easy voice to listen to for a while.",
+    "Dennis": "Calm and unhurried — steady going through dense material.",
+    "Reed": "Clear and direct. Explains without embellishment.",
+}
 
 
 def _list_voices_inworld() -> list[dict]:
@@ -181,18 +193,26 @@ def _list_voices_inworld() -> list[dict]:
     by_id = {v["voiceId"]: v for v in items}
     curated = [by_id[name] for name in _CURATED_INWORLD if name in by_id]
     items = curated or items
+    default = _inworld_voice(None)
     # `languages` is a list here where Cartesia has a single `language`, and there is no gender
     # field at all — the tutor's voice picker shows it when present and omits it otherwise.
+    #
+    # `is_default` is sent rather than inferred from position. The picker used to treat the first
+    # entry as the selected one for an account that has never chosen, which was true only while
+    # the curated order happened to start with the default voice — a coincidence one reordering
+    # broke, leaving a fresh account seeing one name highlighted and hearing another.
     return [
         {
             "id": v["voiceId"],
             "name": v.get("displayName") or v["voiceId"],
-            "description": _characteristics(v.get("description") or ""),
+            # Ours where we have one; the provider's, trimmed, for the uncurated fallback above.
+            "description": _CURATED_INWORLD.get(v["voiceId"]) or _characteristics(v.get("description") or ""),
             "gender": "",
+            "is_default": v["voiceId"] == default,
         }
         for v in items
         if "en" in (v.get("languages") or [])
-    ]  # order is _CURATED_INWORLD's, deliberately, so the default sits first
+    ]  # order is _CURATED_INWORLD's, which is Adam's preference order, not the default's position
 
 
 def _inworld_voice(voice_id: str | None) -> str:

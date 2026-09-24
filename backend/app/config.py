@@ -110,6 +110,13 @@ class Settings(BaseSettings):
     # — so a language deck in Japanese costs what an English one does.
     inworld_api_key: str = ""
     inworld_model: str = "inworld-tts-2-flash"
+    # What the speech providers charge, for the spend tracker only — never for billing, which
+    # runs off the credit ledger. Unlike the LLM calls, neither provider returns a cost, so any
+    # voice figure in the dashboard is computed from these and is flagged `estimated` in the data.
+    # Keep them matched to the deployed provider: a stale rate here is how "we're on Cartesia"
+    # survived months after the deployment moved to Inworld.
+    tts_usd_per_million_chars: float = 15.0   # Inworld TTS-2 Flash
+    stt_usd_per_hour: float = 0.46            # Deepgram Nova-3 streaming
     inworld_voice_id: str = "Ashley"  # "A warm, natural female voice"
 
     # Tutor chat: OpenRouter (cloud) is the default, per Adam's call — the local grading model
@@ -146,6 +153,13 @@ class Settings(BaseSettings):
     # "minimal" put the first word about where Sonnet 5's is (typed ~1.7-2.2s, first spoken
     # sentence ~2.1s) against ~1.0s with it off.
     tutor_reasoning_effort: str = ""
+    # A ceiling on one tutor reply, reasoning included, for two reasons. A runaway: GPT-6 Luna once
+    # streamed 65,536 tokens in testing (2026-09-23) where real replies peak near 630 — minutes of a
+    # student watching text that never ends. And money held in flight: OpenRouter holds each running
+    # request's worst case against a budget that is a fraction of the balance, and with no
+    # max_tokens that worst case is a large fixed cap — concurrent Sonnet turns returned 402 at a
+    # ~$15 balance. 1,500 is over twice the longest real reply seen, and holds ~$0.02 per Sonnet turn.
+    tutor_max_tokens: int = 1500
 
     @field_validator("tutor_reasoning_effort", mode="before")
     @classmethod

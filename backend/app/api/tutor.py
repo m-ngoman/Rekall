@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
+from app.core import spend as spend_log
 from app.core.auth import current_user_or_none, get_current_user
 from app.core.entitlements import charge_voice, credits_for_stt, require_text_ai, require_voice
 from app.core.fields import clean_optional
@@ -250,7 +251,13 @@ def get_voices(request: Request, db: Session = Depends(get_db)) -> list[TutorVoi
     server's key."""
     get_current_user(request, db)
     return [
-        TutorVoiceOut(id=v["id"], name=v.get("name", ""), description=v.get("description", ""), gender=v.get("gender", ""))
+        TutorVoiceOut(
+            id=v["id"],
+            name=v.get("name", ""),
+            description=v.get("description", ""),
+            gender=v.get("gender", ""),
+            is_default=bool(v.get("is_default")),
+        )
         for v in list_voices()
     ]
 
@@ -337,6 +344,7 @@ async def live_transcribe(websocket: WebSocket, sample_rate: int = Query(16000, 
             meter = SessionLocal()
             try:
                 record(meter, user_id, UsageEventType.stt_seconds, count=seconds)
+                spend_log.estimated(meter, user_id, "stt", seconds * settings.stt_usd_per_hour / 3600)
                 charge_voice(meter, user_id, credits_for_stt(seconds), CreditReason.voice_stt)
                 meter.commit()
             finally:

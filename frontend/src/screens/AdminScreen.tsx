@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
-import { getAdminStats } from '../api'
+import { getAdminStats, getSpend } from '../api'
 import BackButton from '../components/BackButton'
 import { errorMessage } from '../lib/errors'
 import Segmented from '../components/Segmented'
-import type { AdminStats } from '../types'
+import type { AdminStats, Spend } from '../types'
 import { formatDate, formatDayLong, formatNumber, plural } from '../components/admin/format'
 import SectionTitle from '../components/admin/SectionTitle'
 import StatTile from '../components/admin/StatTile'
 import { PLOT_HEIGHT, TrendChart } from '../components/admin/charts'
 import FeatureSection from '../components/admin/FeatureSection'
 import DailyTable from '../components/admin/DailyTable'
+import SpendSection from '../components/admin/SpendSection'
 
 interface Props {
   onBack: () => void
@@ -25,6 +26,10 @@ const RANGES: { value: number; label: string }[] = [
 export default function AdminScreen({ onBack }: Props) {
   const [days, setDays] = useState(30)
   const [stats, setStats] = useState<AdminStats | null>(null)
+  // Its own request, and deliberately not blocking the page: spend is the newest table
+  // and the oldest deployment may not have it yet, so a failure here should cost the
+  // spend section and nothing else.
+  const [spend, setSpend] = useState<Spend | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -33,6 +38,10 @@ export default function AdminScreen({ onBack }: Props) {
     // would silently disagree with the range control for as long as the request takes.
     setStats(null)
     setError(null)
+    setSpend(null)
+    getSpend(days)
+      .then((v) => alive && setSpend(v))
+      .catch(() => alive && setSpend(null))
     getAdminStats(days)
       .then((s) => alive && setStats(s))
       // Not left on "Loading…" forever: this screen only exists for one account, so a failure
@@ -164,6 +173,8 @@ export default function AdminScreen({ onBack }: Props) {
       </section>
 
       <FeatureSection features={stats.features} daily={daily} rangeLabel={rangeLabel} />
+
+      {spend && <SpendSection spend={spend} rangeLabel={rangeLabel} />}
 
       <section>
         <SectionTitle>Library right now</SectionTitle>

@@ -7,6 +7,8 @@ from app.schemas.admin import (
     DailyPointOut,
     FeatureUsageOut,
     LibraryTotalsOut,
+    SpendFeatureOut,
+    SpendOut,
     UserCountsOut,
 )
 from app.schemas.bugs import (
@@ -71,6 +73,8 @@ from app.schemas.tutor import (
 )
 
 __all__ = [
+    "SpendFeatureOut",
+    "SpendOut",
     "ProfileLineDelete",
     "ProfileLineOut",
     "StudentProfileOut",

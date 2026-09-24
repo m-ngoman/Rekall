@@ -151,7 +151,21 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
   /** Derived once rather than inside the voice button, so the visible label and the aria-label
    * can't drift apart — which matters now that only one of the two is shown on a phone.
    * Falls back to the first voice because that's what the backend defaults an unset session to. */
-  const voiceName = (voices?.find((v) => v.id === session?.voice_id) ?? voices?.[0])?.name
+  /** The name on the composer chip, resolved the same way the personality chip beside it is.
+   *
+   * Three steps, and the middle one is the one that was missing: the session's own voice once it
+   * has loaded, then the saved default while that request is still in flight (a new session is
+   * created *from* that default, so it is the same name a moment later), then the server's
+   * default for an account that has never chosen.
+   *
+   * It used to fall through to `voices[0]`, which was only ever correct because the curated list
+   * happened to start with the default voice. Reordering the list by preference turned that into
+   * a chip naming a voice the student was not going to hear — visible on every load, in the gap
+   * before the session request came back. */
+  const voiceName = (
+    voices?.find((v) => v.id === (session?.voice_id ?? settings?.tutor_voice_id)) ??
+    voices?.find((v) => v.is_default)
+  )?.name
   const [pendingImage, setPendingImage] = useState<File | null>(null)
   const [liveTranscript, setLiveTranscript] = useState('')
   const revealedTranscript = useRevealText(liveTranscript)

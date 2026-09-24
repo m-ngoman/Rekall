@@ -67,3 +67,60 @@ def test_the_request_actually_carries_it(monkeypatch) -> None:
     monkeypatch.setattr(settings, "tutor_reasoning_effort", "low")
     list(tutor_llm._stream_openrouter([{"role": "user", "content": "hi"}]))
     assert sent["reasoning"] == {"effort": "low", "exclude": True}
+
+
+def _capture(monkeypatch, chunks):
+    sent = {}
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def iter_lines(self):
+            yield from chunks
+            yield "data: [DONE]"
+
+    class Stream:
+        def __init__(self, *a, json=None, **k):
+            sent.update(json)
+
+        def __enter__(self):
+            return Response()
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(llm_http.httpx, "stream", Stream)
+    return sent
+
+
+def test_every_tutor_request_has_a_ceiling(monkeypatch) -> None:
+    """Without one, a runaway reply streams until the provider's own cap — 65,536 tokens, seen in
+    testing — and OpenRouter holds that worst case against the balance for every turn in flight."""
+    sent = _capture(monkeypatch, [])
+    list(tutor_llm._stream_openrouter([{"role": "user", "content": "hi"}]))
+    assert sent["max_tokens"] == settings.tutor_max_tokens
+    assert 1000 <= Settings.model_fields["tutor_max_tokens"].default <= 4000
+
+
+def test_a_reply_cut_off_by_the_ceiling_is_logged(monkeypatch, caplog) -> None:
+    import json as _json
+
+    frames = [
+        "data: " + _json.dumps({"choices": [{"delta": {"content": "It goes on and"}, "finish_reason": None}]}),
+        "data: " + _json.dumps({"choices": [{"delta": {"content": " on"}, "finish_reason": "length"}]}),
+    ]
+    _capture(monkeypatch, frames)
+    with caplog.at_level("WARNING"):
+        text = "".join(tutor_llm._stream_openrouter([{"role": "user", "content": "hi"}]))
+    assert text == "It goes on and on"
+    assert "hit max_tokens" in caplog.text
+
+
+def test_a_reply_that_finished_normally_logs_nothing(monkeypatch, caplog) -> None:
+    import json as _json
+
+    _capture(monkeypatch, ["data: " + _json.dumps({"choices": [{"delta": {"content": "Done."}, "finish_reason": "stop"}]})])
+    with caplog.at_level("WARNING"):
+        list(tutor_llm._stream_openrouter([{"role": "user", "content": "hi"}]))
+    assert "hit max_tokens" not in caplog.text

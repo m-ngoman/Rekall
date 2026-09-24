@@ -16,6 +16,7 @@ from app.models.memory import (
 from app.models.note import Note, NoteFileType
 from app.models.page_ledger import TOPUP_PAGES, PageLedger, PageReason
 from app.models.review_log import InputMode, ReviewLog
+from app.models.spend_event import SpendEvent
 from app.models.study_list import StudyListEntry
 from app.models.tutor import TutorMessage, TutorMessageRole, TutorPersonality, TutorSession
 from app.models.usage_event import UsageEvent, UsageEventType
@@ -48,6 +49,7 @@ __all__ = [
     "MemoryCategory",
     "MemorySource",
     "StudyListEntry",
+    "SpendEvent",
     "UsageEvent",
     "UsageEventType",
     "CreditLedger",

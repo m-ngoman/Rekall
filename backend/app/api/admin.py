@@ -17,13 +17,15 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import require_owner
 from app.db import get_db
-from app.models import Card, Deck, Note, TutorSession, UsageEvent, UsageEventType, User
+from app.models import Card, Deck, Note, SpendEvent, TutorSession, UsageEvent, UsageEventType, User
 from app.schemas import (
     ActiveUsersOut,
     AdminStatsOut,
     DailyPointOut,
     FeatureUsageOut,
     LibraryTotalsOut,
+    SpendFeatureOut,
+    SpendOut,
     UserCountsOut,
 )
 
@@ -222,4 +224,107 @@ def get_stats(
         features=features,
         library=library,
         daily=daily,
+    )
+
+
+# Every feature that can spend, in the order the dashboard lists them. Labels rather than raw keys
+# so a rename in the UI does not mean a migration, and ordering that puts the model calls first
+# because they are the ones priced by a provider — the two speech rows are computed from config
+# and are marked as such.
+SPEND_LABELS: tuple[tuple[str, str], ...] = (
+    ("tutor_text", "Tutor (typed)"),
+    ("tutor_voice", "Tutor (voice)"),
+    ("grading", "Answer grading"),
+    ("deck_generation", "Card generation"),
+    ("deck_verify", "Card verification"),
+    ("memory", "Tutor memory"),
+    ("compaction", "Conversation compaction"),
+    ("tts", "Speech synthesis"),
+    ("stt", "Speech transcription"),
+)
+
+
+@router.get("/spend", response_model=SpendOut)
+def get_spend(
+    request: Request,
+    days: int = Query(DEFAULT_DAYS, ge=1, le=MAX_DAYS, description="Length of the daily series"),
+    db: Session = Depends(get_db),
+) -> SpendOut:
+    """Where the money went, by feature and by day.
+
+    Separate from `/stats` rather than folded into it because the two answer different questions
+    and one is far more expensive to be wrong about. `/stats` counts uses and can round; this is
+    money, and it reports what providers actually charged wherever they said.
+    """
+    require_owner(request, db)
+
+    now = datetime.now(timezone.utc)
+    first_day: date = (now - timedelta(days=days - 1)).date()
+    series_start = datetime.combine(first_day, time.min, tzinfo=timezone.utc)
+    day_list = [first_day + timedelta(days=n) for n in range(days)]
+    day_col = cast(SpendEvent.created_at, SADate).label("day")
+
+    # One grouped scan for the window totals, and a second for the daily pivot — the same shape
+    # `/stats` uses, for the same reason: a query per feature per day would be 270 round trips.
+    totals = {
+        row[0]: row
+        for row in db.query(
+            SpendEvent.feature,
+            func.coalesce(func.sum(SpendEvent.cost_usd), 0),
+            func.count(SpendEvent.id),
+            func.coalesce(func.sum(SpendEvent.tokens_in), 0),
+            func.coalesce(func.sum(SpendEvent.tokens_out), 0),
+            func.coalesce(func.sum(SpendEvent.tokens_cached), 0),
+            func.bool_or(SpendEvent.estimated),
+        )
+        .filter(SpendEvent.created_at >= series_start)
+        .group_by(SpendEvent.feature)
+        .all()
+    }
+
+    per_day: dict[str, dict[date, float]] = {}
+    for feature, bucket, amount in (
+        db.query(SpendEvent.feature, day_col, func.sum(SpendEvent.cost_usd))
+        .filter(SpendEvent.created_at >= series_start)
+        .group_by(SpendEvent.feature, day_col)
+        .all()
+    ):
+        per_day.setdefault(feature, {})[bucket] = float(amount or 0)
+
+    total = sum(float(row[1]) for row in totals.values())
+    features = []
+    for key, label in SPEND_LABELS:
+        row = totals.get(key)
+        usd = float(row[1]) if row else 0.0
+        series = per_day.get(key, {})
+        features.append(
+            SpendFeatureOut(
+                key=key,
+                label=label,
+                usd=usd,
+                # Guarded rather than assumed non-zero: the window can legitimately contain no
+                # spend at all, and the dashboard still has to render.
+                share=(usd / total) if total else 0.0,
+                daily_usd=[series.get(d, 0.0) for d in day_list],
+                estimated=bool(row[6]) if row else False,
+                calls=int(row[2]) if row else 0,
+                tokens_in=int(row[3]) if row else 0,
+                tokens_out=int(row[4]) if row else 0,
+                tokens_cached=int(row[5]) if row else 0,
+            )
+        )
+
+    estimated_total = sum(float(row[1]) for row in totals.values() if row[6])
+    all_time = db.query(func.coalesce(func.sum(SpendEvent.cost_usd), 0)).scalar()
+    oldest = db.query(func.min(SpendEvent.created_at)).scalar()
+
+    return SpendOut(
+        days=day_list,
+        # Biggest first: the question is "what goes where", and the answer is the top of a
+        # sorted list far more often than it is the shape of the whole table.
+        features=sorted(features, key=lambda f: f.usd, reverse=True),
+        total_usd=total,
+        estimated_usd=estimated_total,
+        all_time_usd=float(all_time or 0),
+        tracking_since=oldest,
     )

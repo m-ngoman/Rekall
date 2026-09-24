@@ -80,3 +80,39 @@ class AdminStatsOut(BaseModel):
     features: list[FeatureUsageOut]
     library: LibraryTotalsOut
     daily: list[DailyPointOut]
+
+
+class SpendFeatureOut(BaseModel):
+    """What one feature cost over the window, and how that moved day to day."""
+
+    key: str
+    label: str
+    usd: float
+    #: Share of total spend in the window, 0-1. Precomputed because it is the whole question —
+    #: "what goes where" is a proportion, and making the client divide invites it to divide by a
+    #: total that excludes something.
+    share: float
+    #: Daily spend, index-aligned with `SpendOut.days`.
+    daily_usd: list[float]
+    #: True when no provider priced this and the figure is ours — see SpendEvent.estimated. The
+    #: dashboard has to say so; a computed number shown beside billed ones reads as billed.
+    estimated: bool
+    calls: int
+    tokens_in: int
+    tokens_out: int
+    tokens_cached: int
+
+
+class SpendOut(BaseModel):
+    """Where the money went. Companion to AdminStatsOut, which counts uses rather than cost."""
+
+    days: list[Date]
+    features: list[SpendFeatureOut]
+    total_usd: float
+    #: The part of `total_usd` that nobody billed us for — computed from rates in config. Called
+    #: out separately so the headline figure can be read with the right amount of confidence.
+    estimated_usd: float
+    #: Total across the whole table, not just the window, so the window figure is not mistaken
+    #: for everything ever spent.
+    all_time_usd: float
+    tracking_since: datetime | None

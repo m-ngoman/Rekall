@@ -15,6 +15,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
+from app.config import settings
+from app.core import spend as spend_log
 from app.core.allowance import charge_pages, pages_for, require_pages
 from app.core.auth import get_current_user
 from app.core.entitlements import require_text_ai
@@ -58,11 +60,21 @@ def _generate_cards(
     text = "\n\n".join(u.text for u in uploads if u.text) or None
     images = [image for u in uploads for image in u.images]
 
+    # A generation run is two vision calls on the same images, and they are the app's most
+    # expensive single action. Each is priced separately so the draft/verify split is visible —
+    # the verify pass is the one whose value is hardest to argue and easiest to measure.
     yield sse_event("stage", {"label": "Generating flashcards…"})
-    draft = generate_draft(images, text)
+    draft = generate_draft(
+        images, text, lambda u: spend_log.from_usage(db, user_id, "deck_generation", u, model=settings.card_generation_model)
+    )
 
     yield sse_event("stage", {"label": "Double-checking against your notes…"})
-    verified = verify_cards(images, text, draft.get("cards", []))
+    verified = verify_cards(
+        images,
+        text,
+        draft.get("cards", []),
+        lambda u: spend_log.from_usage(db, user_id, "deck_verify", u, model=settings.card_generation_model),
+    )
 
     yield from _persist_cards(db, user_id, deck_pk, verified, draft.get("deck_name"), deck_name)
 

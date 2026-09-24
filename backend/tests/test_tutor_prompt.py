@@ -17,13 +17,19 @@ class Session:
         self.deck_id = None
 
 
-def build(session: Session, monkeypatch, spoken: bool = True) -> str:
+def build(session: Session, monkeypatch, spoken: bool = True, maths: bool = True) -> str:
     """Without the database-backed context blocks — this is about the personality and delivery
-    layers."""
+    layers.
+
+    `maths` stands in for the student having at least one maths card, which is what the graph
+    instruction is now gated on: it is ~600 tokens of every typed turn and a student revising
+    French vocabulary was paying for it on every reply.
+    """
     import app.services.tutor_prompt as tp
 
     for name in ("_weak_cards_context", "_exam_context", "_memory_context"):
         monkeypatch.setattr(tp, name, lambda *args: "")
+    monkeypatch.setattr(tp, "_draws_graphs", lambda *args: maths)
     return build_system_prompt(None, session, spoken=spoken)
 
 
@@ -88,6 +94,24 @@ def test_a_typed_turn_is_told_how_to_draw(monkeypatch) -> None:
     prompt = build(Session(TutorPersonality.direct), monkeypatch, spoken=False)
     assert '<<plot fn="EXPRESSION"' in prompt
     assert "natural log" in prompt
+
+
+def test_a_student_with_no_maths_cards_is_not_told_how_to_draw(monkeypatch) -> None:
+    """The instruction is a quarter of the system prompt and sits in the cached prefix, so it is
+    re-sent on every typed turn whether or not a graph was ever plausible. A conversation about
+    vocabulary should not carry the cost of a graph syntax it will never use."""
+    prompt = build(Session(TutorPersonality.direct), monkeypatch, spoken=False, maths=False)
+    assert "<<plot" not in prompt
+    assert "You can draw a graph" not in prompt
+    # The rest of the typed delivery rules must survive the gate — this removes one block, not
+    # the instruction to write LaTeX.
+    assert "dollar signs" in prompt.lower()
+
+
+def test_a_spoken_turn_never_gets_it_even_with_maths_cards(monkeypatch) -> None:
+    """A graph in speech is either invisible or produces "as you can see here" with nothing to
+    see. The gate is an additional condition on typed turns, not a replacement for that one."""
+    assert "<<plot" not in build(Session(TutorPersonality.direct), monkeypatch, spoken=True, maths=True)
 
 
 def test_the_plot_instruction_gives_no_worked_example(monkeypatch) -> None:

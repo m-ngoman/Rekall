@@ -14,8 +14,11 @@ export default function VoicePicker({ voiceId, voices, onChange }: Props) {
         <p className="text-xs text-[var(--text-muted)]">Loading…</p>
       ) : (
         <div className="flex max-h-64 flex-col overflow-y-auto">
-          {voices.map((v, i) => {
-            const active = voiceId ? voiceId === v.id : i === 0
+          {voices.map((v) => {
+            // Falls back to the server's own default rather than to the first row. Those were the
+            // same voice until the curated list was reordered by preference, at which point a
+            // fresh account would have seen one name selected and heard another.
+            const active = voiceId ? voiceId === v.id : v.is_default
             return (
               <button
                 key={v.id}
