@@ -158,6 +158,6 @@ def image_mime(data: bytes) -> str:
     return "image/jpeg"
 
 
-def image_data_url(data: bytes, mime: str | None = None) -> str:
-    """An image as a data URI, typed by `mime` or, without one, by its own bytes."""
-    return f"data:{mime or image_mime(data)};base64,{base64.b64encode(data).decode()}"
+def image_data_url(data: bytes) -> str:
+    """An image as a data URI, typed by its own bytes (see image_mime)."""
+    return f"data:{image_mime(data)};base64,{base64.b64encode(data).decode()}"

@@ -11,6 +11,7 @@ from collections.abc import Generator
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app.core.auth import current_user_or_none, get_current_user
 from app.core.entitlements import charge_voice, credits_for_stt, require_text_ai, require_voice
@@ -18,7 +19,7 @@ from app.core.settings_store import get_settings_row, require_ai
 from app.core.sse import sse_event, sse_response
 from app.core.usage import record
 from app.db import SessionLocal, get_db
-from app.models import CreditReason, TutorSession, UsageEventType, User
+from app.models import CreditReason, Deck, TutorSession, UsageEventType, User
 from app.schemas import TutorSessionCreate, TutorSessionOut, TutorSessionUpdate, TutorVoiceOut, VoiceTurnTextRequest
 from app.services.live_stt import relay as relay_live_stt
 from app.services.stt import transcribe
@@ -73,6 +74,11 @@ def create_session(request: Request, payload: TutorSessionCreate, db: Session = 
     user = get_current_user(request, db)
     require_ai(db, user.id, "tutor")
     require_text_ai(user)
+    # Checked rather than left to the foreign key: an unknown deck was a 500 from the violation,
+    # and someone else's deck was accepted, grounding the conversation in cards that aren't yours.
+    if payload.deck_id is not None:
+        if db.query(Deck).filter(Deck.id == payload.deck_id, Deck.user_id == user.id).one_or_none() is None:
+            raise HTTPException(404, "Deck not found")
     prefs = get_settings_row(db, user.id)
     session = TutorSession(
         user_id=user.id,
@@ -101,24 +107,28 @@ def update_session(request: Request, session_id: uuid.UUID, payload: TutorSessio
     if payload.personality is not None:
         session.personality = payload.personality
         prefs.tutor_personality = payload.personality
+    # Cleaned as the settings endpoint cleans the same two defaults, since this writes them too:
+    # trimmed, and blank stored as no value rather than as an empty string.
     if payload.custom_prompt is not None:
-        session.custom_prompt = payload.custom_prompt
-        prefs.tutor_custom_prompt = payload.custom_prompt
+        session.custom_prompt = payload.custom_prompt.strip() or None
+        prefs.tutor_custom_prompt = session.custom_prompt
     if payload.voice_id is not None:
-        session.voice_id = payload.voice_id
-        prefs.tutor_voice_id = payload.voice_id
+        session.voice_id = payload.voice_id.strip() or None
+        prefs.tutor_voice_id = session.voice_id
     db.commit()
     db.refresh(session)
     return _session_out(session)
 
 
 @router.get("/voices", response_model=list[TutorVoiceOut])
-def get_voices() -> list[TutorVoiceOut]:
+def get_voices(request: Request, db: Session = Depends(get_db)) -> list[TutorVoiceOut]:
+    """Signed in, like every other route here: each call asks the speech provider, on the
+    server's key."""
+    get_current_user(request, db)
     return [
         TutorVoiceOut(id=v["id"], name=v.get("name", ""), description=v.get("description", ""), gender=v.get("gender", ""))
         for v in list_voices()
     ]
-
 
 
 @router.post("/sessions/{session_id}/voice-turn")
@@ -131,7 +141,9 @@ async def voice_turn(request: Request, session_id: uuid.UUID, audio: UploadFile,
     session = _get_session(db, session_id, user.id)
 
     audio_bytes = await audio.read()
-    user_text = transcribe(audio_bytes)
+    # A blocking network call, and this route is async: on the event loop it would stall every
+    # other request for as long as the provider takes.
+    user_text = await run_in_threadpool(transcribe, audio_bytes)
 
     def stream() -> Generator[str, None, None]:
         if not user_text.strip():
@@ -247,9 +259,5 @@ async def text_turn(
         raise HTTPException(400, "Empty message")
 
     image_bytes = await image.read() if image is not None else None
-    image_mime = image.content_type if image is not None else None
 
-    return sse_response(
-        stream_reply(db, session, text, synth=False, image_bytes=image_bytes, image_mime=image_mime),
-        REPLY_FAILED,
-    )
+    return sse_response(stream_reply(db, session, text, synth=False, image_bytes=image_bytes), REPLY_FAILED)

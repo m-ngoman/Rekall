@@ -47,7 +47,6 @@ def test_the_tutor_toggle_and_the_plan_both_gate_a_session(client) -> None:
     assert query(TutorSession) == []
 
 
-@pytest.mark.xfail(strict=True, reason="bug: create_session never checks the deck exists (FK violation, 500)")
 def test_a_session_on_an_unknown_deck_is_not_found(client) -> None:
     from fastapi.testclient import TestClient
 
@@ -58,7 +57,6 @@ def test_a_session_on_an_unknown_deck_is_not_found(client) -> None:
     assert res.status_code == 404 and res.json()["detail"] == "Deck not found"
 
 
-@pytest.mark.xfail(strict=True, reason="bug: create_session accepts another user's deck")
 def test_a_session_on_someone_elses_deck_is_not_found(client) -> None:
     dev_user_id(client)
     with SessionLocal() as db:
@@ -73,7 +71,6 @@ def test_a_session_on_someone_elses_deck_is_not_found(client) -> None:
     assert res.status_code == 404 and res.json()["detail"] == "Deck not found"
 
 
-@pytest.mark.xfail(strict=True, reason="bug: update_session stores blank strings where settings stores NULL")
 def test_a_session_edit_cleans_its_text_like_settings_does(client) -> None:
     session = client.post("/api/tutor/sessions", json={}).json()
     out = client.patch(f"/api/tutor/sessions/{session['id']}", json={"custom_prompt": "   ", "voice_id": " Ashley "}).json()
@@ -83,7 +80,6 @@ def test_a_session_edit_cleans_its_text_like_settings_does(client) -> None:
         assert prefs.tutor_custom_prompt is None and prefs.tutor_voice_id == "Ashley"
 
 
-@pytest.mark.xfail(strict=True, reason="bug: GET /tutor/voices needs no sign-in and calls the provider on the server's key")
 def test_the_voice_list_needs_a_signed_in_user(client, monkeypatch) -> None:
     monkeypatch.setattr(settings, "google_client_id", "id")
     monkeypatch.setattr(settings, "google_client_secret", "secret")

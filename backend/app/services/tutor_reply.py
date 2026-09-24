@@ -89,7 +89,6 @@ def stream_reply(
     user_text: str,
     synth: bool,
     image_bytes: bytes | None = None,
-    image_mime: str | None = None,
 ) -> Generator[str, None, None]:
     """Shared by the voice and text turns: persists the user message, streams the chat reply
     (as `token` events when not synthesizing, `sentence` events with audio when synthesizing —
@@ -119,7 +118,9 @@ def stream_reply(
                 "role": "user",
                 "content": [
                     {"type": "text", "text": stored_text},
-                    {"type": "image_url", "image_url": {"url": image_data_url(image_bytes, image_mime or "image/jpeg")}},
+                    # Typed by its bytes, not by what the upload claimed: the model's provider
+                    # rejects a photo whose declared type is wrong, and "photo.jpg" can be a PNG.
+                    {"type": "image_url", "image_url": {"url": image_data_url(image_bytes)}},
                 ],
             }
         else:

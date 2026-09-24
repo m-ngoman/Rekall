@@ -374,7 +374,6 @@ def test_an_uploaded_voice_turn_with_nothing_heard(client, monkeypatch) -> None:
     assert query(TutorMessage) == []
 
 
-@pytest.mark.xfail(strict=True, reason="bug: voice_turn runs the blocking transcription on the event loop")
 def test_uploaded_audio_is_transcribed_off_the_event_loop(client, monkeypatch) -> None:
     import asyncio
 
@@ -393,7 +392,6 @@ def test_uploaded_audio_is_transcribed_off_the_event_loop(client, monkeypatch) -
     assert on_loop == [False]
 
 
-@pytest.mark.xfail(strict=True, reason="bug: the photo's MIME type is taken from the client, not the bytes")
 def test_an_attached_photo_is_labelled_by_what_it_is(client, monkeypatch) -> None:
     from fake_http import openrouter_stream
 

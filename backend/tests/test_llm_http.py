@@ -95,6 +95,5 @@ def test_an_image_is_labelled_by_its_bytes(data: bytes, mime: str) -> None:
     assert image_mime(data) == mime
 
 
-def test_an_image_data_url_declares_what_the_bytes_are_unless_told() -> None:
+def test_an_image_data_url_declares_what_the_bytes_are() -> None:
     assert image_data_url(b"\x89PNG\r\n\x1a\n").startswith("data:image/png;base64,iVBORw0KGgo")
-    assert image_data_url(b"\x89PNG\r\n\x1a\n", "image/heic").startswith("data:image/heic;base64,")
