@@ -3,7 +3,7 @@ import { toISODate } from './dates'
 /** Cards scheduled per day, `YYYY-MM-DD` → count. Missing key = 0. */
 export type LoadByDay = Record<string, number>
 
-/** GET /api/dashboard/load — see backend/app/api/dashboard.py. Kept out of api.ts so the
+/** GET /api/dashboard/load — see backend/app/api/dashboard.py. Kept out of src/api/ so the
  * calendar's window-keyed cache below lives next to the one caller that uses it. */
 export async function getLoad(start: Date, end: Date): Promise<LoadByDay> {
   const res = await fetch(`/api/dashboard/load?start=${toISODate(start)}&end=${toISODate(end)}`)

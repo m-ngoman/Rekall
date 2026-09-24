@@ -151,7 +151,7 @@ async def _not_found(request: Request, exc: StarletteHTTPException):
     """A 404 a person can read, for everything that isn't the API.
 
     `/api` keeps its JSON body: the client reads `detail` off it to build its error and paywall
-    copy (see the `detail` handling in frontend/src/api.ts), so serving HTML there would replace
+    copy (see ApiError in frontend/src/api/client.ts), so serving HTML there would replace
     real in-app messages with nothing useful.
 
     Only GET and HEAD get the page. A POST to a dead URL is a script, not a person, and handing
