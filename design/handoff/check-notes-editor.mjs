@@ -43,11 +43,13 @@ const toNotes = async () => {
   await page.getByRole('button', { name: 'Notes', exact: true }).first().click()
   await page.getByPlaceholder('Search your notes').waitFor()
 }
+// A new note puts the caret in its body a frame after the editor appears, taking focus from
+// wherever it was. A title filled before then can land in the body, so wait for the caret first.
 const writeANote = async () => {
   await page.getByRole('button', { name: 'Add notes' }).click()
   await page.getByRole('button', { name: 'Write a note' }).click()
   await page.getByLabel('Note title').waitFor()
-  await page.locator('.ProseMirror').waitFor()
+  await page.waitForFunction(() => document.activeElement?.classList.contains('ProseMirror'))
 }
 // The editor's Back is the first button on the screen and reads "Notes", like the tab.
 const back = () => page.locator('main button', { hasText: /^Notes$/ }).first().click()
