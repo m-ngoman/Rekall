@@ -94,3 +94,9 @@ def test_a_turn_whose_synthesis_fails_still_records_what_was_paid_for(monkeypatc
     assert ("model", "tutor_voice") in kinds
     [tts] = [usd for kind, feature, usd in spent if feature == "tts"]
     assert tts > 0
+
+
+def test_a_sentence_the_synthesizer_refused_is_not_counted(monkeypatch) -> None:
+    """Failing on the first sentence means nothing was spoken, so there is no speech to pay for."""
+    spent = _turn(monkeypatch, fail_on_sentence=1)
+    assert [feature for _, feature, _ in spent if feature == "tts"] == []

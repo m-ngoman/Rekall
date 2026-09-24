@@ -1116,7 +1116,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
             onDeleteProfileLine={handleDeleteProfileLine}
             // Also offered with no session at all, as the way to try again: after a failed start the
             // log is empty, sending needs a session, and without this nothing on screen recovers.
-            onNewConversation={messages.length > 0 || (!session && !startingSession) ? handleNewConversation : null}
+            onNewConversation={!startingSession && (messages.length > 0 || !session) ? handleNewConversation : null}
           />
         </div>
       </div>

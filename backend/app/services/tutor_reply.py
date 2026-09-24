@@ -176,8 +176,9 @@ def stream_reply(
 
     def speak(sentence: str) -> str:
         nonlocal spoken_chars
-        spoken_chars += len(sentence)
         audio_wav, word_timings = synthesize_timed(sentence, session.voice_id)
+        # Only once it has come back: a sentence the synthesizer refused was not spoken or billed.
+        spoken_chars += len(sentence)
         return sse_event(
             "sentence",
             {
@@ -212,7 +213,9 @@ def stream_reply(
         usage_seen.update(usage)
         # Recorded the moment the provider prices the reply, not after the turn: a synthesis
         # failure or a dropped connection after this point loses the turn, but the model was
-        # still paid for.
+        # still paid for. A connection dropped *before* it — the student closing the tab mid-reply —
+        # goes unrecorded: the price only arrives at the end of the stream, and reading on to learn
+        # it would mean paying for the rest of a reply nobody is waiting for.
         spend_log.from_usage(user_id, feature, usage, model=settings.openrouter_model)
 
     def _reply_events() -> Generator[str, None, None]:
