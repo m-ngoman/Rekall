@@ -10,9 +10,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.auth import get_current_user
+from app.core.fields import clean_optional, require_name
+from app.core.ownership import get_owned_deck
 from app.core.settings_store import get_settings_row
 from app.db import get_db
-from app.models import Card, CardState, Deck
+from app.models import Card, Deck
 from app.schemas import (
     CardCreate,
     CardOut,
@@ -27,6 +29,7 @@ from app.schemas import (
 )
 from app.services.exam_status import boosted_new_cap, exam_paused, next_exam, today_utc
 from app.services.sample_deck import SAMPLE_CARDS, SAMPLE_DECK_NAME
+from app.services.study_plan import is_due, is_new, live_cards
 
 router = APIRouter(prefix="/api/decks", tags=["decks"])
 
@@ -34,13 +37,11 @@ router = APIRouter(prefix="/api/decks", tags=["decks"])
 def _deck_out(deck: Deck) -> DeckOut:
     """`learned` is total-minus-new — cards you've *started*, not mastered. The UI labels it that
     way; keep the two in step."""
-    # Suspended cards are excluded everywhere a count drives the daily plan: a reported card
-    # must stop being counted as work, or Home keeps promising cards the queue will not serve.
-    cards = [c for c in deck.cards if not c.suspended]
+    cards = live_cards(deck)
     total = len(cards)
-    new = sum(1 for c in cards if c.state == CardState.new)
+    new = sum(1 for c in cards if is_new(c))
     now = datetime.now(timezone.utc)
-    due = sum(1 for c in cards if c.state != CardState.new and c.due is not None and c.due <= now)
+    due = sum(1 for c in cards if is_due(c, now))
     today = today_utc()
     upcoming = next_exam(deck, today)
     return DeckOut(
@@ -53,25 +54,6 @@ def _deck_out(deck: Deck) -> DeckOut:
         exam_paused=exam_paused(deck, today),
         next_exam=ExamRef(name=upcoming.name, date=upcoming.date) if upcoming else None,
     )
-
-
-def _card_out(card: Card) -> CardOut:
-    return CardOut(
-        id=card.id,
-        subtopic=card.subtopic,
-        question=card.question,
-        answer=card.answer,
-        state=card.state,
-        reviews=card.reviews,
-        is_math=card.is_math,
-    )
-
-
-def _get_deck(db: Session, deck_id: uuid.UUID, user_id: uuid.UUID) -> Deck:
-    deck = db.query(Deck).filter(Deck.id == deck_id, Deck.user_id == user_id).one_or_none()
-    if deck is None:
-        raise HTTPException(404, "Deck not found")
-    return deck
 
 
 def _parse_csv(text: str) -> dict[str, list[dict[str, str]]]:
@@ -132,13 +114,11 @@ def list_decks(request: Request, db: Session = Depends(get_db)) -> list[DeckOut]
 def create_deck(request: Request, payload: DeckCreate, db: Session = Depends(get_db)) -> DeckOut:
     """Creates an empty deck. Reached from the Notes tab as "new category" — a deck and a notes
     category are the same thing here, which is what lets a note stay linked to the cards made
-    from it (and what tutor RAG grounding will read).
+    from it. A tutor session pointed at the deck reads its cards; a topic generated into it reads
+    its notes.
     """
     user = get_current_user(request, db)
-    name = payload.name.strip()
-    if not name:
-        raise HTTPException(400, "Name cannot be empty")
-    deck = Deck(user_id=user.id, name=name)
+    deck = Deck(user_id=user.id, name=require_name(payload.name))
     db.add(deck)
     db.commit()
     db.refresh(deck)
@@ -151,11 +131,8 @@ def rename_deck(request: Request, deck_id: uuid.UUID, payload: DeckUpdate, db: S
     so a rename can't orphan either of them.
     """
     user = get_current_user(request, db)
-    deck = _get_deck(db, deck_id, user.id)
-    name = payload.name.strip()
-    if not name:
-        raise HTTPException(400, "Name cannot be empty")
-    deck.name = name
+    deck = get_owned_deck(db, deck_id, user.id)
+    deck.name = require_name(payload.name)
     db.commit()
     db.refresh(deck)
     return _deck_out(deck)
@@ -164,7 +141,7 @@ def rename_deck(request: Request, deck_id: uuid.UUID, payload: DeckUpdate, db: S
 @router.delete("/{deck_id}", status_code=204)
 def delete_deck(request: Request, deck_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
     user = get_current_user(request, db)
-    deck = _get_deck(db, deck_id, user.id)
+    deck = get_owned_deck(db, deck_id, user.id)
     db.delete(deck)
     db.commit()
 
@@ -174,42 +151,42 @@ def list_cards(request: Request, deck_id: uuid.UUID, db: Session = Depends(get_d
     """Newest first: this exists for the card writer, where the thing you most want to see is
     what you just typed."""
     user = get_current_user(request, db)
-    deck = _get_deck(db, deck_id, user.id)
+    deck = get_owned_deck(db, deck_id, user.id)
     cards = sorted(deck.cards, key=lambda c: c.created_at, reverse=True)
-    return [_card_out(c) for c in cards]
+    return [CardOut.from_card(c) for c in cards]
 
 
 @router.post("/{deck_id}/cards", response_model=CardOut, status_code=201)
 def create_card(request: Request, deck_id: uuid.UUID, payload: CardCreate, db: Session = Depends(get_db)) -> CardOut:
     user = get_current_user(request, db)
-    deck = _get_deck(db, deck_id, user.id)
+    deck = get_owned_deck(db, deck_id, user.id)
     question = payload.question.strip()
     answer = payload.answer.strip()
     if not question or not answer:
         raise HTTPException(400, "A card needs both a question and an answer")
     card = Card(
         deck_id=deck.id,
-        subtopic=(payload.subtopic or "").strip() or None,
+        subtopic=clean_optional(payload.subtopic),
         question=question,
         answer=answer,
     )
     db.add(card)
     db.commit()
     db.refresh(card)
-    return _card_out(card)
+    return CardOut.from_card(card)
 
 
 @router.get("/{deck_id}/study-queue", response_model=StudyQueueOut)
 def study_queue(request: Request, deck_id: uuid.UUID, db: Session = Depends(get_db)) -> StudyQueueOut:
     user = get_current_user(request, db)
-    deck = _get_deck(db, deck_id, user.id)
+    deck = get_owned_deck(db, deck_id, user.id)
 
     prefs = get_settings_row(db, user.id)
 
     now = datetime.now(timezone.utc)
-    live = [c for c in deck.cards if not c.suspended]
-    due_cards = [c for c in live if c.state != CardState.new and c.due is not None and c.due <= now]
-    new_cards = [c for c in live if c.state == CardState.new]
+    live = live_cards(deck)
+    due_cards = [c for c in live if is_due(c, now)]
+    new_cards = [c for c in live if is_new(c)]
     # Most-overdue first, so a session cut short (or trimmed below) spends itself on the cards
     # closest to being forgotten.
     due_cards.sort(key=lambda c: c.due)
@@ -232,7 +209,7 @@ def study_queue(request: Request, deck_id: uuid.UUID, db: Session = Depends(get_
         deck_id=deck.id,
         deck_name=deck.name,
         cards=[
-            StudyCardOut(id=c.id, subtopic=c.subtopic, question=c.question, is_new=c.state == CardState.new, is_math=c.is_math)
+            StudyCardOut(id=c.id, subtopic=c.subtopic, question=c.question, is_new=is_new(c), is_math=c.is_math)
             for c in queue
         ],
     )
@@ -354,5 +331,5 @@ def export_all(request: Request, format: str = "csv", db: Session = Depends(get_
 @router.get("/{deck_id}/export")
 def export_deck(request: Request, deck_id: uuid.UUID, format: str = "csv", db: Session = Depends(get_db)) -> Response:
     user = get_current_user(request, db)
-    deck = _get_deck(db, deck_id, user.id)
+    deck = get_owned_deck(db, deck_id, user.id)
     return _export_response([deck], format, deck.name)

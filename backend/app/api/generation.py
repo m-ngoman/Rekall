@@ -15,12 +15,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from app.api.notes import _resolve_deck
 from app.core.allowance import charge_pages, pages_for, require_pages
 from app.core.auth import get_current_user
 from app.core.entitlements import require_text_ai
+from app.core.ownership import resolve_deck_field
 from app.core.settings_store import require_ai
-from app.core.sse import guard, sse_event
+from app.core.sse import sse_event, sse_response
 from app.core.usage import record
 from app.db import get_db
 from app.models import Card, Deck, Note, PageReason, UsageEventType
@@ -173,7 +173,7 @@ async def generate(
     uploads = await run_in_threadpool(lambda: [decompose(*r) for r in raw])
 
     # Validate the request before charging for it.
-    existing_deck = _resolve_deck(db, user.id, deck_id)
+    existing_deck = resolve_deck_field(db, user.id, deck_id)
     deck_pk = existing_deck.id if existing_deck else None
     user_id = user.id
 
@@ -186,7 +186,7 @@ async def generate(
     def stream() -> Generator[str, None, None]:
         yield from _generate_cards(db, user_id, deck_pk, uploads, deck_name)
 
-    return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")
+    return sse_response(stream(), _GENERATION_FAILED)
 
 
 @router.post("/generate-from-notes")
@@ -202,7 +202,7 @@ def generate_from_notes(request: Request, payload: GenerateFromNotes, db: Sessio
     user = get_current_user(request, db)
     require_ai(db, user.id, "generation")
     require_text_ai(user)
-    existing_deck = _resolve_deck(db, user.id, payload.deck_id)
+    existing_deck = resolve_deck_field(db, user.id, payload.deck_id)
 
     if not payload.note_ids:
         raise HTTPException(400, "No notes selected")
@@ -246,7 +246,7 @@ def generate_from_notes(request: Request, payload: GenerateFromNotes, db: Sessio
         # note lives is the student's call, made in the Notes tab.
         yield from _generate_cards(db, user_id, deck_pk, uploads, payload.deck_name)
 
-    return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")
+    return sse_response(stream(), _GENERATION_FAILED)
 
 
 @router.post("/generate-from-topic")
@@ -266,7 +266,7 @@ def generate_from_topic(request: Request, payload: GenerateFromTopic, db: Sessio
     user = get_current_user(request, db)
     require_ai(db, user.id, "generation")
     require_text_ai(user)
-    existing_deck = _resolve_deck(db, user.id, payload.deck_id)
+    existing_deck = resolve_deck_field(db, user.id, payload.deck_id)
 
     subject = payload.subject.strip()
     topic = payload.topic.strip()
@@ -315,4 +315,4 @@ def generate_from_topic(request: Request, payload: GenerateFromTopic, db: Sessio
 
         yield from _persist_cards(db, user_id, deck_pk, verified, draft.get("deck_name") or topic, payload.deck_name)
 
-    return StreamingResponse(guard(stream(), _GENERATION_FAILED), media_type="text/event-stream")
+    return sse_response(stream(), _GENERATION_FAILED)

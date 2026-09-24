@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.auth import get_current_user
+from app.core.fields import require_name
+from app.core.ownership import get_owned
 from app.db import get_db
 from app.models import Deck, Exam
 from app.schemas import ExamCreate, ExamOut, ExamUpdate
@@ -25,13 +27,6 @@ def _resolve_decks(db: Session, deck_ids: list[uuid.UUID], user_id: uuid.UUID) -
     return decks
 
 
-def _get_exam(db: Session, exam_id: uuid.UUID, user_id: uuid.UUID) -> Exam:
-    exam = db.query(Exam).filter(Exam.id == exam_id, Exam.user_id == user_id).one_or_none()
-    if exam is None:
-        raise HTTPException(404, "Exam not found")
-    return exam
-
-
 @router.get("", response_model=list[ExamOut])
 def list_exams(request: Request, db: Session = Depends(get_db)) -> list[ExamOut]:
     user = get_current_user(request, db)
@@ -48,10 +43,7 @@ def list_exams(request: Request, db: Session = Depends(get_db)) -> list[ExamOut]
 @router.post("", response_model=ExamOut, status_code=201)
 def create_exam(request: Request, payload: ExamCreate, db: Session = Depends(get_db)) -> ExamOut:
     user = get_current_user(request, db)
-    name = payload.name.strip()
-    if not name:
-        raise HTTPException(400, "Name cannot be empty")
-    exam = Exam(user_id=user.id, name=name, date=payload.date)
+    exam = Exam(user_id=user.id, name=require_name(payload.name), date=payload.date)
     exam.decks = _resolve_decks(db, payload.deck_ids, user.id)
     db.add(exam)
     db.commit()
@@ -62,12 +54,9 @@ def create_exam(request: Request, payload: ExamCreate, db: Session = Depends(get
 @router.patch("/{exam_id}", response_model=ExamOut)
 def update_exam(request: Request, exam_id: uuid.UUID, payload: ExamUpdate, db: Session = Depends(get_db)) -> ExamOut:
     user = get_current_user(request, db)
-    exam = _get_exam(db, exam_id, user.id)
+    exam = get_owned(db, Exam, exam_id, user.id, "Exam not found")
     if payload.name is not None:
-        name = payload.name.strip()
-        if not name:
-            raise HTTPException(400, "Name cannot be empty")
-        exam.name = name
+        exam.name = require_name(payload.name)
     if payload.date is not None:
         exam.date = payload.date
     if payload.deck_ids is not None:
@@ -80,6 +69,6 @@ def update_exam(request: Request, exam_id: uuid.UUID, payload: ExamUpdate, db: S
 @router.delete("/{exam_id}", status_code=204)
 def delete_exam(request: Request, exam_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
     user = get_current_user(request, db)
-    exam = _get_exam(db, exam_id, user.id)
+    exam = get_owned(db, Exam, exam_id, user.id, "Exam not found")
     db.delete(exam)
     db.commit()

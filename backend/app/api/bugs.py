@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.auth import require_owner
+from app.core.ownership import get_owned
 from app.db import get_db
 from app.models import BugReport
 from app.schemas import BugReportCreate, BugReportOut
@@ -45,9 +46,7 @@ def list_bugs(request: Request, db: Session = Depends(get_db), include_resolved:
 @router.post("/{bug_id}/resolve", response_model=BugReportOut)
 def resolve_bug(request: Request, bug_id: uuid.UUID, db: Session = Depends(get_db)) -> BugReportOut:
     user = require_owner(request, db)
-    bug = db.query(BugReport).filter(BugReport.id == bug_id, BugReport.user_id == user.id).one_or_none()
-    if bug is None:
-        raise HTTPException(404, "Not found")
+    bug = get_owned(db, BugReport, bug_id, user.id, "Not found")
     bug.resolved_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(bug)
@@ -57,8 +56,6 @@ def resolve_bug(request: Request, bug_id: uuid.UUID, db: Session = Depends(get_d
 @router.delete("/{bug_id}", status_code=204)
 def delete_bug(request: Request, bug_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
     user = require_owner(request, db)
-    bug = db.query(BugReport).filter(BugReport.id == bug_id, BugReport.user_id == user.id).one_or_none()
-    if bug is None:
-        raise HTTPException(404, "Not found")
+    bug = get_owned(db, BugReport, bug_id, user.id, "Not found")
     db.delete(bug)
     db.commit()

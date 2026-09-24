@@ -1,9 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
+from app.core.ownership import get_owned
 from app.db import get_db
 from app.models import MemorySource, StudentMemoryNote
 from app.schemas import MemoryNoteCreate, MemoryNoteOut, MemoryNoteUpdate
@@ -42,13 +43,7 @@ def create_note(request: Request, payload: MemoryNoteCreate, db: Session = Depen
 @router.patch("/{note_id}", response_model=MemoryNoteOut)
 def update_note(request: Request, note_id: uuid.UUID, payload: MemoryNoteUpdate, db: Session = Depends(get_db)) -> MemoryNoteOut:
     user = get_current_user(request, db)
-    note = (
-        db.query(StudentMemoryNote)
-        .filter(StudentMemoryNote.id == note_id, StudentMemoryNote.user_id == user.id)
-        .one_or_none()
-    )
-    if note is None:
-        raise HTTPException(404, "Note not found")
+    note = get_owned(db, StudentMemoryNote, note_id, user.id, "Note not found")
     if payload.category is not None:
         note.category = payload.category
     if payload.content is not None:
@@ -61,12 +56,6 @@ def update_note(request: Request, note_id: uuid.UUID, payload: MemoryNoteUpdate,
 @router.delete("/{note_id}", status_code=204)
 def delete_note(request: Request, note_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
     user = get_current_user(request, db)
-    note = (
-        db.query(StudentMemoryNote)
-        .filter(StudentMemoryNote.id == note_id, StudentMemoryNote.user_id == user.id)
-        .one_or_none()
-    )
-    if note is None:
-        raise HTTPException(404, "Note not found")
+    note = get_owned(db, StudentMemoryNote, note_id, user.id, "Note not found")
     db.delete(note)
     db.commit()

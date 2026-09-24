@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
+from app.core.fields import clean_optional
 from app.core.settings_store import get_settings_row
 from app.db import get_db
 from app.schemas import SettingsOut, SettingsUpdate
@@ -86,8 +87,7 @@ def update_settings(request: Request, payload: SettingsUpdate, db: Session = Dep
         row.theme = payload.theme
 
     if "accent" in sent:
-        accent = (payload.accent or "").strip()
-        row.accent = accent or None
+        row.accent = clean_optional(payload.accent)
 
     if "push_to_talk" in sent and payload.push_to_talk is not None:
         row.push_to_talk = payload.push_to_talk
@@ -109,9 +109,9 @@ def update_settings(request: Request, payload: SettingsUpdate, db: Session = Dep
     # Both nullable and both meaningfully clearable: no voice = provider default, no prompt = none
     # written. So these follow the accent pattern rather than the ints' "None means skip".
     if "tutor_voice_id" in sent:
-        row.tutor_voice_id = (payload.tutor_voice_id or "").strip() or None
+        row.tutor_voice_id = clean_optional(payload.tutor_voice_id)
     if "tutor_custom_prompt" in sent:
-        row.tutor_custom_prompt = (payload.tutor_custom_prompt or "").strip() or None
+        row.tutor_custom_prompt = clean_optional(payload.tutor_custom_prompt)
 
     for field, (low, high) in LIMITS.items():
         if field not in sent:

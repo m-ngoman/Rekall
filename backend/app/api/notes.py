@@ -16,6 +16,8 @@ from starlette.concurrency import run_in_threadpool
 from app.core.allowance import charge_pages, has_pages
 from app.core.auth import get_current_user
 from app.core.entitlements import has_text_ai
+from app.core.fields import clean_optional
+from app.core.ownership import get_owned, get_owned_deck, resolve_deck_field
 from app.core.settings_store import get_settings_row
 from app.core.usage import record
 from app.db import get_db
@@ -65,24 +67,6 @@ def _note_out(note: Note, deck_name: str | None) -> NoteOut:
     )
 
 
-def _resolve_deck(db: Session, user_id: uuid.UUID, deck_id: str) -> Deck | None:
-    """`deck_id` arrives as a form field, so it is an arbitrary string rather than a parsed UUID.
-
-    A value that isn't a uuid at all is answered the same way as one that is but names nobody
-    else's deck — 404. Letting `uuid.UUID()` raise here turned a bad form field into a 500.
-    """
-    if not deck_id.strip():
-        return None
-    try:
-        parsed = uuid.UUID(deck_id)
-    except ValueError:
-        raise HTTPException(404, "Deck not found") from None
-    deck = db.query(Deck).filter(Deck.id == parsed, Deck.user_id == user_id).one_or_none()
-    if deck is None:
-        raise HTTPException(404, "Deck not found")
-    return deck
-
-
 def _deck_for_upload(db: Session, user_id: uuid.UUID, deck_id: str, deck_name: str) -> Deck | None:
     """Resolves the category a note is being filed under: an existing one by id, a named one, or
     none at all. Shared by the upload and the typed-note create, so both file the same way.
@@ -95,7 +79,7 @@ def _deck_for_upload(db: Session, user_id: uuid.UUID, deck_id: str, deck_name: s
     fails afterwards there's no empty category left behind for the user to find and clean up.
     """
     if deck_id.strip():
-        return _resolve_deck(db, user_id, deck_id)
+        return resolve_deck_field(db, user_id, deck_id)
 
     name = deck_name.strip()
     if not name:
@@ -236,14 +220,14 @@ def create_text_note(request: Request, payload: NoteCreate, db: Session = Depend
     """
     user = get_current_user(request, db)
     deck = _deck_for_upload(db, user.id, str(payload.deck_id) if payload.deck_id else "", payload.deck_name)
-    title = (payload.title or "").strip() or None
+    title = clean_optional(payload.title)
     note = Note(
         user_id=user.id,
         deck_id=deck.id if deck else None,
         title=title,
         file_type=NoteFileType.text,
         storage_path=None,
-        ocr_text=payload.text.strip() or None,
+        ocr_text=clean_optional(payload.text),
     )
     db.add(note)
     record(db, user.id, UsageEventType.notes_written)
@@ -254,10 +238,7 @@ def create_text_note(request: Request, payload: NoteCreate, db: Session = Depend
 
 
 def _get_note(db: Session, note_id: uuid.UUID, user_id: uuid.UUID) -> Note:
-    note = db.query(Note).filter(Note.id == note_id, Note.user_id == user_id).one_or_none()
-    if note is None:
-        raise HTTPException(404, "Note not found")
-    return note
+    return get_owned(db, Note, note_id, user_id, "Note not found")
 
 
 @router.get("/{note_id}", response_model=NoteDetailOut)
@@ -301,21 +282,18 @@ def update_note(request: Request, note_id: uuid.UUID, payload: NoteUpdate, db: S
 
     if "title" in payload.model_fields_set:
         # Whitespace-only is treated as clearing the name, not as a name made of spaces.
-        cleaned = (payload.title or "").strip()
-        note.title = cleaned or None
+        note.title = clean_optional(payload.title)
 
     if "text" in payload.model_fields_set:
         # Stored the way the transcription is: NULL when there's nothing, so "no text" has one
         # spelling for search and previews. Only the ends are trimmed — inner whitespace is
         # markdown structure.
-        note.ocr_text = (payload.text or "").strip() or None
+        note.ocr_text = clean_optional(payload.text)
 
     if "deck_id" in payload.model_fields_set:
         deck = None
         if payload.deck_id is not None:
-            deck = db.query(Deck).filter(Deck.id == payload.deck_id, Deck.user_id == user.id).one_or_none()
-            if deck is None:
-                raise HTTPException(404, "Deck not found")
+            deck = get_owned_deck(db, payload.deck_id, user.id)
         note.deck_id = deck.id if deck else None
 
     db.commit()
@@ -337,9 +315,7 @@ def unfile_category(request: Request, payload: UnfileCategory, db: Session = Dep
     whose method matches.
     """
     user = get_current_user(request, db)
-    deck = db.query(Deck).filter(Deck.id == payload.deck_id, Deck.user_id == user.id).one_or_none()
-    if deck is None:
-        raise HTTPException(404, "Category not found")
+    deck = get_owned(db, Deck, payload.deck_id, user.id, "Category not found")
     unfiled = (
         db.query(Note)
         .filter(Note.user_id == user.id, Note.deck_id == deck.id)

@@ -15,11 +15,13 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.auth import current_user_or_none, get_current_user
 from app.core.entitlements import charge_voice, credits_for_stt, require_text_ai, require_voice
+from app.core.fields import clean_optional
+from app.core.ownership import get_owned, get_owned_deck
 from app.core.settings_store import get_settings_row, require_ai
 from app.core.sse import sse_event, sse_response
 from app.core.usage import record
 from app.db import SessionLocal, get_db
-from app.models import CreditReason, Deck, TutorSession, UsageEventType, User
+from app.models import CreditReason, TutorSession, UsageEventType, User
 from app.schemas import TutorSessionCreate, TutorSessionOut, TutorSessionUpdate, TutorVoiceOut, VoiceTurnTextRequest
 from app.services.live_stt import relay as relay_live_stt
 from app.services.stt import transcribe
@@ -40,10 +42,7 @@ def _session_out(session: TutorSession) -> TutorSessionOut:
 
 
 def _get_session(db: Session, session_id: uuid.UUID, user_id: uuid.UUID) -> TutorSession:
-    session = db.query(TutorSession).filter(TutorSession.id == session_id, TutorSession.user_id == user_id).one_or_none()
-    if session is None:
-        raise HTTPException(404, "Tutor session not found")
-    return session
+    return get_owned(db, TutorSession, session_id, user_id, "Tutor session not found")
 
 
 def _require_voice_tutor(db: Session, user: User) -> None:
@@ -77,8 +76,7 @@ def create_session(request: Request, payload: TutorSessionCreate, db: Session = 
     # Checked rather than left to the foreign key: an unknown deck was a 500 from the violation,
     # and someone else's deck was accepted, grounding the conversation in cards that aren't yours.
     if payload.deck_id is not None:
-        if db.query(Deck).filter(Deck.id == payload.deck_id, Deck.user_id == user.id).one_or_none() is None:
-            raise HTTPException(404, "Deck not found")
+        get_owned_deck(db, payload.deck_id, user.id)
     prefs = get_settings_row(db, user.id)
     session = TutorSession(
         user_id=user.id,
@@ -110,10 +108,10 @@ def update_session(request: Request, session_id: uuid.UUID, payload: TutorSessio
     # Cleaned as the settings endpoint cleans the same two defaults, since this writes them too:
     # trimmed, and blank stored as no value rather than as an empty string.
     if payload.custom_prompt is not None:
-        session.custom_prompt = payload.custom_prompt.strip() or None
+        session.custom_prompt = clean_optional(payload.custom_prompt)
         prefs.tutor_custom_prompt = session.custom_prompt
     if payload.voice_id is not None:
-        session.voice_id = payload.voice_id.strip() or None
+        session.voice_id = clean_optional(payload.voice_id)
         prefs.tutor_voice_id = session.voice_id
     db.commit()
     db.refresh(session)

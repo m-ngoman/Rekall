@@ -10,6 +10,7 @@ from datetime import date as Date, datetime
 from pydantic import BaseModel
 
 from app.models import (
+    Card,
     CardState,
     GradingStrictness,
     InputMode,
@@ -201,6 +202,18 @@ class CardOut(BaseModel):
     state: CardState
     reviews: int
     is_math: bool
+
+    @classmethod
+    def from_card(cls, card: Card) -> CardOut:
+        return cls(
+            id=card.id,
+            subtopic=card.subtopic,
+            question=card.question,
+            answer=card.answer,
+            state=card.state,
+            reviews=card.reviews,
+            is_math=card.is_math,
+        )
 
 
 class CardCreate(BaseModel):

@@ -9,14 +9,14 @@ from sqlalchemy.orm import Session
 from app.core.allowance import charge_grade, require_grading_headroom
 from app.core.auth import get_current_user
 from app.core.entitlements import require_text_ai
+from app.core.fields import clean_optional
+from app.core.ownership import get_owned_card
 from app.core.settings_store import get_settings_row
-from app.core.sse import guard, sse_event
+from app.core.sse import sse_event, sse_response
 from app.core.usage import record
 from app.db import get_db
 from app.models import (
-    Card,
     CardState,
-    Deck,
     Feedback,
     FeedbackCategory,
     InputMode,
@@ -45,14 +45,7 @@ def reveal_answer(request: Request, card_id: uuid.UUID, db: Session = Depends(ge
     from choosing to look at their own flashcard.
     """
     user = get_current_user(request, db)
-    card = (
-        db.query(Card)
-        .join(Deck, Card.deck_id == Deck.id)
-        .filter(Card.id == card_id, Deck.user_id == user.id)
-        .one_or_none()
-    )
-    if card is None:
-        raise HTTPException(404, "Card not found")
+    card = get_owned_card(db, card_id, user.id)
     return {"answer": card.answer}
 
 
@@ -100,14 +93,7 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
     retention = prefs.fsrs_retention_pct / 100
     max_interval_days = prefs.fsrs_max_interval_days
 
-    card = (
-        db.query(Card)
-        .join(Deck, Card.deck_id == Deck.id)
-        .filter(Card.id == card_id, Deck.user_id == user.id)
-        .one_or_none()
-    )
-    if card is None:
-        raise HTTPException(404, "Card not found")
+    card = get_owned_card(db, card_id, user.id)
     is_math = card.is_math
 
     def stream() -> Generator[str, None, None]:
@@ -192,23 +178,7 @@ def submit_review(request: Request, card_id: uuid.UUID, payload: ReviewRequest, 
 
     # A grader that dies mid-answer used to end the stream with no `done` event, which left the
     # study screen stuck on "Checking" with no way forward. Now it says so.
-    return StreamingResponse(
-        guard(stream(), "Grading failed. Try answering again."),
-        media_type="text/event-stream",
-    )
-
-
-def _get_owned_card(db: Session, card_id: uuid.UUID, user_id: uuid.UUID) -> Card:
-    """Ownership runs through the deck — cards have no user of their own."""
-    card = (
-        db.query(Card)
-        .join(Deck, Card.deck_id == Deck.id)
-        .filter(Card.id == card_id, Deck.user_id == user_id)
-        .one_or_none()
-    )
-    if card is None:
-        raise HTTPException(404, "Card not found")
-    return card
+    return sse_response(stream(), "Grading failed. Try answering again.")
 
 
 @router.patch("/{card_id}", response_model=CardOut)
@@ -218,7 +188,7 @@ def update_card(request: Request, card_id: uuid.UUID, payload: CardUpdate, db: S
     outcome than a slightly stale interval on the rare rewrite.
     """
     user = get_current_user(request, db)
-    card = _get_owned_card(db, card_id, user.id)
+    card = get_owned_card(db, card_id, user.id)
 
     if payload.question is not None:
         question = payload.question.strip()
@@ -233,26 +203,18 @@ def update_card(request: Request, card_id: uuid.UUID, payload: CardUpdate, db: S
     # Sent-but-empty clears the subtopic, so this follows the accent/note pattern rather than
     # treating None as "leave alone".
     if "subtopic" in payload.model_fields_set:
-        card.subtopic = (payload.subtopic or "").strip() or None
+        card.subtopic = clean_optional(payload.subtopic)
 
     db.commit()
     db.refresh(card)
-    return CardOut(
-        id=card.id,
-        subtopic=card.subtopic,
-        question=card.question,
-        answer=card.answer,
-        state=card.state,
-        reviews=card.reviews,
-        is_math=card.is_math,
-    )
+    return CardOut.from_card(card)
 
 
 @router.delete("/{card_id}", status_code=204)
 def delete_card(request: Request, card_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
     """The card's review history goes with it (review_logs.card_id is ON DELETE CASCADE)."""
     user = get_current_user(request, db)
-    card = _get_owned_card(db, card_id, user.id)
+    card = get_owned_card(db, card_id, user.id)
     db.delete(card)
     db.commit()
 
@@ -272,14 +234,7 @@ def report_card(request: Request, card_id: uuid.UUID, db: Session = Depends(get_
     know what their course actually teaches.
     """
     user = get_current_user(request, db)
-    card = (
-        db.query(Card)
-        .join(Deck, Card.deck_id == Deck.id)
-        .filter(Card.id == card_id, Deck.user_id == user.id)
-        .one_or_none()
-    )
-    if card is None:
-        raise HTTPException(404, "Card not found")
+    card = get_owned_card(db, card_id, user.id)
 
     if not card.suspended:
         card.suspended = True
@@ -318,14 +273,7 @@ def add_to_study_list(request: Request, card_id: uuid.UUID, db: Session = Depend
     reachable again on a relearn of the same card.
     """
     user = get_current_user(request, db)
-    card = (
-        db.query(Card)
-        .join(Deck, Card.deck_id == Deck.id)
-        .filter(Card.id == card_id, Deck.user_id == user.id)
-        .one_or_none()
-    )
-    if card is None:
-        raise HTTPException(404, "Card not found")
+    card = get_owned_card(db, card_id, user.id)
 
     exists = (
         db.query(StudyListEntry)

@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.auth import get_current_user
 from app.core.settings_store import get_settings_row
 from app.db import get_db
-from app.models import CardState, Deck, ReviewLog
+from app.models import Deck, ReviewLog
 from app.schemas import DashboardOut
 from app.services.exam_status import boosted_new_cap, exam_paused, today_utc
+from app.services.study_plan import is_due, is_new, live_cards
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -45,9 +46,9 @@ def get_dashboard(request: Request, db: Session = Depends(get_db)) -> DashboardO
         # library). Must match the study queue's view of "paused" — both go through exam_status.
         if exam_paused(deck, today):
             continue
-        live = [c for c in deck.cards if not c.suspended]
-        due_count = sum(1 for c in live if c.state != CardState.new and c.due is not None and c.due <= now)
-        new_count = sum(1 for c in live if c.state == CardState.new)
+        live = live_cards(deck)
+        due_count = sum(1 for c in live if is_due(c, now))
+        new_count = sum(1 for c in live if is_new(c))
         new_served = min(new_count, boosted_new_cap(deck, today, prefs.new_cards_per_day, new_count))
         remaining += due_count + new_served
 
@@ -109,10 +110,8 @@ def get_load(
         if exam_paused(deck, today):
             continue
         new_count = 0
-        for c in deck.cards:
-            if c.suspended:
-                continue
-            if c.state == CardState.new:
+        for c in live_cards(deck):
+            if is_new(c):
                 new_count += 1
                 continue
             if c.due is None:
