@@ -16,8 +16,13 @@ import { daysUntil, formatDayLong } from '../lib/dates'
 import { upcomingExams } from '../lib/exams'
 import { useCachedResource } from '../hooks/useCachedResource'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
+import { useAutosizeTextarea } from '../hooks/useAutosizeTextarea'
+import { useFollowLatest } from '../hooks/useFollowLatest'
 import { useMicRecorder } from '../hooks/useMicRecorder'
 import { useRevealText } from '../hooks/useRevealText'
+import { useTypewriter } from '../hooks/useTypewriter'
+import { findListedBug, renderBugs } from '../lib/bugCommands'
+import { wordStarts } from '../lib/wordTimings'
 import type { BugReport, Exam, MemoryCategory, MemoryNote, Settings, TutorPersonality, TutorSession, TutorVoice, WordTiming } from '../types'
 
 /** The plot renderer and its parser, as a third lazy chunk. A conversation about history never
@@ -47,11 +52,6 @@ const STATUS_LABEL: Record<OrbState, string> = {
   thinking: 'Thinking…',
   speaking: 'Speaking…',
 }
-
-/** How far the reader may drift from the newest line and still count as following it. Wide
- * enough that a nudge of the wheel, or a phone's rubber-band bounce, doesn't let go; narrow
- * enough that a deliberate scroll up does. */
-const STICK_SLACK = 64
 
 /** Tap-to-fill starters for the empty tutor screen. Deliberately phrased around what this tutor
  * can actually do given its grounding (it reads your weak cards — see tutor_prompt.py) rather
@@ -321,141 +321,9 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
       .catch(() => setMemoryNotes([]))
   }, [])
 
-  /* The log follows its newest line while a reply streams, and lets go the moment the reader
-   * scrolls away from it.
-   *
-   * This was one line — scrollIntoView on every `messages` change — and `typeInto` below calls
-   * setMessages on a 20ms interval, so it re-pinned fifty times a second and could not tell the
-   * reader's scroll from its own. Measured before the fix: scrolling down 400px mid-reply was
-   * dragged back up 319px inside 200ms, in a visible series of steps, because each call replaced
-   * the in-flight smooth animation with a new one. `block: 'end'` was aiming at the wrong place
-   * besides — it aligns the anchor with the viewport bottom, which put 173px of the newest reply
-   * behind the composer, which is what the reader was scrolling down to uncover.
-   */
+  const { away, pinToLatest, rejoin } = useFollowLatest(logRef, bottomRef, composerRef, messages)
 
-  /** How much room above the viewport bottom the newest line needs: the composer's own height
-   * plus a gap. Measured rather than a constant, because the composer grows with a wrapped draft
-   * and with an attached photo, and sits at a different offset on desktop. */
-  const clearance = () => {
-    const el = composerRef.current
-    return el ? window.innerHeight - el.getBoundingClientRect().top + 12 : 180
-  }
-
-  /** How far the log has drifted below where it should rest. Negative means it is already clear. */
-  const drift = () => {
-    const el = bottomRef.current
-    return el ? el.getBoundingClientRect().bottom - window.innerHeight + clearance() : 0
-  }
-
-  /** Where `follow` last put the page. Anything else means the reader moved it.
-   *
-   * This ref is the whole answer to a pair of races, and both were measured rather than guessed.
-   * Scroll events are dispatched at the next rendering opportunity; a ResizeObserver callback
-   * runs *before* that. So within one frame the log can grow, the observer can fire, and a scroll
-   * event describing a position from before the growth can arrive afterwards — in either order
-   * relative to a scroll the reader just made. Geometry alone cannot tell "the reader scrolled
-   * up" from "the log grew downward", because both move the anchor the same way. Comparing the
-   * page against where we last put it can.
-   */
-  const ourScrollRef = useRef(0)
-
-  /** Settle whether the log is still following, from where the page is right now. */
-  const decide = () => {
-    const stuck = drift() <= STICK_SLACK
-    stickRef.current = stuck
-    setAway(!stuck)
-  }
-
-  const follow = (force = false) => {
-    // The page is somewhere we did not put it, so the reader moved it and the event saying so may
-    // not have been dispatched yet. Losing this one re-engaged the follow permanently, because
-    // the override lands exactly on the anchor.
-    if (!force && Math.abs(window.scrollY - ourScrollRef.current) > 1) decide()
-    if (!stickRef.current) return
-
-    const by = drift()
-    // Downward only, and instantly. The log grows downward, so a follow that scrolls *up* is
-    // never following — it is undoing a scroll the reader just made. Instant rather than smooth
-    // because at 20ms the deltas are a few pixels (it reads as smooth anyway), a restarted smooth
-    // animation never settles, and landing exactly on the target is what makes `drift` a
-    // trustworthy answer to "is the reader still with us".
-    if (by > 0) {
-      window.scrollTo(0, window.scrollY + by)
-      ourScrollRef.current = window.scrollY
-    }
-  }
-
-  /** Whether the log is still tracking its newest line. A ref because `follow` consults it on a
-   * 20ms tick and must not re-render; `away` is the same fact as state, for the pill. */
-  const stickRef = useRef(true)
-  const [away, setAway] = useState(false)
-
-  const pinToLatest = () => {
-    stickRef.current = true
-    setAway(false)
-    // Forced: the reader is by definition somewhere we did not put them, which is the one case
-    // where that must not be read as "they want to stay here".
-    follow(true)
-  }
-
-  useEffect(() => {
-    const onScroll = () => {
-      // Only the reader's scrolls get a say. Our own arrive a frame late, by which time the log
-      // may have grown underneath them — and a log that grew looks exactly like a reader who
-      // scrolled up. That misreading stranded the follow 300px short every time a plot finished
-      // measuring itself in the same frame, which is how it was found.
-      if (Math.abs(window.scrollY - ourScrollRef.current) <= 1) return
-      // Asymmetric by construction: scrolling further down only makes `drift` more negative, so
-      // the reader can overscroll into the log's bottom padding without losing the follow. Only
-      // scrolling *up*, past the slack, lets go.
-      decide()
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  // Driven by the column's height rather than by `messages`, because the two are not the same
-  // event: a plot measures its container and renders a frame after the state change that carried
-  // it, and the lazy KaTeX chunk reflows whenever it finishes loading. Both grow the log after
-  // the message they belong to was already handled.
-  useEffect(() => {
-    const el = logRef.current
-    if (!el) return
-    // Not `new ResizeObserver(follow)`: that hands the entries array in as `force`.
-    const observer = new ResizeObserver(() => follow())
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  // The discrete case the observer misses: content that changes without changing the height.
-  useEffect(() => {
-    follow()
-  }, [messages])
-
-  // useLayoutEffect, not useEffect: this measures the textarea and then writes a pixel height
-  // onto it. In a passive effect that write lands *after* the browser has painted, so opening the
-  // tutor tab showed the composer at its natural height and then resized it a frame later —
-  // visible as a delayed jump.
-  useLayoutEffect(() => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-  }, [draft])
-
-  // The height above is measured in whatever font is rendering at the time. On a cold load that's
-  // the fallback, and Nunito swapping in afterwards changes the line box — leaving the composer
-  // sized for a font it is no longer using.
-  useEffect(() => {
-    document.fonts?.ready
-      .then(() => {
-        const el = textareaRef.current
-        if (!el) return
-        el.style.height = 'auto'
-        el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-      })
-      .catch(() => {})
-  }, [])
+  useAutosizeTextarea(textareaRef, draft, 120)
 
   // Mount on enter (the layout effect below does the actual FLIP-from-the-button animation once
   // it's in the DOM); on exit, animate straight from wherever it currently sits back onto the
@@ -513,12 +381,10 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
       // Synchronous, not in a rAF: this has to land before the browser paints the first frame of
       // the overlay's fade, so the jump to the newest message happens while it's still opaque.
       window.scrollTo(0, scrollY)
-      // Through `follow`, so the newest line clears the composer here too, and so the log is
+      // Through `pinToLatest`, so the newest line clears the composer here too, and so the log is
       // tracking again — whatever arrived while the overlay was up is what you want to be looking
       // at on the way out.
-      stickRef.current = true
-      setAway(false)
-      follow(true)
+      pinToLatest()
     }
   }, [voiceModeActive])
 
@@ -584,45 +450,14 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     })
   }, [orbMounted])
 
-  /** When the voice reaches each word of the sentence being spoken, in seconds into that
-   * sentence's own audio.
-   *
-   * Cartesia reports real per-word timings alongside the audio, so there is normally nothing to
-   * estimate. Two fallbacks keep this honest rather than brittle:
-   *  - counts disagree (the synthesizer normalized something — "$5" spoken as two words), so
-   *    written words are mapped proportionally onto the real timings. Still anchored to the
-   *    actual audio, just coarser.
-   *  - no timings at all (Chatterbox), so the old letter-weighted estimate stands in. It ran up
-   *    to ~0.35s ahead of the voice when measured, which is why it's the last resort.
-   */
+  /** When the voice reaches each word of the sentence being spoken — see wordStarts. */
   // Keyed on the sentence's *text*, not the sentences array: a later sentence arriving mid-speech
   // must not give this a new identity, or the sweep effect below would restart and re-flash every
   // word already lit.
   const speakingSentence = speakingIdx >= 0 ? voiceSentences[speakingIdx] ?? '' : ''
   const currentWords = useMemo(() => {
     if (speakingIdx < 0 || !speakingSentence) return null
-    const words = speakingSentence.split(/\s+/).filter(Boolean)
-    const timings = sentenceWordsRef.current[speakingIdx] ?? []
-
-    if (timings.length === words.length) {
-      return words.map((word, i) => ({ word, start: timings[i].s }))
-    }
-    if (timings.length > 0) {
-      return words.map((word, i) => ({
-        word,
-        start: timings[Math.min(timings.length - 1, Math.floor((i * timings.length) / words.length))].s,
-      }))
-    }
-
-    const duration = sentenceDurationsRef.current[speakingIdx] ?? words.length * 0.36
-    const weights = words.map((w) => w.length + 2)
-    const total = weights.reduce((a, b) => a + b, 0)
-    let acc = 0
-    return words.map((word, i) => {
-      const start = (duration * acc) / total
-      acc += weights[i]
-      return { word, start }
-    })
+    return wordStarts(speakingSentence, sentenceWordsRef.current[speakingIdx] ?? [], sentenceDurationsRef.current[speakingIdx])
   }, [speakingIdx, speakingSentence])
 
   /** Drives the sweep off the audio clock rather than firing all the animations at once with CSS
@@ -676,74 +511,13 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     setMemoryNotes((prev) => prev?.filter((n) => n.id !== id) ?? null)
   }
 
-  /** Reveals an assistant message's text a few characters at a time instead of popping in
-   * whatever chunk just arrived over the wire — used by both the typed and voice reply paths so
-   * there's one typewriter, not two. Chunk size varies a lot between the two (typed replies
-   * stream near-per-token; voice replies arrive a whole synthesized sentence at a time), so the
-   * per-tick step is adaptive: small step when text is trickling in (smooth per-character feel),
-   * bigger step when a large chunk just landed (catches up in ~15 ticks instead of visibly
-   * lagging behind the real content for a second-plus).
-   */
-  const typewriterRef = useRef<{ target: string; timer: number | null }>({ target: '', timer: null })
-
-  const typeInto = (fullText: string) => {
-    const state = typewriterRef.current
-    state.target = fullText
-    if (state.timer) return
-    state.timer = window.setInterval(() => {
-      setMessages((prev) => {
-        // Always types into the trailing assistant message rather than a captured index. The old
-        // index was captured inside a setMessages updater, which React runs later — so on a
-        // reply's FIRST chunk it was still -1 and the reveal wrote into array[-1], i.e. nowhere.
-        // Multi-chunk replies self-healed on chunk two; a single-sentence voice reply never got
-        // one, stayed empty forever, and vanished when the karaoke cleared. While a reply is
-        // being revealed it is by construction the last message, so "the last message, if it's
-        // the assistant's" is both simpler and correct.
-        const last = prev[prev.length - 1]
-        if (!last || last.role !== 'assistant' || last.text.length >= state.target.length) {
-          if (state.timer) {
-            clearInterval(state.timer)
-            state.timer = null
-          }
-          return prev
-        }
-        const behind = state.target.length - last.text.length
-        const step = Math.max(1, Math.ceil(behind / 15))
-        const next = [...prev]
-        next[next.length - 1] = { ...last, text: state.target.slice(0, last.text.length + step) }
-        return next
-      })
-    }, 20)
-  }
-
-  /** Freezes the typewriter mid-reveal — for a pause/barge-in interrupt, where the point is that
-   * the tutor stops talking right now, not that the remaining text pops in immediately.
-   */
-  const stopTypewriter = () => {
-    const state = typewriterRef.current
-    if (state.timer) {
-      clearInterval(state.timer)
-      state.timer = null
-    }
-  }
-
-  useEffect(() => stopTypewriter, [])
+  const { typeInto, stopTypewriter } = useTypewriter(setMessages)
 
   // --- Owner-only bug inbox -------------------------------------------------------------------
   // Somewhere to drop "fix this later" without leaving whatever I was doing. Handled entirely on
   // the client: the text never reaches the tutor, so it costs nothing, arrives verbatim, and no
   // model tries to be helpful about a bug it can't fix. Everyone else's /bug is just a message.
   const bugListRef = useRef<BugReport[]>([])
-
-  const renderBugs = (bugs: BugReport[]): string => {
-    if (!bugs.length) return 'No open bugs.'
-    const lines = bugs.map((b, i) => {
-      const days = Math.floor((Date.now() - new Date(b.created_at).getTime()) / 86400000)
-      const when = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days}d ago`
-      return `${i + 1}. ${b.text}  (${when})`
-    })
-    return `${bugs.length} open:\n${lines.join('\n')}\n\n/bugs done <number> to clear one.`
-  }
 
   /** Handles a slash command typed into the composer. Returns true if it was one, in which case
    * nothing is sent to the tutor. */
@@ -779,12 +553,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     // /bugs [done <n|id-prefix>]
     const doneMatch = /^done\s+(\S+)$/i.exec(args)
     if (doneMatch) {
-      const key = doneMatch[1]
-      const list = bugListRef.current
-      // A list position is far easier to type on a phone than a UUID, so a plain number means
-      // "the nth of the listing you just showed me"; anything else is matched as an id prefix.
-      const byIndex = /^\d+$/.test(key) ? list[Number(key) - 1] : undefined
-      const target = byIndex ?? list.find((b) => b.id.startsWith(key.toLowerCase()))
+      const target = findListedBug(bugListRef.current, doneMatch[1])
       if (!target) {
         say('No such bug in the last listing. Run /bugs first.')
         return true
@@ -835,8 +604,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     textTurnInFlightRef.current = true
     // Sending takes you to the bottom even if you had scrolled up to re-read something: you just
     // added the newest line yourself.
-    stickRef.current = true
-    setAway(false)
+    rejoin()
     setDraft('')
     setPendingImage(null)
     setError(null)
