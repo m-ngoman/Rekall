@@ -88,7 +88,7 @@ def test_a_failed_write_is_logged_not_raised(client, monkeypatch, caplog) -> Non
         def __exit__(self, *exc):
             return False
 
-    monkeypatch.setattr(spend_log, "SessionLocal", lambda: Broken())
+    monkeypatch.setattr(spend_log, "SpendSession", lambda: Broken())
     spend_log.from_usage(dev_user_id(client), "grading", _USAGE)
     assert "could not record grading spend" in caplog.text
 

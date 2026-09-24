@@ -24,7 +24,7 @@ from decimal import Decimal
 
 from sqlalchemy import text
 
-from app.db import SessionLocal
+from app.db import SpendSession
 from app.models import SpendEvent
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def _write(row: SpendEvent) -> None:
     price for never hanging a turn.
     """
     try:
-        with SessionLocal() as db:
+        with SpendSession() as db:
             db.execute(text("SET LOCAL lock_timeout = '2s'"))
             db.add(row)
             db.commit()

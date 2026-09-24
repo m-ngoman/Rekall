@@ -132,6 +132,14 @@ def stream_reply(
     db.commit()
 
     history = db.query(TutorMessage).filter(TutorMessage.session_id == session.id).order_by(TutorMessage.created_at).all()
+    # Counted now, while the rows are loaded: every commit below expires them, and reading
+    # `created_at` afterwards would reload each message with a query of its own.
+    carried = history
+    if session.summary and session.summarized_through:
+        carried = [m for m in history if m.created_at > session.summarized_through]
+    carried_count = len(carried)
+    user_id = session.user_id
+    feature = "tutor_voice" if synth else "tutor_text"
     # `synth` is also what decides how the reply may be written: spoken turns get plain words for
     # the synthesizer, typed turns get LaTeX the screen renders.
     # Two halves, and the boundary is handed to the provider so it can cache them separately:
@@ -199,54 +207,72 @@ def stream_reply(
     # outgrown carrying its opening verbatim. Captured in a cell rather than assigned directly
     # because the callback fires inside the generator.
     usage_seen: dict = {}
-    for piece in stream_chat(messages, on_usage=usage_seen.update, system_prefix_chars=len(stable)):
-        pending, markers, new_traces = pop_markers(pending + piece)
-        # Every trace is a graph's — an exam offer leaves none — and a voice turn never shows a
-        # graph, so keeping one there stored "[Graph shown: …]" for a graph nobody saw, which the
-        # tutor then read back as something it had drawn.
+
+    def usage_arrived(usage: dict) -> None:
+        usage_seen.update(usage)
+        # Recorded the moment the provider prices the reply, not after the turn: a synthesis
+        # failure or a dropped connection after this point loses the turn, but the model was
+        # still paid for.
+        spend_log.from_usage(user_id, feature, usage, model=settings.openrouter_model)
+
+    def _reply_events() -> Generator[str, None, None]:
+        nonlocal pending, full_reply, trim_leading, traces
+        for piece in stream_chat(messages, on_usage=usage_arrived, system_prefix_chars=len(stable)):
+            pending, markers, new_traces = pop_markers(pending + piece)
+            # Every trace is a graph's — an exam offer leaves none — and a voice turn never shows a
+            # graph, so keeping one there stored "[Graph shown: …]" for a graph nobody saw, which the
+            # tutor then read back as something it had drawn.
+            if not synth:
+                traces += new_traces
+            for event, payload in markers:
+                # Always strip, conditionally render. A plot on a voice turn is ignored rather than
+                # spoken — the marker is gone either way, so the synthesizer can never read it out.
+                if event == "plot" and synth:
+                    continue
+                yield sse_event(event, payload)
+            trim_leading = trim_leading or bool(markers)
+
+            safe, hold = split_safe(pending)
+            if trim_leading and safe:
+                safe = safe.lstrip("\n")
+                trim_leading = not safe
+            if synth:
+                sentences, leftover = _extract_sentences(safe, final=False)
+                for sentence in sentences:
+                    full_reply += sentence + " "
+                    yield speak(sentence)
+                pending = leftover + hold
+            else:
+                if safe:
+                    full_reply += safe
+                    yield sse_event("token", {"text": safe})
+                pending = hold
+
+        # Anything still held at the end was never going to become a marker.
+        pending, markers, new_traces = pop_markers(pending, final=True)
         if not synth:
             traces += new_traces
         for event, payload in markers:
-            # Always strip, conditionally render. A plot on a voice turn is ignored rather than
-            # spoken — the marker is gone either way, so the synthesizer can never read it out.
             if event == "plot" and synth:
                 continue
             yield sse_event(event, payload)
-        trim_leading = trim_leading or bool(markers)
 
-        safe, hold = split_safe(pending)
-        if trim_leading and safe:
-            safe = safe.lstrip("\n")
-            trim_leading = not safe
         if synth:
-            sentences, leftover = _extract_sentences(safe, final=False)
+            sentences, _ = _extract_sentences(pending, final=True)
             for sentence in sentences:
                 full_reply += sentence + " "
                 yield speak(sentence)
-            pending = leftover + hold
-        else:
-            if safe:
-                full_reply += safe
-                yield sse_event("token", {"text": safe})
-            pending = hold
+        elif pending:
+            full_reply += pending
+            yield sse_event("token", {"text": pending})
 
-    # Anything still held at the end was never going to become a marker.
-    pending, markers, new_traces = pop_markers(pending, final=True)
-    if not synth:
-        traces += new_traces
-    for event, payload in markers:
-        if event == "plot" and synth:
-            continue
-        yield sse_event(event, payload)
-
-    if synth:
-        sentences, _ = _extract_sentences(pending, final=True)
-        for sentence in sentences:
-            full_reply += sentence + " "
-            yield speak(sentence)
-    elif pending:
-        full_reply += pending
-        yield sse_event("token", {"text": pending})
+    try:
+        yield from _reply_events()
+    finally:
+        # Speech is billed per character synthesized, so a turn that fails or is abandoned
+        # partway has still paid for every sentence it spoke.
+        if spoken_chars:
+            spend_log.estimated(user_id, "tts", spoken_chars * settings.tts_usd_per_million_chars / 1e6)
 
     # The trace goes into the stored message, never into what was streamed: `full_reply` is what
     # the student actually saw, and `done.reply` still reports exactly that.
@@ -266,18 +292,10 @@ def stream_reply(
     # billed nothing, and a zero-count row would say it did.
     if spoken_chars:
         record(db, session.user_id, UsageEventType.tts_characters, count=spoken_chars)
-        spend_log.estimated(session.user_id, "tts", spoken_chars * settings.tts_usd_per_million_chars / 1e6)
         # Recorded for everyone, charged only to accounts that fund themselves. The meter answers
         # "what did this cost"; the ledger answers "who owes for it", and friends are absorbed by
         # design without making their usage invisible.
         charge_voice(db, session.user_id, credits_for_tts(spoken_chars), CreditReason.voice_tts)
-    # What this turn actually cost, as the provider priced it. Recorded before the commit so it
-    # shares the transaction with the turn it describes.
-    spend_log.from_usage(session.user_id,
-        "tutor_voice" if synth else "tutor_text",
-        usage_seen,
-        model=settings.openrouter_model,
-    )
     db.commit()
 
     # Periodically let the tutor write to its own memory file. Scheduled before `done` is yielded
@@ -291,10 +309,7 @@ def stream_reply(
     if prompt_tokens := usage_seen.get("prompt_tokens"):
         session.last_prompt_tokens = prompt_tokens
         db.commit()
-    carried = history
-    if session.summary and session.summarized_through:
-        carried = [m for m in history if m.created_at > session.summarized_through]
     # +1 for the reply just stored, which `history` was read before.
-    compact_if_due(session, len(carried) + 1)
+    compact_if_due(session, carried_count + 1)
 
     yield sse_event("done", {"transcript": user_text, "reply": full_reply.strip()})

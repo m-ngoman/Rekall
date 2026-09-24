@@ -122,6 +122,8 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
   const textTurnInFlightRef = useRef(false)
   /** The typed reply in flight, so starting a new conversation can stop it — see handleNewConversation. */
   const textTurnAbortRef = useRef<AbortController | null>(null)
+  /** A session is being requested — at mount or by New — so New shouldn't offer itself twice. */
+  const [startingSession, setStartingSession] = useState(true)
   const [openPopover, setOpenPopover] = useState<Popover | null>(null)
   const [voices, setVoices] = useState<TutorVoice[] | null>(null)
   const [memoryNotes, setMemoryNotes] = useState<MemoryNote[] | null>(null)
@@ -257,6 +259,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     // whether this is the one you were last in or a new one, so a refresh or a trip to another
     // tab comes back to what you were saying instead of throwing it away.
     startTutorSession()
+      .finally(() => setStartingSession(false))
       .then((start) => {
         setSession(start.session)
         if (start.messages.length) {
@@ -604,12 +607,15 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     setError(null)
     setOpenPopover(null)
 
+    setStartingSession(true)
     try {
       const start = await startTutorSession(undefined, true)
       setSession(start.session)
     } catch (e) {
       setPaywall(e instanceof PaymentRequired)
       setError(e instanceof PaymentRequired ? e.message : 'Could not start a new conversation.')
+    } finally {
+      setStartingSession(false)
     }
   }
 
@@ -1108,7 +1114,9 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
             onAddMemory={handleAddMemory}
             onDeleteMemory={handleDeleteMemory}
             onDeleteProfileLine={handleDeleteProfileLine}
-            onNewConversation={messages.length > 0 ? handleNewConversation : null}
+            // Also offered with no session at all, as the way to try again: after a failed start the
+            // log is empty, sending needs a session, and without this nothing on screen recovers.
+            onNewConversation={messages.length > 0 || (!session && !startingSession) ? handleNewConversation : null}
           />
         </div>
       </div>
