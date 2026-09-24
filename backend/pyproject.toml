@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "PipCards API"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
+    # 0.118 is where a yield dependency's cleanup moved back to after the response is sent. From
+    # 0.106 to 0.117 it ran first, so get_db's session was closed before a StreamingResponse body
+    # started, and the review, generation and tutor streams all write through that session.
+    "fastapi>=0.118",
     "uvicorn[standard]>=0.32",
     "sqlalchemy>=2.0",
     "psycopg[binary]>=3.2",
