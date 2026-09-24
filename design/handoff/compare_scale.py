@@ -1,4 +1,4 @@
-"""Three-up sheets for the type-scale decision: mock | app at 106% (live) | app at 100%.
+"""Three-up sheets for the type-scale decision: mock | app at 106% (live then) | app at 100% (live now).
 
     python3 design/handoff/compare_scale.py
 """
@@ -25,8 +25,8 @@ def mock(screen: str) -> Image.Image:
 for screen in ("home", "calendar"):
     panes = [
         ("MOCK (the doc)", mock(screen)),
-        ("APP 106% — live today", Image.open(HERE / f"out/scale/{screen}-106.png").convert("RGB")),
-        ("APP 100% — matches doc", Image.open(HERE / f"out/scale/{screen}-100.png").convert("RGB")),
+        ("APP 106% — live before", Image.open(HERE / f"out/scale/{screen}-106.png").convert("RGB")),
+        ("APP 100% — matches doc, live now", Image.open(HERE / f"out/scale/{screen}-100.png").convert("RGB")),
     ]
     w = sum(p.width for _, p in panes) + GAP * (len(panes) - 1)
     h = max(p.height for _, p in panes)

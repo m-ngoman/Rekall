@@ -5,20 +5,33 @@
 // This exists because the mock comparison only covers the eight screens the design bundle drew.
 // The type-scale and line-height changes are global, so the screens the bundle never mentioned
 // (Write cards, Import, Generate, Onboarding, Admin, the exam sheet, the note editor) are exactly
-// where a regression would go unnoticed.
+// where a regression would go unnoticed. It is also the before/after check for a refactor: run it
+// on two builds with fonts blocked and compare the screenshots pixel for pixel.
 //
+//   cd backend && DATABASE_URL=postgresql+psycopg://pipcards:pipcards@localhost:5432/rekall_fixture \
+//     GRADER=stub TUTOR_PROVIDER=stub GOOGLE_CLIENT_ID= GOOGLE_CLIENT_SECRET= OWNER_EMAIL=dev@rekall.study \
+//     .venv/bin/uvicorn app.main:app --port 8011
+//   cd frontend && npm run dev:fixture
 //   node design/handoff/audit.mjs
+//
+// Options, all environment variables:
+//   AUDIT_OUT=dir          where screenshots and audit.json go (default design/handoff/out/audit)
+//   AUDIT_ONLY=a,b*,c      only these states; a trailing * matches a prefix ("tutor*")
+//   AUDIT_BLOCK_FONTS=1    abort Google Fonts requests, so text renders in the fallback face and
+//                          two runs are comparable pixel for pixel whatever the network does
 import { chromium } from 'playwright'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const repo = resolve(new URL('.', import.meta.url).pathname, '../..')
-const out = resolve(new URL('.', import.meta.url).pathname, 'out/audit')
+const out = resolve(process.env.AUDIT_OUT || resolve(new URL('.', import.meta.url).pathname, 'out/audit'))
 mkdirSync(out, { recursive: true })
 
 const APP = 'http://127.0.0.1:5199/'
 const API = 'http://127.0.0.1:8011'
+const ONLY = (process.env.AUDIT_ONLY || '').split(',').map((s) => s.trim()).filter(Boolean)
+const BLOCK_FONTS = Boolean(process.env.AUDIT_BLOCK_FONTS)
 
 function reseed() {
   execFileSync(`${repo}/backend/.venv/bin/python`, [`${repo}/design/handoff/seed_fixture.py`], {
@@ -57,6 +70,21 @@ const study = (graded) => async (p) => {
   await p.waitForTimeout(1200)
 }
 
+/** Sends a typed tutor turn. With `stream` set, the reply is a canned SSE body instead of the
+ * stub provider's, so states the stub never produces (an exam offer, a paywall) can be drawn. */
+const tutorTurn = (text, stream) => async (p) => {
+  if (stream) await p.route('**/api/tutor/sessions/*/text-turn', (route) => route.fulfill(stream))
+  await tab('Tutor')(p)
+  const box = p.getByPlaceholder(/message the tutor/i).first()
+  await box.fill(text)
+  await box.press('Enter')
+}
+const sse = (events) => ({
+  status: 200,
+  contentType: 'text/event-stream',
+  body: events.map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join(''),
+})
+
 const SCREENS = {
   home: async () => {},
   cards: tab('Cards'),
@@ -79,6 +107,48 @@ const SCREENS = {
     await tab('Notes')(p)
     await p.getByRole('button', { name: /Add notes/ }).first().click()
     await p.waitForTimeout(1200)
+  },
+  'note-open': async (p) => {
+    await tab('Notes')(p)
+    await p.getByText('SN1 vs SN2 mechanisms').first().click()
+    await p.waitForSelector('text=/Saved|SN1/', { timeout: 15000 })
+    await p.waitForTimeout(1500)
+  },
+  'notes-search': async (p) => {
+    await tab('Notes')(p)
+    await p.getByPlaceholder(/search your notes/i).fill('carbocation')
+    await p.waitForTimeout(1200)
+  },
+  // The stub tutor's reply ends in a plot, so this is the full log: prose, maths, the graph.
+  'tutor-reply': async (p) => {
+    await tutorTurn('Explain a velocity-time graph')(p)
+    await p.waitForSelector('svg[aria-label^="Graph of"]', { timeout: 20000 })
+    await p.waitForTimeout(3500)
+  },
+  'tutor-offer': async (p) => {
+    await tutorTurn(
+      'I have a biology test on Friday',
+      sse([
+        ['token', { text: 'Good luck with it. Want me to put it on your calendar?' }],
+        ['suggest_exam', { name: 'Biology test', date: '2031-01-10' }],
+        ['done', { transcript: 'I have a biology test on Friday', reply: 'Good luck with it. Want me to put it on your calendar?' }],
+      ]),
+    )(p)
+    await p.waitForSelector('text=Add to calendar', { timeout: 15000 })
+    await p.waitForTimeout(1500)
+  },
+  'tutor-paywall': async (p) => {
+    await tutorTurn('Hello', {
+      status: 402,
+      contentType: 'application/json',
+      body: JSON.stringify({ detail: "Rekall AI isn't active on this account." }),
+    })(p)
+    await p.waitForSelector('text=See plans', { timeout: 15000 })
+    await p.waitForTimeout(500)
+  },
+  plans: async (p) => {
+    await p.goto(`${APP}plans`, { waitUntil: 'networkidle' })
+    await p.waitForTimeout(800)
   },
   admin: async (p) => {
     await settings(p)
@@ -106,6 +176,9 @@ const SCREENS = {
   },
 }
 
+const wanted = (name) =>
+  !ONLY.length || ONLY.some((pat) => (pat.endsWith('*') ? name.startsWith(pat.slice(0, -1)) : name === pat))
+
 const VIEWPORTS = [
   ['mobile', { width: 390, height: 844 }],
   ['desktop', { width: 1280, height: 800 }],
@@ -117,6 +190,7 @@ const browser = await chromium.launch()
 for (const [tag, viewport] of VIEWPORTS) {
   for (const theme of ['dark', 'light']) {
     for (const [name, drive] of Object.entries(SCREENS)) {
+      if (!wanted(name)) continue
       reseed()
       await fetch(`${API}/api/settings`, {
         method: 'PATCH',
@@ -124,6 +198,7 @@ for (const [tag, viewport] of VIEWPORTS) {
         body: JSON.stringify({ theme }),
       })
       const page = await browser.newPage({ viewport, deviceScaleFactor: 1, timezoneId: 'UTC' })
+      if (BLOCK_FONTS) await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort())
       const errs = []
       page.on('pageerror', (e) => errs.push(`pageerror: ${e.message}`))
       page.on('response', (r) => {
@@ -142,7 +217,15 @@ for (const [tag, viewport] of VIEWPORTS) {
           const de = document.documentElement
           // Elements poking meaningfully past the right edge. A few px is antialiasing; 4+ is a
           // layout that doesn't fit. Fixed/sticky chrome is excluded — the nav is intentionally
-          // inset-positioned and reports oddly.
+          // inset-positioned and reports oddly — and so is anything inside a horizontal scroller
+          // (the editor's toolbar), which is meant to run past the edge and is clipped where it
+          // does. The scroller itself is still checked.
+          const inScroller = (el) => {
+            for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+              if (getComputedStyle(a).overflowX !== 'visible') return true
+            }
+            return false
+          }
           const escapees = []
           for (const el of document.querySelectorAll('body *')) {
             const cs = getComputedStyle(el)
@@ -150,7 +233,7 @@ for (const [tag, viewport] of VIEWPORTS) {
             if (cs.visibility === 'hidden' || cs.display === 'none') continue
             const r = el.getBoundingClientRect()
             if (r.width === 0 || r.height === 0) continue
-            if (r.right > vw + 4 || r.left < -4) {
+            if ((r.right > vw + 4 || r.left < -4) && !inScroller(el)) {
               escapees.push({
                 tag: el.tagName.toLowerCase(),
                 cls: String(el.className).slice(0, 60),
@@ -182,7 +265,8 @@ for (const [tag, viewport] of VIEWPORTS) {
           }
         })
 
-        await page.screenshot({ path: `${out}/${id}.png`, fullPage: true })
+        // Animations off and the caret hidden, so two runs of the same build are identical.
+        await page.screenshot({ path: `${out}/${id}.png`, fullPage: true, animations: 'disabled', caret: 'hide' })
         results.push({ id, ok: true, errs, ...probe })
       } catch (e) {
         results.push({ id, ok: false, errs, error: e.message.split('\n')[0] })

@@ -3,13 +3,16 @@
 // scrolling down 400px mid-reply was dragged back up 319px inside 200ms, and 173px of the newest
 // reply sat behind the composer.
 //
-//   cd backend && TUTOR_PROVIDER=stub GOOGLE_CLIENT_ID='' .venv/bin/uvicorn app.main:app --port 8011
-//   cd frontend && npx vite --config vite.fixture.config.ts
+//   cd backend && DATABASE_URL=postgresql+psycopg://pipcards:pipcards@localhost:5432/rekall_fixture \
+//     GRADER=stub TUTOR_PROVIDER=stub GOOGLE_CLIENT_ID= GOOGLE_CLIENT_SECRET= OWNER_EMAIL=dev@rekall.study \
+//     .venv/bin/uvicorn app.main:app --port 8011
+//   cd frontend && npm run dev:fixture
 //   node design/handoff/check-tutor-scroll.mjs
 //
-// The stub provider reveals its reply over ~600ms, which is long enough to scroll into but short
-// enough to wait out; the numbers below are sized for that, not for a real model's several
-// seconds. Run it against the real provider too when changing the follow itself.
+// The stub provider streams its reply over about two seconds (154 chunks, 12ms apart), which is
+// long enough to scroll into but short enough to wait out; the numbers below are sized for that,
+// not for a real model's several seconds. Run it against the real provider too when changing the
+// follow itself.
 import { chromium } from 'playwright'
 
 let failures = 0

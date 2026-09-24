@@ -1,7 +1,7 @@
 // Screenshots the real app (fixture backend on 8011, vite on 5199) at the same screens and
 // themes as the handoff mocks, so the two can be compared side by side.
 //
-//   node design/handoff/render-app.mjs [screen ...]
+//   node design/handoff/render-app.mjs [screen ...]     (fixture servers running; see seed_fixture.py)
 import { chromium } from 'playwright'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'

@@ -1,5 +1,5 @@
 // Renders every `[data-screen-label]` artboard in the handoff mocks to PNG, dark and light.
-// Usage: NODE_PATH=~/.local/lib/node_modules node design/handoff/render-mocks.mjs
+// Usage: node design/handoff/render-mocks.mjs     (no servers; playwright set up as in seed_fixture.py)
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -19,7 +19,9 @@ for (const [tag, file, viewport] of files) {
   const page = await browser.newPage({ viewport, deviceScaleFactor: 2 })
   page.on('pageerror', (e) => console.error(`[${tag}] pageerror`, e.message))
   await page.goto(`file://${mocks}/${file}`)
-  await page.waitForFunction(() => document.querySelectorAll('[data-screen-label]').length > 0, null, { timeout: 30000 })
+  // The runtime, not the artboards: the raw template already carries data-screen-label before
+  // React has loaded from unpkg, and the props call below needs the runtime.
+  await page.waitForFunction(() => typeof window.__dcSetProps === 'function', null, { timeout: 30000 })
   await page.evaluate(() => document.fonts.ready)
   for (const theme of ['dark', 'light']) {
     await page.evaluate((t) => window.__dcSetProps(window.__dcRootName(), { theme: t }), theme)

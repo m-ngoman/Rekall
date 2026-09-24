@@ -3,7 +3,7 @@
 // with the model explaining what was missed. A verbatim answer scoring 5/5 demonstrates
 // nothing a string comparison couldn't do.
 //
-//   node design/handoff/render-readme-shot.mjs
+//   node design/handoff/render-readme-shot.mjs     (fixture servers running; see seed_fixture.py)
 import { chromium } from 'playwright'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'

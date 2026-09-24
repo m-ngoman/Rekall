@@ -2,8 +2,10 @@
 // component props directly, so it proves the renderer and nothing about the wire; this drives the
 // real tutor screen against the stub provider and asserts on what actually lands in the DOM.
 //
-//   cd backend && TUTOR_PROVIDER=stub GOOGLE_CLIENT_ID='' .venv/bin/uvicorn app.main:app --port 8011
-//   cd frontend && npx vite --config vite.fixture.config.ts
+//   cd backend && DATABASE_URL=postgresql+psycopg://pipcards:pipcards@localhost:5432/rekall_fixture \
+//     GRADER=stub TUTOR_PROVIDER=stub GOOGLE_CLIENT_ID= GOOGLE_CLIENT_SECRET= OWNER_EMAIL=dev@rekall.study \
+//     .venv/bin/uvicorn app.main:app --port 8011
+//   cd frontend && npm run dev:fixture
 //   node design/handoff/check-plot-e2e.mjs
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'

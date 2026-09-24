@@ -1,7 +1,12 @@
 // Measures the same design facts in the mock and in the real app, so fidelity gaps show up as
 // numbers instead of impressions. Prints a table of every property that differs.
 //
-//   node design/handoff/measure.mjs
+//   node design/handoff/measure.mjs     (fixture servers running; see seed_fixture.py)
+//
+// The probes were written against Home as it stood for the 2026-09-03 pass (FINDINGS.md) and have
+// not followed it since. Three of them — the due label, the start button, the exam row — no longer
+// find anything, and `nav` now matches the desktop sidebar, hidden at this width, rather than the
+// tab bar. Bring them up to date before reading anything into the table.
 import { chromium } from 'playwright'
 import { resolve } from 'node:path'
 
@@ -49,7 +54,9 @@ const browser = await chromium.launch()
 async function measureMock(screen) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } })
   await page.goto(`file://${mocks}/Rekall.dc.html`)
-  await page.waitForFunction(() => document.querySelectorAll('[data-screen-label]').length > 0, null, { timeout: 30000 })
+  // The runtime, not the artboards: the raw template already carries data-screen-label before
+  // React has loaded from unpkg, and the props call below needs the runtime.
+  await page.waitForFunction(() => typeof window.__dcSetProps === 'function', null, { timeout: 30000 })
   await page.evaluate(() => window.__dcSetProps(window.__dcRootName(), { theme: 'dark' }))
   await page.evaluate(() => document.fonts.ready)
   await page.waitForTimeout(400)

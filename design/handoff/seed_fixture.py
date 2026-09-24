@@ -7,7 +7,24 @@ copied from the mock's own load() so the calendar's bars have the same shape.
 
 Run against the fixture DB only:
     DATABASE_URL=postgresql+psycopg://pipcards:pipcards@localhost:5432/rekall_fixture \
-        python design/handoff/seed_fixture.py
+        backend/.venv/bin/python design/handoff/seed_fixture.py
+
+The fixture servers every script in this folder drives: a backend with the stub grader and tutor
+and no OAuth, so this file's user is always signed in (and, by OWNER_EMAIL, is the owner), and the
+app on :5199 proxied to it.
+
+    cd backend && DATABASE_URL=postgresql+psycopg://pipcards:pipcards@localhost:5432/rekall_fixture \
+        GRADER=stub TUTOR_PROVIDER=stub GOOGLE_CLIENT_ID= GOOGLE_CLIENT_SECRET= OWNER_EMAIL=dev@rekall.study \
+        .venv/bin/uvicorn app.main:app --port 8011
+    cd frontend && npm run dev:fixture
+
+DATABASE_URL is the one that must not be left out. Without it the backend reads backend/.env,
+and the screens show, and the scripts' settings changes write to, whatever database that names.
+
+The scripts import `playwright` bare, which Node resolves from design/handoff/node_modules
+(gitignored); NODE_PATH does not reach ES module imports. Install it there with
+`npm i --no-save --prefix design/handoff playwright` (and `npx playwright install chromium` on a
+machine that has no browser for it), or symlink an existing install into it.
 """
 
 import math
@@ -28,6 +45,7 @@ from app.models import (  # noqa: E402
     Exam,
     Note,
     NoteFileType,
+    UsageEvent,
     User,
     UserSettings,
 )
@@ -100,7 +118,10 @@ engine = create_engine(URL)
 Base.metadata.create_all(engine)
 
 with Session(engine) as db:
-    for table in (Note, Card, Exam, Deck, UserSettings, User):
+    # Usage events outlive their user (kept anonymised, user_id set null), so they are cleared by
+    # name. Left alone, every screenshot run adds to the usage dashboard's totals and no two runs
+    # of it would match.
+    for table in (UsageEvent, Note, Card, Exam, Deck, UserSettings, User):
         db.query(table).delete()
     db.commit()
 

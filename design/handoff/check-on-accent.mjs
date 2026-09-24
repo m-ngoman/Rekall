@@ -2,7 +2,7 @@
 // (near-black, tinted toward the accent's hue) and is *never* white. This walks every screen in
 // both themes and reports any accent-filled element whose text colour isn't that.
 //
-//   node design/handoff/check-on-accent.mjs
+//   node design/handoff/check-on-accent.mjs     (fixture servers running; see seed_fixture.py)
 import { chromium } from 'playwright'
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'

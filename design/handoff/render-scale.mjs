@@ -1,8 +1,9 @@
-// Renders the app at both root font-sizes so the type-scale decision can be made by eye:
-// 106% (what's live) vs 100% (what makes every rem land on the doc's px values).
-// No source change — the 100% pass is injected as a stylesheet override.
+// Renders the app at the two root font-sizes the type-scale decision chose between, so it can be
+// made, or revisited, by eye: 106%, what was live when it was made, and 100%, which lands every rem
+// on the doc's px values and is what index.css uses now. No source change: each pass injects its
+// size as a stylesheet override, so the comparison still works whichever one is live.
 //
-//   node design/handoff/render-scale.mjs
+//   node design/handoff/render-scale.mjs     (fixture servers running; see seed_fixture.py)
 import { chromium } from 'playwright'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
@@ -21,7 +22,7 @@ function reseed() {
 
 const browser = await chromium.launch()
 for (const screen of ['home', 'calendar']) {
-  for (const [tag, pct] of [['106', null], ['100', '100%']]) {
+  for (const [tag, pct] of [['106', '106%'], ['100', '100%']]) {
     reseed()
     await fetch('http://127.0.0.1:8011/api/settings', {
       method: 'PATCH',
@@ -31,9 +32,7 @@ for (const screen of ['home', 'calendar']) {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, timezoneId: 'UTC' })
     await page.addInitScript(() => localStorage.setItem('pipcards:accent', 'oklch(0.7 0.145 40)'))
     await page.goto('http://127.0.0.1:5199/', { waitUntil: 'networkidle' })
-    if (pct) {
-      await page.addStyleTag({ content: `html { font-size: calc(${pct} * var(--text-scale, 1)) !important }` })
-    }
+    await page.addStyleTag({ content: `html { font-size: calc(${pct} * var(--text-scale, 1)) !important }` })
     await page.waitForTimeout(900)
     if (screen === 'calendar') {
       await page.getByRole('button', { name: 'Calendar', exact: true }).first().click()

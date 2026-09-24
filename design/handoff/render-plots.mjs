@@ -2,7 +2,7 @@
 // The chart guidance is explicit that a validator checks colour and not layout, so these have to
 // be looked at: label collisions, clipped ticks, and vertical lines drawn through asymptotes.
 //
-//   cd frontend && npx vite --config vite.fixture.config.ts   (or any dev server)
+//   cd frontend && npm run dev:fixture   (or any dev server)
 //   node design/handoff/render-plots.mjs
 import { chromium } from 'playwright'
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs'

@@ -16,12 +16,14 @@ the same viewports, on fixture data built to match the mock's numbers.
   decks (612/240/180/95 cards), 41 due today split 18 + 23, exams at +16/+34/+40 days and one
   passed, four notes, and future due dates dealt out along the mock's own load curve so the
   calendar's brightness ramp is genuinely exercised.
-- A fixture backend runs on `:8011` (`GRADER=stub`, no OAuth → dev user) and a Vite dev server on
-  `:5199` (`vite.fixture.config.ts`). **Nothing touches the live service or the live database.**
+- A fixture backend runs on `:8011` against `rekall_fixture` (`GRADER=stub`, no OAuth → dev user)
+  and a Vite dev server on `:5199` (`vite.fixture.config.ts`). **Nothing touches the live service or
+  the live database**, as long as the backend is started with `DATABASE_URL` pointing at the
+  fixture: without it, it reads `backend/.env`. The full commands are in `seed_fixture.py`.
 - `render-app.mjs` drives the real app to the same eight screens → `out/app/`.
 - `compare.py` builds mock-vs-app sheets → `out/compare/`.
 
-Re-run: start both servers, then `node design/handoff/render-app.mjs && python3 design/handoff/compare.py`.
+Re-run: start both servers (commands in `seed_fixture.py`), then `node design/handoff/render-app.mjs && python3 design/handoff/compare.py`.
 
 ## Verdict
 
