@@ -6,6 +6,7 @@ import { NotSignedIn, PaymentRequired, TooManyRequests, addToStudyList, getStudy
 
 import { daysUntil } from '../lib/dates'
 import { upcomingExams } from '../lib/exams'
+import { afterReport, type SessionStats } from '../lib/study'
 import type { Exam, ReviewResult, StudyCard } from '../types'
 
 interface Props {
@@ -85,7 +86,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
   const [streamedExplanation, setStreamedExplanation] = useState('')
   const [result, setResult] = useState<ReviewResult | null>(null)
   const [phase, setPhase] = useState<Phase>('loading')
-  const [stats, setStats] = useState({ total: 0, done: 0, correct: 0 })
+  const [stats, setStats] = useState<SessionStats>({ total: 0, done: 0, correct: 0 })
   const [relearn, setRelearn] = useState<Set<string>>(new Set())
   // Self-assessment only: the answer is fetched on demand, so null means 'not revealed yet'.
   const [revealed, setRevealed] = useState<string | null>(null)
@@ -233,9 +234,13 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
 
   const handleReport = async () => {
     if (!current) return
-    // Marked reported straight away rather than after the round-trip: the student has made their
-    // judgement, and the card is going out of the queue either way. A failure here loses a report,
-    // not a card — so it says so and lets them try again rather than pretending it worked.
+    // Out of this session straight away, before the round-trip: the student has made their
+    // judgement, and the card is going out of the queue either way. Only "Reported" waits for the
+    // server. A failure here loses a report, not a card — so it says so and lets them try again
+    // rather than pretending it worked.
+    const next = afterReport(queue, stats, current.id)
+    setQueue(next.queue)
+    setStats(next.stats)
     try {
       await reportCard(current.id)
       setReported(true)
