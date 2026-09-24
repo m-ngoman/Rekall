@@ -136,7 +136,8 @@ def tutor_ollama(monkeypatch):
 
     monkeypatch.setattr(settings, "tutor_provider", "ollama")
     list(stream_chat(TUTOR_MESSAGES))
-    complete_chat(TUTOR_MESSAGES[:2])
+    # As memory extraction calls it. The memory model is an OpenRouter id; Ollama is sent its own.
+    complete_chat(TUTOR_MESSAGES[:2], model=settings.memory_model)
 
 
 def generation_from_material(monkeypatch):

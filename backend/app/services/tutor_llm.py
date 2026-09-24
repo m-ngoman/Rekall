@@ -152,14 +152,18 @@ def complete_chat(messages: list[dict], model: str | None = None) -> str:
     """One-shot, non-streamed completion for background jobs (memory extraction).
 
     Streaming exists to get words on screen sooner; a job whose output is parsed as a whole
-    before anything happens gains nothing from it. `model` overrides the tutor's own model so a
-    cheap job can use a cheap model.
+    before anything happens gains nothing from it. `model` lets a cheap job use a cheap model on
+    OpenRouter, and applies nowhere else: it is an OpenRouter model id, which Ollama would only
+    answer with a 404, so a local tutor does the job with its own model. The stub has nothing to
+    offer a background job and answers with nothing, without a call.
     """
+    if settings.tutor_provider == "stub":
+        return ""
     if settings.tutor_provider == "ollama":
         body = post_ollama(
             settings.ollama_base_url,
             "/api/chat",
-            {"model": model or settings.ollama_tutor_model, "messages": messages, "stream": False},
+            {"model": settings.ollama_tutor_model, "messages": messages, "stream": False},
             timeout=60.0,
         )
         return (body.get("message") or {}).get("content") or ""

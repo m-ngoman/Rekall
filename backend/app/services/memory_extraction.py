@@ -5,7 +5,7 @@ Design constraints this is built around:
 * **Off the critical path.** Extraction runs in a background thread with its own DB session
   after the reply has already streamed, so a slow or failing memory call can never delay,
   truncate, or break a tutor turn. Every failure here is swallowed — a missed note is not worth
-  a broken conversation.
+  a broken conversation — and logged, since nothing else would ever say it happened.
 * **Rare by default.** Runs every `memory_every_n_turns` user turns, asks for at most two notes,
   and is told that returning nothing is the normal answer. The failure mode to avoid is a memory
   file that fills with restatements of "the student is studying biology".
@@ -21,6 +21,7 @@ Design constraints this is built around:
 from __future__ import annotations
 
 import json
+import logging
 import re
 import threading
 import uuid
@@ -33,6 +34,8 @@ from app.db import SessionLocal
 from app.models import MemoryCategory, MemorySource, StudentMemoryNote, TutorMessage
 from app.services.llm_http import strip_fence
 from app.services.tutor_llm import complete_chat
+
+logger = logging.getLogger(__name__)
 
 # How much conversation the extractor sees. Enough to spot a repeated struggle, short enough that
 # the call stays cheap — and the interesting material is always recent.
@@ -187,8 +190,11 @@ def _extract(user_id: uuid.UUID, session_id: uuid.UUID) -> None:
         if added:
             db.commit()
     except Exception:
-        # Deliberately silent: this is a background nicety. A provider outage, a malformed
-        # response, or a DB hiccup must not surface anywhere near the conversation.
+        # Swallowed, because this is a background nicety: a provider outage, a malformed response
+        # or a DB hiccup must not surface anywhere near the conversation. Logged, because it used
+        # to be silent too, and a local tutor sent every memory pass to Ollama under an
+        # OpenRouter model id, failing each time, with nothing anywhere to show for it.
+        logger.exception("memory extraction failed for tutor session %s", session_id)
         db.rollback()
     finally:
         db.close()

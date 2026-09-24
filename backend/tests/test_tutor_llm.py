@@ -78,7 +78,6 @@ def test_a_one_shot_call_can_use_a_cheaper_model_on_openrouter(openrouter, monke
     assert rec.requests[0].kwargs["json"]["model"] == "google/gemini-2.5-flash"
 
 
-@pytest.mark.xfail(strict=True, reason="bug: an OpenRouter model id is sent to Ollama when the tutor runs locally")
 def test_a_one_shot_call_on_ollama_uses_the_ollama_model(monkeypatch) -> None:
     monkeypatch.setattr(settings, "tutor_provider", "ollama")
     rec = Recorder(monkeypatch, lambda req: FakeResponse(body={"message": {"content": "[]"}}))
@@ -86,7 +85,6 @@ def test_a_one_shot_call_on_ollama_uses_the_ollama_model(monkeypatch) -> None:
     assert rec.requests[0].kwargs["json"]["model"] == settings.ollama_tutor_model
 
 
-@pytest.mark.xfail(strict=True, reason="bug: the stub tutor still sends one-shot calls to OpenRouter")
 def test_a_one_shot_call_under_the_stub_makes_no_request(monkeypatch) -> None:
     monkeypatch.setattr(settings, "tutor_provider", "stub")
     rec = Recorder(monkeypatch, lambda req: FakeResponse(body={"choices": [{"message": {"content": "[]"}}]}))
