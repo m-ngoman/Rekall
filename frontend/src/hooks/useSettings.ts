@@ -15,7 +15,8 @@ function mirror(settings: Settings): void {
   }
 }
 
-/** The exact sRGB value of --bg in each theme. Keep in step with index.css. */
+/** The exact sRGB value of --bg in each theme. Keep in step with index.css, the pre-paint script
+ * in index.html, and the dark value with public/manifest.webmanifest. */
 export const THEME_BG = { light: '#faf4ec', dark: '#19120e' } as const
 
 function applyTheme(theme: Theme): void {

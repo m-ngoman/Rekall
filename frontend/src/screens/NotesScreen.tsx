@@ -64,17 +64,24 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
     handleMove(noteId, dropKey),
   )
 
-  // Debounced so typing doesn't fire a full-text query per keystroke.
+  // Debounced so typing doesn't fire a full-text query per keystroke. `current` goes false once
+  // the query moves on, so a slow answer to an older search can't land after a newer one and
+  // leave its matches under a search box that no longer says that.
   useEffect(() => {
+    let current = true
     const id = window.setTimeout(() => {
       listNotes(query)
         .then((rows) => {
+          if (!current) return
           if (!query.trim()) setCached('notes', rows)
           setNotes(rows)
         })
-        .catch(() => setError('Could not load your notes.'))
+        .catch(() => current && setError('Could not load your notes.'))
     }, 250)
-    return () => clearTimeout(id)
+    return () => {
+      current = false
+      clearTimeout(id)
+    }
   }, [query, reloadKey])
 
   // The cache hook fetches decks on mount; this covers the explicit reload points that used to
@@ -292,7 +299,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
     <div className="flex flex-col gap-5">
       <ConfirmDialog confirmation={confirmation} onCancel={cancel} />
       <div className="flex gap-2">
-        <label className="flex h-11 flex-1 items-center gap-2.5 rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[var(--text-muted)]">
+        <label className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 text-[var(--text-muted)]">
           {SEARCH_ICON}
           <input
             value={query}

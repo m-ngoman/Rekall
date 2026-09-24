@@ -64,7 +64,7 @@ export default function TutorSection({ settings, onChange }: { settings: Setting
         </Row>
       )}
 
-      <Row label="Voice" hint="Used in voice mode and when the tutor reads a reply aloud.">
+      <Row label="Voice" hint="Used in voice mode.">
         <select
           value={settings.tutor_voice_id ?? ''}
           onChange={(e) => onChange({ tutor_voice_id: e.target.value || null })}

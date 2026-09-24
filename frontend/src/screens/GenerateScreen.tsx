@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { PaymentRequired, serverDetail, generateDeck, generateDeckFromNotes, generateDeckFromTopic, listDecks } from '../api'
+import { PaymentRequired, generateDeck, generateDeckFromNotes, generateDeckFromTopic, listDecks } from '../api'
 import ActionCard from '../components/ActionCard'
 import BackButton from '../components/BackButton'
 import MaybeMath from '../components/MaybeMath'
+import { errorMessage } from '../lib/errors'
 import { CameraIcon, PdfIcon, PhotoIcon } from '../components/icons'
 import NotePicker from '../components/generate/NotePicker'
 import type { Deck, GenerationResult, Note } from '../types'
@@ -130,7 +131,7 @@ export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Prop
       // Only a 402 gets the pricing link. A 429 or a 404 on a missing note file has a sentence
       // worth reading and nowhere useful to send anyone.
       setPaywall(e instanceof PaymentRequired)
-      setError(serverDetail(e) ?? (e instanceof Error ? e.message : 'Generation failed.'))
+      setError(errorMessage(e, 'Generation failed.'))
     } finally {
       setBusy(false)
     }

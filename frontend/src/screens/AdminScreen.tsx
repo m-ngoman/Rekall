@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getAdminStats } from '../api'
 import BackButton from '../components/BackButton'
+import { errorMessage } from '../lib/errors'
 import Segmented from '../components/Segmented'
 import type { AdminStats } from '../types'
 import { formatDate, formatDayLong, formatNumber, plural } from '../components/admin/format'
@@ -36,7 +37,7 @@ export default function AdminScreen({ onBack }: Props) {
       .then((s) => alive && setStats(s))
       // Not left on "Loading…" forever: this screen only exists for one account, so a failure
       // here has an audience of one and should say what happened.
-      .catch((e) => alive && setError(e instanceof Error ? e.message : 'Could not load stats.'))
+      .catch((e) => alive && setError(errorMessage(e, 'Could not load stats.')))
     return () => {
       alive = false
     }

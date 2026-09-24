@@ -22,13 +22,16 @@ export function useRoute() {
   }, [])
 
   /** Go somewhere, adding a history entry. Navigating to where you already are is a no-op, so
-   * tapping the current tab doesn't stack duplicates you then have to press back through. */
+   * tapping the current tab doesn't stack duplicates you then have to press back through.
+   *
+   * Compared against the address bar rather than inside a state updater: updaters have to be pure,
+   * and React runs them twice in development, which pushed every navigation twice — one Back
+   * then went nowhere. The address bar and `route` are kept in step by every path that moves
+   * either, so they give the same answer. */
   const go = useCallback((next: Route) => {
-    setRoute((current) => {
-      if (sameRoute(current, next)) return current
-      window.history.pushState({}, '', href(next))
-      return next
-    })
+    if (sameRoute(parse(window.location.pathname), next)) return
+    window.history.pushState({}, '', href(next))
+    setRoute(next)
   }, [])
 
   /** Go somewhere without a history entry — for corrections rather than navigations, like

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { importDeck } from '../api'
 import BackButton from '../components/BackButton'
+import { errorMessage } from '../lib/errors'
 
 interface Props {
   onDone: () => void
@@ -33,7 +34,7 @@ export default function ImportScreen({ onDone, onCancel }: Props) {
       }
       onDone()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Import failed.')
+      setError(errorMessage(e, 'Import failed.'))
     } finally {
       setBusy(false)
     }

@@ -4,6 +4,11 @@
 //     queued for when it was missed first time.
 //   - A card flagged is_math shows its maths set, not its LaTeX source, in the card writer's list
 //     and in a generation run's results.
+//   - Moving between tabs adds one history entry per move, so Back goes back one.
+//   - Escape in the exam sheet's delete confirmation cancels the confirmation and nothing else.
+//   - A slow answer to a search that has since changed doesn't replace the list.
+//   - A failed import says what the server said, not "400 Bad Request: {...}".
+//   - The manifest's colours are the dark theme's background, as the pre-paint script's are.
 //
 // Fixture setup as in check-notes-editor.mjs: the backend on :8011 with GRADER=stub against the
 // rekall_fixture database, `npm run dev:fixture` on :5199. It reseeds the fixture first.
@@ -123,6 +128,75 @@ page.on('pageerror', (e) => errs.push(e.message))
   await list.locator('.katex').first().waitFor({ timeout: 10000 }).catch(() => {})
   check('generation results set a maths card as maths', (await setAsMaths(list)) && !(await rawLatex(list)))
   check('and leave an ordinary card as it was written', await list.getByText('Beta-adrenergic receptors.', { exact: true }).isVisible())
+}
+
+// --- One history entry per navigation -------------------------------------------------------------
+{
+  await page.goto(APP, { waitUntil: 'networkidle' })
+  const before = await page.evaluate(() => history.length)
+  await page.getByRole('button', { name: 'Cards', exact: true }).first().click()
+  await page.waitForURL('**/cards')
+  await page.getByRole('button', { name: 'Notes', exact: true }).first().click()
+  await page.waitForURL('**/notes')
+  const added = (await page.evaluate(() => history.length)) - before
+  check('two tab changes add two history entries', added === 2, `${added} added`)
+  await page.goBack()
+  await page.waitForTimeout(300)
+  check('and Back returns to the tab before', new URL(page.url()).pathname === '/cards', new URL(page.url()).pathname)
+}
+
+// --- Escape in a confirmation over the exam sheet -------------------------------------------------
+{
+  const today = new Date().toISOString().slice(0, 10)
+  const next = (await get('/api/exams')).filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0]
+  await page.goto(`${APP}calendar`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: new RegExp(next.name) }).first().click()
+  await page.getByRole('button', { name: 'Delete exam' }).click()
+  const question = page.getByText(`Delete ${next.name}?`)
+  await question.waitFor()
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(300)
+  check('Escape cancels the delete confirmation', !(await question.isVisible()))
+  check('and leaves the exam sheet open', await page.getByRole('button', { name: 'Delete exam' }).isVisible())
+}
+
+// --- A stale search answer ------------------------------------------------------------------------
+{
+  const all = (await get('/api/notes')).length
+  await page.goto(`${APP}notes`, { waitUntil: 'networkidle' })
+  // The search for "zzq" is answered slowly, and by then the box has been cleared again.
+  await page.route('**/api/notes?q=zzq*', async (route) => {
+    await new Promise((r) => setTimeout(r, 1500))
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  })
+  const box = page.getByPlaceholder('Search your notes')
+  await box.fill('zzq')
+  await page.waitForTimeout(500)
+  await box.fill('')
+  await page.waitForTimeout(2500)
+  const tiles = await page.getByLabel('Move to category').count()
+  check("a slow answer to an old search doesn't replace the list", tiles === all, `${tiles} of ${all} notes shown`)
+}
+
+// --- What a failed import says --------------------------------------------------------------------
+{
+  await page.goto(APP, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'Cards', exact: true }).first().click()
+  await page.getByRole('button', { name: /Import CSV/ }).first().click()
+  await page.getByPlaceholder('Paste CSV here').fill('just one line, no header')
+  await page.getByRole('button', { name: 'Import these cards' }).click()
+  const said = page.getByText('Could not parse CSV. Expected header: DeckName,Subtopic,Front,Back', { exact: true })
+  const ok = await said.waitFor({ timeout: 5000 }).then(() => true, () => false)
+  check("a failed import shows the server's sentence", ok)
+  check('and no status line or JSON', !(await page.locator('main').innerText()).includes('Bad Request'))
+}
+
+// --- The manifest's colours -----------------------------------------------------------------------
+{
+  const html = await (await fetch(APP)).text()
+  const dark = /theme === 'dark' \? '(#[0-9a-f]{6})'/.exec(html)?.[1]
+  const manifest = await (await fetch(`${APP}manifest.webmanifest`)).json()
+  check('the manifest uses the dark background the pre-paint script does', !!dark && manifest.theme_color === dark && manifest.background_color === dark, `${manifest.theme_color} / ${manifest.background_color} vs ${dark}`)
 }
 
 check('no page errors', errs.length === 0, errs.join(' | '))

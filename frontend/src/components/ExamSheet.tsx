@@ -31,12 +31,15 @@ export default function ExamSheet({ exam, initialDate, showDatePicker, decks, on
   const { confirmation, ask, cancel } = useConfirm()
 
   useEffect(() => {
+    // While the delete confirmation is up, Escape is its to handle: it cancels that, and the sheet
+    // with whatever was typed in it stays. Both used to listen, so one Escape closed both.
+    if (confirmation) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, confirmation])
 
   const toggleDeck = (id: string) =>
     setDeckIds((prev) => {

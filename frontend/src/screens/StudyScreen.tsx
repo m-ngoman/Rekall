@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import BackButton from '../components/BackButton'
 import MaybeMath from '../components/MaybeMath'
 import Notice from '../components/Notice'
-import { NotSignedIn, PaymentRequired, TooManyRequests, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
+import { PaymentRequired, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
 
 import { daysUntil } from '../lib/dates'
+import { errorMessage } from '../lib/errors'
 import { upcomingExams } from '../lib/exams'
 import { afterReport, type SessionStats } from '../lib/study'
 import type { Exam, ReviewResult, StudyCard } from '../types'
@@ -41,28 +42,6 @@ const GRADE_COLOR: Record<number, string> = {
   2: 'var(--grade-hard)',
   3: 'var(--grade-good)',
   4: 'var(--grade-good)',
-}
-
-/** What to put on screen for a failed action.
- *
- * The backend's streaming endpoints send a written sentence when they fail mid-stream, and that
- * sentence is better than anything this file could invent — so it is preferred. What is filtered
- * out is the machine wording: a bare `500 Internal Server Error: ...` dump tells a student
- * nothing, and `fetch` says "Failed to fetch" when the network drops.
- */
-function message(error: unknown, fallback: string): string {
-  if (error instanceof NotSignedIn) return 'You have been signed out. Reload to sign in again.'
-  if (error instanceof PaymentRequired) return error.message
-  // Would otherwise be filtered as machine wording by the /^\d{3}\s/ test below and replaced with
-  // "check your connection", which is both wrong and unactionable — the connection is fine and
-  // self-assessment still works.
-  if (error instanceof TooManyRequests) return error.message
-  if (!(error instanceof Error)) return fallback
-  const raw = error.message
-  if (!raw || /^\d{3}\s/.test(raw) || /failed to fetch|networkerror|load failed/i.test(raw)) {
-    return `${fallback} Check your connection and try again.`
-  }
-  return raw
 }
 
 /** "back in 6 days" — when the card comes round again, from its new FSRS due date. */
@@ -183,7 +162,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
       applyResult(await submitSelfAssessedReview(current.id, grade), current)
     } catch (e) {
       setPhase('answering')
-      setError(message(e, "That rating didn't save."))
+      setError(errorMessage(e, "That rating didn't save."))
     }
   }
 
@@ -202,7 +181,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
       setPhase('answering')
       setStreamedExplanation('')
       setPaywall(e instanceof PaymentRequired)
-      setError(message(e, 'Grading failed.'))
+      setError(errorMessage(e, 'Grading failed.'))
     }
   }
 
@@ -228,7 +207,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
       await addToStudyList(current.id)
       setQueued(true)
     } catch (e) {
-      setError(message(e, "Couldn't add that to your study list."))
+      setError(errorMessage(e, "Couldn't add that to your study list."))
     }
   }
 
@@ -245,7 +224,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
       await reportCard(current.id)
       setReported(true)
     } catch (e) {
-      setError(message(e, "Couldn't report that card."))
+      setError(errorMessage(e, "Couldn't report that card."))
     }
   }
 
@@ -255,7 +234,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
     try {
       setRevealed((await revealAnswer(current.id)).answer)
     } catch (e) {
-      setError(message(e, "Couldn't load the answer."))
+      setError(errorMessage(e, "Couldn't load the answer."))
     }
   }
 
