@@ -7,8 +7,8 @@ of prose. None of it errors. `tutor_figures` says so outright — "every failure
 design" — so a regression here shows up only as the tutor quietly doing less.
 
 So this asks the real model, through the real `stream_chat`, with the real system prompt, and
-checks the reply with production's own code: the marker regexes and `_pop_markers` from
-`app.api.tutor`, the voice splitter `_extract_sentences`, and a port of the renderer's own
+checks the reply with production's own code: the marker regexes and `pop_markers` from
+`tutor_markers`, the voice splitter `_extract_sentences`, and a port of the renderer's own
 dollar-sign rule. The live tests cost money and need the network, so they only run when asked:
 
     TUTOR_COMPLIANCE_MODEL=openai/gpt-6-luna pytest tests/test_tutor_model_compliance.py
@@ -30,11 +30,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.api.tutor import _EXAM, _PLOT, _extract_sentences, _pop_markers
 from app.config import settings
 from app.models import TutorPersonality
 from app.services import tutor_prompt
 from app.services.tutor_llm import stream_chat
+from app.services.tutor_markers import _EXAM, _PLOT, pop_markers as _pop_markers
+from app.services.tutor_reply import _extract_sentences
 
 MODEL = os.environ.get("TUTOR_COMPLIANCE_MODEL")
 REPEATS = int(os.environ.get("TUTOR_COMPLIANCE_REPEATS", "3"))
@@ -60,6 +61,13 @@ _STUBS: dict[str, object] = {
 # the next year, which is the one place a date table is easiest to misread.
 MIDWEEK = date(2026, 10, 7)
 YEAR_END = date(2026, 12, 30)
+
+# "<weekday> next week" said where next week starts inside the coming seven days (a Friday: next
+# Wednesday is five days out), and on a Sunday, where next week starts the Monday *after* tomorrow.
+NEXT_WEEK_CASES = [
+    (date(2026, 9, 25), "Wednesday", "2026-09-30"),
+    (date(2026, 10, 18), "Tuesday", "2026-10-27"),
+]
 
 PLACEHOLDERS = ("WHAT THEY CALLED IT", "YYYY-MM-DD", "EXPRESSION", "LOW,HIGH")
 
@@ -190,19 +198,41 @@ def test_a_spoken_exam_mention_still_gets_the_button(ask, attempt, today) -> Non
     the model to break that rule for exactly this line. A weaker instruction-follower resolves the
     conflict the wrong way — no button, and nothing anywhere says one was due.
 
-    The date check is the one that fails in practice, and not flakily. Measured 2026-09-23: on
-    voice turns both models sometimes book the Saturday a week late, and say so aloud ("I can add
-    your exam for Saturday, October seventeenth") — Sonnet 5 on 2 of 20, GPT-6 Luna on 6 to 8 of
-    20. Typed turns were right every time, with the same wording, so it is the spoken delivery and
-    not the question. It varies by calendar date (Luna: 0 of 8 wrong with "today" on some Wednesdays,
-    4 of 8 on 7 October) and happens at the real date too, so it is a live production bug rather
-    than an artefact of freezing the clock. A red result here is that bug, not noise."""
+    The date check is the one that failed in practice. Measured 2026-09-23 with the old
+    fourteen-row date table: on voice turns both models sometimes booked the Saturday a week late,
+    and said so aloud ("I can add your exam for Saturday, October seventeenth") — Sonnet 5 on 2 of
+    20, GPT-6 Luna on 6 to 8 of 20, while typed turns with the same wording were right. The rule to
+    say numbers as words has the model compose the date instead of copying a row, and it composed
+    the second Saturday in the table. Fixed the same day by splitting the table (see
+    `tutor_prompt._exam_offer`): Luna 1 wrong in 384 afterwards, Sonnet 0 in 72. Red here is a
+    regression of that fix."""
     weekday, expected = _three_days_from(today)
     _, reply = ask(f"My history exam is on {weekday}, can we go over the causes of World War One?", spoken=True, today=today)
 
     match = _EXAM.pattern.search(reply)
     assert match, f"spoken reply dropped the add-exam line:\n{reply}"
     assert match.group(2) == expected
+
+
+@live
+@pytest.mark.parametrize("today, weekday, expected", NEXT_WEEK_CASES, ids=["friday", "sunday"])
+@pytest.mark.parametrize("spoken", [True, False], ids=["spoken", "typed"])
+@pytest.mark.parametrize("attempt", range(REPEATS))
+def test_next_week_means_the_calendar_week_not_the_second_row(ask, attempt, spoken, today, weekday, expected) -> None:
+    """The old table was wrong about this on typed turns too: "Wednesday next week" said on a Friday
+    is five days out, and both models booked the one twelve days out — Sonnet 5 on 15% of "next
+    week" turns across the seven days of the week, Luna 13%. The table now tags each row with its
+    calendar week, and that is what they read: 6% and 2% afterwards.
+
+    Not zero, and the Friday case is where Sonnet's remainder shows: said on a Friday, spoken "<day>
+    next week" still lands a week late on 4 of 28 (typed 0 of 28, from 14 of 28 before), taking the
+    row tagged "the week after". So an occasional red on friday-spoken with Sonnet is that known
+    rate; red on typed, on Sunday, or most of the time is a regression."""
+    _, reply = ask(f"I have a physics exam on {weekday} next week. Can we start on circuits?", spoken=spoken, today=today)
+
+    match = _EXAM.pattern.search(reply)
+    assert match, f"no add-exam line:\n{reply}"
+    assert match.group(2) == expected, f"offered {match.group(2)} for {weekday} next week, expected {expected}"
 
 
 @live

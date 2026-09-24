@@ -34,6 +34,9 @@ class _Marker:
     parse: Callable[[re.Match[str]], dict | None]
     #: Turns a payload into the line left behind in the stored transcript, or None to leave none.
     trace: Callable[[dict], str] | None = None
+    #: A looser pattern tried only once the reply has finished, for a close that mid-stream would
+    #: be indistinguishable from one still arriving. None means `pattern` is used throughout.
+    final_pattern: re.Pattern[str] | None = None
 
 
 # A calendar entry. The UI turns this into a confirm button; the write happens when the student
@@ -53,10 +56,16 @@ _PLOT = _Marker(
     # 520 is the sum of every attribute at its cap plus the names and quotes around them — a
     # graph with axis titles and a shaded region is a long line. Past that the model has run away
     # and the marker never matches, which `MAX_HOLD` turns into a dropped plot, not leaked text.
-    pattern=re.compile(r"<<plot\s+[^<>]{0,520}?>>"),
+    # GPT-6 Luna sometimes closes it like an HTML tag — `></plot>`, and `></final>` from its own
+    # output format — which lost the graph and put the raw line on screen. A ">" followed by a
+    # closing tag is unambiguous, so it is accepted as it streams.
+    pattern=re.compile(r"<<plot\s+[^<>]{0,520}?>(?:>|\s*</[a-z]{1,12}>)"),
     event="plot",
     parse=parse_figure,
     trace=describe_figure,
+    # A single ">" is only accepted at the end: mid-stream it would match before the second ">"
+    # arrived and leave that one on screen.
+    final_pattern=re.compile(r"<<plot\s+[^<>]{0,520}?>(?:>|\s*</[a-z]{1,12}>)?"),
 )
 
 _MARKERS: tuple[_Marker, ...] = (_EXAM, _PLOT)
@@ -100,7 +109,7 @@ def split_safe(buffer: str) -> tuple[str, str]:
     return buffer, ""
 
 
-def pop_markers(text: str) -> tuple[str, list[tuple[str, dict]], list[str]]:
+def pop_markers(text: str, final: bool = False) -> tuple[str, list[tuple[str, dict]], list[str]]:
     """Strips every marker out of `text`, returning the cleaned text and (event, payload) pairs.
 
     Two different failures, deliberately handled differently. Text that doesn't match a marker
@@ -111,6 +120,9 @@ def pop_markers(text: str) -> tuple[str, list[tuple[str, dict]], list[str]]:
 
     Markers are scanned type by type, so the pairs are grouped by kind rather than ordered by
     position. Nothing downstream depends on the relative order of two different kinds.
+
+    `final` is for the last call of a reply, when nothing more can arrive: a marker's
+    `final_pattern` is tried then, and only then.
     """
     found: list[tuple[str, dict]] = []
     traces: list[str] = []
@@ -129,7 +141,8 @@ def pop_markers(text: str) -> tuple[str, list[tuple[str, dict]], list[str]]:
                 traces.append(marker.trace(payload))
             return ""
 
-        text = marker.pattern.sub(take, text)
+        pattern = marker.final_pattern if final and marker.final_pattern else marker.pattern
+        text = pattern.sub(take, text)
 
     # Keyed off anything *removed*, not anything emitted: a marker that was stripped but failed
     # validation leaves the same orphaned newlines behind.

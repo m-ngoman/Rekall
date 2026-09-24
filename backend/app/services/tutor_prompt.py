@@ -258,19 +258,54 @@ def _memory_context(db: Session, user_id) -> str:
     return "".join(blocks)
 
 
+_WEEKS = ("this week", "next week", "the week after")
+
+
+def _week_of(today: date, day: date) -> str:
+    """Which calendar week `day` is in, as a student would say it.
+
+    Weeks run Monday to Sunday, but "this week" is the one *tomorrow* falls in. On a Sunday that is
+    the week starting tomorrow, which is how "Tuesday next week" is meant on a Sunday — nine days
+    out, not two — and how both tutor models read it before these tags existed (97%). Counting
+    from today instead tagged every row "next week" on a Sunday and broke exactly that.
+    """
+    tomorrow = today + timedelta(days=1)
+    first_monday = tomorrow - timedelta(days=tomorrow.weekday())
+    return _WEEKS[((day - timedelta(days=day.weekday())) - first_monday).days // 7]
+
+
 def _exam_offer(today: date) -> str:
     """Lets the tutor put a mentioned test on the calendar.
 
     The model can only ever *propose* — the marker becomes a button the student taps. A tutor that
     silently wrote to someone's calendar off a misheard voice turn would be worse than one that
     can't write at all, and "add this?" is a fair thing to get wrong, where "added" is not.
+
+    The table is two blocks of seven, each row tagged with its week, because one list of fourteen
+    booked exams a week late. Every weekday appears in it twice, and asked for "Saturday" the model
+    took the second one — mostly on voice turns, where the rule to say numbers as words has it
+    compose "October seventeenth" itself instead of copying a row. Measured 2026-09-23 against
+    the live models: a bare weekday went from 6.5% wrong to 0.3% on GPT-6 Luna, and "Tuesday next
+    week" — which the old table got wrong even on typed turns, whenever that Tuesday was under a
+    week away — from 13% to 2% on Luna and 15% to 6% on Sonnet 5.
+
+    Both halves are needed, and the wording is load-bearing:
+    - Without the tags, the blocks alone made "next week" worse (13% to 25%): "next week" was read
+      as "the second block", which is wrong whenever next week starts inside the first.
+    - A clause spelling out what the tags mean ("next week is the row marked next week"), put on
+      the second block's heading, sent the model looking only in the second block: 28%.
     """
+
+    def row(i: int) -> str:
+        day = today + timedelta(days=i)
+        return f"  {day:%A %-d %B} = {day:%Y-%m-%d} ({_week_of(today, day)})"
+
     return (
-        f"\n\nToday is {today:%A, %-d %B %Y}. The next two weeks, so you never have to count days:\n"
-        + "\n".join(
-            f"  {today + timedelta(days=i):%A %-d %B} = {today + timedelta(days=i):%Y-%m-%d}"
-            for i in range(1, 15)
-        )
+        f"\n\nToday is {today:%A, %-d %B %Y}. So you never have to count days:\n"
+        "The coming seven days — a weekday on its own (\"on Saturday\") is one of these:\n"
+        + "\n".join(row(i) for i in range(1, 8))
+        + "\nThe seven days after that:\n"
+        + "\n".join(row(i) for i in range(8, 15))
         + (
             "\nUse that table rather than working a weekday out yourself — asked for \"Friday\" it once "
             "produced a Saturday, and a card showing the wrong day is worse than no card.\n"

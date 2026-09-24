@@ -97,3 +97,66 @@ def test_the_plot_instruction_gives_no_worked_example(monkeypatch) -> None:
     instruction = prompt[prompt.index("You can draw a graph") :]
     for concrete in ['fn="x', 'domain="-4', 'domain="0', "x^2 -", "sin(x)"]:
         assert concrete not in instruction, concrete
+
+
+def _table(today):
+    """The exam offer's date table as (block, weekday, iso date, week tag) rows."""
+    import re
+
+    from app.services.tutor_prompt import _exam_offer
+
+    text = _exam_offer(today)
+    body = text[text.index("The coming seven days") : text.index("Use that table")]
+    first, second = body.split("The seven days after that:")
+    row = re.compile(r"^  (\w+) \d+ \w+ = (\d{4}-\d{2}-\d{2}) \((this week|next week|the week after)\)$", re.M)
+    return [(1, *m) for m in row.findall(first)] + [(2, *m) for m in row.findall(second)]
+
+
+def test_a_bare_weekday_has_exactly_one_row_to_land_on() -> None:
+    """One list of fourteen rows had every weekday in it twice, and asked for "Saturday" the model
+    took the second one — a week late, on up to 1 in 9 voice turns. The first block is what "on
+    Saturday" means, so every weekday must be in it exactly once, and be the nearest one."""
+    from datetime import date, timedelta
+
+    for offset in range(7):
+        today = date(2026, 10, 5) + timedelta(days=offset)
+        first = [(day, iso) for block, day, iso, _ in _table(today) if block == 1]
+        assert sorted(day for day, _ in first) == sorted(
+            ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        )
+        assert [iso for _, iso in first] == [(today + timedelta(days=i)).isoformat() for i in range(1, 8)]
+
+
+def test_next_week_is_the_monday_to_sunday_after_the_week_tomorrow_is_in() -> None:
+    """ "Tuesday next week" said on a Friday is four days away — in the first block, not the second.
+    The tags are what let the model find it, so they must be the calendar's weeks, not the blocks.
+    Exactly seven rows are next week, Monday to Sunday, every day of the week."""
+    from datetime import date, timedelta
+
+    for offset in range(14):
+        today = date(2026, 10, 5) + timedelta(days=offset)
+        tomorrow = today + timedelta(days=1)
+        monday = tomorrow - timedelta(days=tomorrow.weekday()) + timedelta(days=7)
+        tagged = [iso for _, _, iso, tag in _table(today) if tag == "next week"]
+        assert tagged == [(monday + timedelta(days=i)).isoformat() for i in range(7)], today
+
+
+def test_on_a_sunday_next_week_is_not_tomorrow() -> None:
+    """Counting weeks from today tagged every row "next week" on a Sunday, and Luna then booked
+    "Tuesday next week" for the day after tomorrow. On a Sunday, the week starting tomorrow is
+    this week."""
+    from datetime import date
+
+    rows = _table(date(2026, 10, 18))
+    assert {tag for block, _, _, tag in rows if block == 1} == {"this week"}
+    assert ("Tuesday", "2026-10-27", "next week") in [(d, iso, tag) for _, d, iso, tag in rows]
+
+
+def test_the_table_crosses_new_year_in_the_right_year() -> None:
+    """Luna has booked 30 December's "Friday" into the January just gone — the ISO dates are the
+    one thing it copies, so they have to be right where the year turns."""
+    from datetime import date
+
+    rows = _table(date(2026, 12, 30))
+    assert ("Friday", "2027-01-01", "this week") in [(d, iso, tag) for _, d, iso, tag in rows]
+    assert ("Monday", "2027-01-04", "next week") in [(d, iso, tag) for _, d, iso, tag in rows]

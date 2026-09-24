@@ -168,7 +168,11 @@ def stream_reply(
     trim_leading = False
     for piece in stream_chat(messages):
         pending, markers, new_traces = pop_markers(pending + piece)
-        traces += new_traces
+        # Every trace is a graph's — an exam offer leaves none — and a voice turn never shows a
+        # graph, so keeping one there stored "[Graph shown: …]" for a graph nobody saw, which the
+        # tutor then read back as something it had drawn.
+        if not synth:
+            traces += new_traces
         for event, payload in markers:
             # Always strip, conditionally render. A plot on a voice turn is ignored rather than
             # spoken — the marker is gone either way, so the synthesizer can never read it out.
@@ -194,8 +198,9 @@ def stream_reply(
             pending = hold
 
     # Anything still held at the end was never going to become a marker.
-    pending, markers, new_traces = pop_markers(pending)
-    traces += new_traces
+    pending, markers, new_traces = pop_markers(pending, final=True)
+    if not synth:
+        traces += new_traces
     for event, payload in markers:
         if event == "plot" and synth:
             continue

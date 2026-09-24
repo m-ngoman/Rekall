@@ -21,13 +21,14 @@ from app.services.tutor_markers import MAX_HOLD, pop_markers, split_safe
 EXAM = '<<add-exam name="Pharmacology mock" date="2026-09-26">>'
 
 
-def replay(chunks: list[str]) -> tuple[str, list[tuple[str, dict]], list[str]]:
+def replay(chunks: list[str], flush: bool = True) -> tuple[str, list[tuple[str, dict]], list[str]]:
     """Run chunks through the same pending/pop/split cycle `stream_reply` uses.
 
     Returns everything the student would have seen, plus every (event, payload) popped and every
     line left for the stored transcript.
     Mirrors the token branch (`synth=False`); the sentence branch adds buffering on top but
-    consumes the identical `safe`/`hold` split.
+    consumes the identical `safe`/`hold` split. `flush=False` stops before the final flush, to
+    see what the student had been shown while the reply was still arriving.
     """
     pending = ""
     emitted = ""
@@ -40,8 +41,10 @@ def replay(chunks: list[str]) -> tuple[str, list[tuple[str, dict]], list[str]]:
         safe, hold = split_safe(pending)
         emitted += safe
         pending = hold
+    if not flush:
+        return emitted, found, traces
     # The final flush: anything still held was never going to become a marker.
-    pending, markers, new_traces = pop_markers(pending)
+    pending, markers, new_traces = pop_markers(pending, final=True)
     found += markers
     traces += new_traces
     return emitted + pending, found, traces
@@ -277,3 +280,158 @@ def test_the_longest_legal_marker_still_matches() -> None:
     seen, found, _ = replay(char_by_char(marker))
     assert "<<" not in seen
     assert len(found) == 1
+
+
+# ---- what GPT-6 Luna actually writes (measured 2026-09-23) ----------------------------------
+
+LUNA_SINE = '<<plot fn="sin(x)" domain="0,2*pi" label="sin(x)" mark="pi/2,1" note="maximum" >>'
+
+
+def test_a_domain_written_with_pi_still_draws() -> None:
+    """Luna wrote every trig graph with its domain in terms of pi, and `float` alone dropped the
+    whole figure: 4 of 4 sine graphs never reached the student. This is its exact line."""
+    import math
+
+    seen, found, traces = replay(char_by_char(f"It peaks at a quarter turn.\n\n{LUNA_SINE}"))
+    assert "<<" not in seen and "plot" not in seen
+    [(event, spec)] = found
+    assert event == "plot"
+    assert spec["domain"] == [0.0, 2 * math.pi]
+    assert spec["marks"] == [[math.pi / 2, 1.0]]
+    assert traces and "maximum" in traces[0]
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("2*pi", 6.283185307179586), ("pi/2", 1.5707963267948966), ("2pi", 6.283185307179586),
+        ("tau", 6.283185307179586), ("PI", 3.141592653589793), ("−pi", -3.141592653589793),
+        ("π/2", 1.5707963267948966), ("(1+2)*3", 9.0), ("3(pi)", 9.42477796076938),
+        # expr.ts's two precedence traps, kept: ^ binds tighter than unary minus, and takes a
+        # negative exponent.
+        ("-2^2", -4.0), ("2^-1", 0.5), ("2^3^2", 512.0),
+        # And its number rule: an exponent only when digits follow, so "2e" is 2 times e.
+        ("1e-3", 0.001), ("2e", 5.43656365691809),
+    ],
+)
+def test_constant_arithmetic_is_a_number(raw, expected) -> None:
+    from app.services.tutor_figures import _number
+
+    assert _number(raw) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        # Anything that isn't a constant: the variable, functions, and two names side by side,
+        # which expr.ts refuses rather than multiplying.
+        "x", "2*x", "sin(pi)", "pi pi", "pie",
+        # Arithmetic that has no finite real answer, or runs away. `9^9^9` hangs on ints; on
+        # floats it overflows at once. A negative to a fractional power is complex in Python.
+        "1/0", "10^400", "9^9^9", "(-8)^(1/3)", "10^10",
+        # Shapes and sizes the grammar refuses outright.
+        "2**3", "", "()", "1+", "(1", "1" * 41, "(" * 30 + "1" + ")" * 30,
+        "__import__", "constructor", "nan", "inf", "1e999",
+    ],
+)
+def test_anything_else_is_not_a_number(raw) -> None:
+    from app.services.tutor_figures import _number
+
+    assert _number(raw) is None
+
+
+@pytest.mark.parametrize("close", ["></plot>", "></final>", ">\n</plot>"])
+def test_a_plot_closed_like_an_html_tag_still_draws(close) -> None:
+    """Luna has closed the marker as `></plot>`, and as `></final>` — a scrap of its own output
+    format. Both lost the graph and put the raw line on the student's screen; a ">" followed by a
+    closing tag is unambiguous, so it streams like any other."""
+    line = '<<plot fn="ln(x)" domain="0.1,5" label="natural logarithm" mark="1,0" note="x-intercept"' + close
+    chunks = char_by_char(f"It crosses at one.\n\n{line}\n\nWant to try another?")
+    seen, found, _ = replay(chunks)
+    assert "<" not in seen and ">" not in seen and "plot" not in seen
+    assert [event for event, _ in found] == ["plot"]
+    assert "Want to try another?" in seen
+    # And it pops as it streams. The end-of-reply pattern would catch it too, but only at the
+    # end: everything after it would be held back until then, and dropped past `MAX_HOLD`.
+    live, found, _ = replay(chunks, flush=False)
+    assert [event for event, _ in found] == ["plot"]
+    assert "Want to try another?" in live
+
+
+def test_a_single_closing_bracket_is_only_believed_once_the_reply_is_over() -> None:
+    """One ">" is a finished marker only when nothing else can arrive. Mid-stream it would match
+    before the second ">" landed and leave that one on screen, so the ordinary marker must still
+    stream cleanly one character at a time."""
+    line = '<<plot fn="x^2" domain="-3,3">'
+    seen, found, _ = replay(char_by_char(f"Here it is.\n\n{line}"))
+    assert [event for event, _ in found] == ["plot"]
+    assert "<" not in seen and ">" not in seen
+
+    seen, found, _ = replay(char_by_char('Here it is.\n\n<<plot fn="x^2" domain="-3,3">>'))
+    assert [event for event, _ in found] == ["plot"]
+    assert ">" not in seen
+
+
+# ---- the stored transcript on a voice turn ---------------------------------------------------
+
+
+def _run_turn(monkeypatch, reply: str, synth: bool) -> str:
+    """Drives the real `stream_reply` with the model, synthesizer and database faked out, and
+    returns what it stored as the assistant's message. `raising=False` throughout because the
+    two trees wire slightly different helpers into the same loop."""
+    import uuid
+    from types import SimpleNamespace
+
+    import app.services.tutor_reply as tutor
+    from app.models import TutorMessageRole
+
+    stored = []
+
+    class Query:
+        def __getattr__(self, name):
+            return lambda *a, **k: self
+
+        def all(self):
+            return []
+
+        def one_or_none(self):
+            return None
+
+        def first(self):
+            return None
+
+    class Database:
+        def add(self, row):
+            stored.append(row)
+
+        def commit(self):
+            pass
+
+        def query(self, *a):
+            return Query()
+
+    def noop(*a, **k):
+        return None
+
+    chunks = [reply[i : i + 7] for i in range(0, len(reply), 7)]
+    monkeypatch.setattr(tutor, "stream_chat", lambda *a, **k: iter(chunks))
+    monkeypatch.setattr(tutor, "synthesize_timed", lambda *a, **k: (b"", []))
+    monkeypatch.setattr(tutor, "build_system_parts", lambda *a, **k: ("stable", "volatile"), raising=False)
+    monkeypatch.setattr(tutor, "build_system_prompt", lambda *a, **k: "system", raising=False)
+    monkeypatch.setattr(tutor, "_context", lambda *a, **k: [{"role": "user", "content": "q"}], raising=False)
+    monkeypatch.setattr(tutor, "spend_log", SimpleNamespace(estimated=noop, from_usage=noop), raising=False)
+    for name in ("record", "schedule_if_due", "compact_if_due", "charge_voice"):
+        monkeypatch.setattr(tutor, name, noop, raising=False)
+
+    session = SimpleNamespace(id=uuid.uuid4(), user_id=uuid.uuid4(), voice_id=None, last_prompt_tokens=None)
+    list(tutor.stream_reply(Database(), session, "Show me x squared.", synth=synth))
+    [message] = [row for row in stored if row.role == TutorMessageRole.assistant]
+    return message.content
+
+
+def test_a_voice_turn_stores_no_trace_of_a_graph_it_never_showed(monkeypatch) -> None:
+    """A voice turn drops a plot — there is nothing to look at — but used to store the
+    "[Graph shown: …]" line anyway, and the tutor then read it back as something it had drawn."""
+    reply = 'It is a U shape.\n\n<<plot fn="x^2" domain="-3,3">>'
+    assert "Graph shown" not in _run_turn(monkeypatch, reply, synth=True)
+    assert "[Graph shown" in _run_turn(monkeypatch, reply, synth=False)

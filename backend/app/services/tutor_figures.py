@@ -13,6 +13,7 @@ the literal-source fallback in MathText.
 from __future__ import annotations
 
 import logging
+import math
 import re
 
 logger = logging.getLogger(__name__)
@@ -36,9 +37,139 @@ def _number(raw: str) -> float | None:
     try:
         value = float(raw)
     except ValueError:
-        return None
+        value = _constant(raw)
+        if value is None:
+            return None
     # NaN and the infinities all parse happily from text and then poison every scale downstream.
     return value if -1e9 < value < 1e9 else None
+
+
+# A domain, mark or shade written as arithmetic on constants — "0,2*pi", "pi/2,1". GPT-6 Luna
+# writes trig graphs this way every time, and `float` alone dropped the whole figure: 4 of 4 sine
+# graphs measured 2026-09-23 never reached the student. The grammar is expr.ts's with no `x` and
+# no functions, so nothing accepted here can be more than a number, and anything expr.ts would
+# refuse is refused here too.
+_UNICODE = {"π": "pi", "−": "-", "–": "-", "×": "*", "·": "*", "÷": "/"}
+_CONSTANTS = {"pi": math.pi, "e": math.e, "tau": math.tau}
+_CONSTANT_OK = re.compile(r"^[0-9a-z+\-*/^().\s]{1,40}$")
+# expr.ts's number rule, exponent included only when digits follow it: "2e" is 2 times e.
+_TOKEN = re.compile(r"\s*(?:(\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)|([a-z][a-z0-9]*)|([-+*/^()]))")
+_MAX_DEPTH = 12
+
+
+class _NotAConstant(Exception):
+    pass
+
+
+def _constant(raw: str) -> float | None:
+    """Evaluates `raw` as constant arithmetic, or returns None. Never raises.
+
+    Floats throughout, never ints: `9^9^9` on ints is a hang, on floats an OverflowError. And a
+    fractional power of a negative is a complex number in Python rather than an error, so the
+    result's type is checked as well as its value.
+    """
+    src = raw.strip().lower()
+    for glyph, plain in _UNICODE.items():
+        src = src.replace(glyph, plain)
+    if not _CONSTANT_OK.match(src):
+        return None
+
+    tokens: list[tuple[str, str]] = []
+    pos = 0
+    while pos < len(src):
+        if src[pos:].strip() == "":
+            break
+        match = _TOKEN.match(src, pos)
+        if not match:
+            return None
+        pos = match.end()
+        number, name, op = match.groups()
+        tokens.append(("num", number) if number else ("name", name) if name else ("op", op))
+
+    at = 0
+
+    def peek() -> tuple[str, str] | None:
+        return tokens[at] if at < len(tokens) else None
+
+    def eat(op: str) -> bool:
+        nonlocal at
+        if peek() == ("op", op):
+            at += 1
+            return True
+        return False
+
+    def expr(depth: int) -> float:
+        if depth > _MAX_DEPTH:
+            raise _NotAConstant
+        value = term(depth)
+        while True:
+            if eat("+"):
+                value += term(depth)
+            elif eat("-"):
+                value -= term(depth)
+            else:
+                return value
+
+    def term(depth: int) -> float:
+        value = unary(depth)
+        while True:
+            if eat("*"):
+                value *= unary(depth)
+            elif eat("/"):
+                value /= unary(depth)
+            elif implicit():
+                value *= unary(depth)
+            else:
+                return value
+
+    def implicit() -> bool:
+        # expr.ts: only after a number or ")", never between two names, never number-number.
+        nxt, prev = peek(), tokens[at - 1] if at else None
+        if not nxt or not prev or not (prev[0] == "num" or prev == ("op", ")")):
+            return False
+        if nxt[0] == "num":
+            return prev[0] != "num"
+        return nxt[0] == "name" or nxt == ("op", "(")
+
+    def unary(depth: int) -> float:
+        if eat("-"):
+            return -unary(depth + 1)
+        if eat("+"):
+            return unary(depth + 1)
+        return factor(depth)
+
+    def factor(depth: int) -> float:
+        base = primary(depth)
+        # `^` binds tighter than unary minus and takes a unary on its right: -2^2 is -4, 2^-1 is 0.5.
+        if eat("^"):
+            return base ** unary(depth + 1)
+        return base
+
+    def primary(depth: int) -> float:
+        nonlocal at
+        token = peek()
+        if token is None:
+            raise _NotAConstant
+        at += 1
+        kind, text = token
+        if kind == "num":
+            return float(text)
+        if kind == "name" and text in _CONSTANTS:
+            return _CONSTANTS[text]
+        if token == ("op", "("):
+            value = expr(depth + 1)
+            if not eat(")"):
+                raise _NotAConstant
+            return value
+        raise _NotAConstant
+
+    try:
+        value = expr(0)
+    except (_NotAConstant, ZeroDivisionError, OverflowError, RecursionError):
+        return None
+    if at != len(tokens) or not isinstance(value, float) or not math.isfinite(value):
+        return None
+    return value
 
 
 def _clean_label(raw: str | None, limit: int = _MAX_LABEL) -> str | None:
