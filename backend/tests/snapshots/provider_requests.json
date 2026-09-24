@@ -1,0 +1,683 @@
+{
+ "generation_from_material": [
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key"
+   },
+   "json": {
+    "messages": [
+     {
+      "content": "You are helping a student turn their notes into spaced-repetition flashcards for the Rekall app. You will be given their source material — a photo of handwritten or printed notes, or extracted text from a PDF — and then the task to carry out on it.\n\nWrite any mathematical notation — equations, values, variables, integrals, fractions, roots — as\nLaTeX between single dollar signs: \"What is $\\frac{d}{dx}\\sin x$?\" with answer \"$\\cos x$\". This\napplies to short ones too: a coefficient is \"$3$\", not 3.\n\nSet \"is_math\": true on every card where you did that, however small the notation, and false only\non cards with no dollar signs at all. The two go together — if the card contains \"$\", it is a\nmaths card. Cards with no notation stay plain text with no dollar signs or backslashes anywhere.\n\nRespond with ONLY a JSON object (no markdown fence, no commentary), in the exact shape the task asks for.",
+      "role": "system"
+     },
+     {
+      "content": [
+       {
+        "text": "Extracted text layer.",
+        "type": "text"
+       },
+       {
+        "image_url": {
+         "url": "data:image/png;base64,iVBORw0KGgpub3QtcmVhbGx5LWFuLWltYWdl"
+        },
+        "type": "image_url"
+       },
+       {
+        "cache_control": {
+         "type": "ephemeral"
+        },
+        "text": "That is the whole of the source material.",
+        "type": "text"
+       },
+       {
+        "text": "Generate flashcards from the material above.\n\nProduce flashcards only for genuinely test-worthy facts, definitions, and concepts — skip trivial or redundant restatements, and skip material that isn't actually study content (blank margins, doodles, unrelated text). Group related cards under a short \"subtopic\" label. Also propose a short, specific deck name (2-5 words) describing the subject.\n\nShape:\n{\"deck_name\": \"string\", \"cards\": [{\"subtopic\": \"string\", \"question\": \"string\", \"answer\": \"string\", \"is_math\": true|false}]}",
+        "type": "text"
+       }
+      ],
+      "role": "user"
+     }
+    ],
+    "model": "anthropic/claude-haiku-4.5",
+    "response_format": {
+     "type": "json_object"
+    }
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 90.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key"
+   },
+   "json": {
+    "messages": [
+     {
+      "content": "You are helping a student turn their notes into spaced-repetition flashcards for the Rekall app. You will be given their source material — a photo of handwritten or printed notes, or extracted text from a PDF — and then the task to carry out on it.\n\nWrite any mathematical notation — equations, values, variables, integrals, fractions, roots — as\nLaTeX between single dollar signs: \"What is $\\frac{d}{dx}\\sin x$?\" with answer \"$\\cos x$\". This\napplies to short ones too: a coefficient is \"$3$\", not 3.\n\nSet \"is_math\": true on every card where you did that, however small the notation, and false only\non cards with no dollar signs at all. The two go together — if the card contains \"$\", it is a\nmaths card. Cards with no notation stay plain text with no dollar signs or backslashes anywhere.\n\nRespond with ONLY a JSON object (no markdown fence, no commentary), in the exact shape the task asks for.",
+      "role": "system"
+     },
+     {
+      "content": [
+       {
+        "text": "Extracted text layer.",
+        "type": "text"
+       },
+       {
+        "image_url": {
+         "url": "data:image/png;base64,iVBORw0KGgpub3QtcmVhbGx5LWFuLWltYWdl"
+        },
+        "type": "image_url"
+       },
+       {
+        "cache_control": {
+         "type": "ephemeral"
+        },
+        "text": "That is the whole of the source material.",
+        "type": "text"
+       },
+       {
+        "text": "Fact-check a set of AI-drafted flashcards against the material above, to catch hallucinated, wrong, or unsupported cards before they reach a student's study queue.\n\nFor each draft card, check that its question and answer are actually supported by the source material. Fix minor wording issues if needed. Drop any card that misrepresents the source, invents information not present in it, or isn't meaningfully supported by it.\n\nShape:\n{\"cards\": [{\"subtopic\": \"string\", \"question\": \"string\", \"answer\": \"string\", \"is_math\": true|false}], \"dropped\": [{\"question\": \"string\", \"reason\": \"string\"}]}\n\nThe draft flashcards to check:\n[{\"question\": \"Q\", \"answer\": \"A\"}]",
+        "type": "text"
+       }
+      ],
+      "role": "user"
+     }
+    ],
+    "model": "anthropic/claude-haiku-4.5",
+    "response_format": {
+     "type": "json_object"
+    }
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 90.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key"
+   },
+   "json": {
+    "messages": [
+     {
+      "content": "You are transcribing a student's notes for a study app's searchable notes library. Read the provided material — a photo of handwritten or printed notes, or text extracted from a PDF.\n\nTranscribe the content faithfully as **Markdown**, preserving whatever structure is actually there: headings, bullet/numbered lists, bold for emphasized or defined terms, and code/formula blocks where appropriate. Don't invent structure that isn't in the source, don't summarize, and don't add commentary — this is a transcription, not a rewrite. Skip page furniture like margin doodles or page numbers.\n\nIf the material is unreadable or contains no real study content, return an empty string for `markdown` and explain briefly in `problem`.\n\nRespond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:\n{\"markdown\": \"string\", \"problem\": \"string or null\"}",
+      "role": "system"
+     },
+     {
+      "content": [
+       {
+        "image_url": {
+         "url": "data:image/png;base64,iVBORw0KGgpub3QtcmVhbGx5LWFuLWltYWdl"
+        },
+        "type": "image_url"
+       },
+       {
+        "text": "That is the whole of the source material.",
+        "type": "text"
+       },
+       {
+        "text": "Transcribe the material above.",
+        "type": "text"
+       }
+      ],
+      "role": "user"
+     }
+    ],
+    "model": "anthropic/claude-haiku-4.5",
+    "response_format": {
+     "type": "json_object"
+    }
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 90.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  }
+ ],
+ "generation_from_topic": [
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key"
+   },
+   "json": {
+    "messages": [
+     {
+      "content": "You are helping a student build spaced-repetition flashcards for a topic they are about to study, in the Rekall app.\n\nProduce flashcards for the genuinely test-worthy facts, definitions and concepts a student at the stated level would be expected to know for this topic. Match the depth to the grade level given: don't write undergraduate cards for a Grade 9 student, or trivial ones for an advanced course.\n\nStay on the standard, mainstream treatment of the topic. Do not invent specific figures, dates, named studies, statistics or examples that you are not confident are correct and widely taught — a wrong flashcard is worse than a missing one, because the student will memorise it. Prefer the concept a course actually tests over an obscure detail.\n\nIf the student's own notes are provided, use them to see how this topic is taught on their course — its depth, vocabulary, notation and emphasis — and follow their framing wherever the notes cover the requested topic. The notes are context for the topic, not a replacement for it: where they say little or nothing about what was asked for, write standard cards for the requested topic anyway, and do not substitute material from the notes that is about something else.\n\nGroup related cards under a short \"subtopic\" label. Also propose a short, specific deck name (2-5 words).\n\nWrite any mathematical notation — equations, values, variables, integrals, fractions, roots — as\nLaTeX between single dollar signs: \"What is $\\frac{d}{dx}\\sin x$?\" with answer \"$\\cos x$\". This\napplies to short ones too: a coefficient is \"$3$\", not 3.\n\nSet \"is_math\": true on every card where you did that, however small the notation, and false only\non cards with no dollar signs at all. The two go together — if the card contains \"$\", it is a\nmaths card. Cards with no notation stay plain text with no dollar signs or backslashes anywhere.\n\nRespond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:\n{\"deck_name\": \"string\", \"cards\": [{\"subtopic\": \"string\", \"question\": \"string\", \"answer\": \"string\", \"is_math\": true|false}]}",
+      "role": "system"
+     },
+     {
+      "content": [
+       {
+        "text": "Subject: Chemistry\nTopic: SN1 reactions\nLevel: Grade 12\nCurriculum / syllabus: AP Chemistry\n\nMy course notes, for context on how this is taught:\nNotes on substitution.\n\nThose notes cover more than one topic. Generate flashcards on SN1 reactions specifically.",
+        "type": "text"
+       }
+      ],
+      "role": "user"
+     }
+    ],
+    "model": "anthropic/claude-haiku-4.5",
+    "response_format": {
+     "type": "json_object"
+    }
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 90.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key"
+   },
+   "json": {
+    "messages": [
+     {
+      "content": "You are fact-checking AI-drafted flashcards for a student, against the notes they were actually taught from.\n\nDrop any card that contradicts the notes, or that states a specific fact — a figure, date, name, or example — which is neither in the notes nor standard, uncontested textbook material for this topic. Also drop cards that are about a different topic than the one requested, even if the notes cover that other topic: the student asked for a specific thing. Keep cards that go beyond the notes where they are plainly standard curriculum content for the requested topic. Fix minor wording issues.\n\nRespond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:\n{\"cards\": [{\"subtopic\": \"string\", \"question\": \"string\", \"answer\": \"string\", \"is_math\": true|false}], \"dropped\": [{\"question\": \"string\", \"reason\": \"string\"}]}",
+      "role": "system"
+     },
+     {
+      "content": [
+       {
+        "text": "Subject: Chemistry\nTopic: SN1 reactions\nLevel: Grade 12\n\nThe student's own notes:\nNotes.\n\nDraft flashcards to check:\n[{\"question\": \"Q\", \"answer\": \"A\"}]",
+        "type": "text"
+       }
+      ],
+      "role": "user"
+     }
+    ],
+    "model": "anthropic/claude-haiku-4.5",
+    "response_format": {
+     "type": "json_object"
+    }
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 90.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key"
+   },
+   "json": {
+    "messages": [
+     {
+      "content": "You are helping a student build spaced-repetition flashcards for a topic they are about to study, in the Rekall app.\n\nProduce flashcards for the genuinely test-worthy facts, definitions and concepts a student at the stated level would be expected to know for this topic. Match the depth to the grade level given: don't write undergraduate cards for a Grade 9 student, or trivial ones for an advanced course.\n\nStay on the standard, mainstream treatment of the topic. Do not invent specific figures, dates, named studies, statistics or examples that you are not confident are correct and widely taught — a wrong flashcard is worse than a missing one, because the student will memorise it. Prefer the concept a course actually tests over an obscure detail.\n\nIf the student's own notes are provided, use them to see how this topic is taught on their course — its depth, vocabulary, notation and emphasis — and follow their framing wherever the notes cover the requested topic. The notes are context for the topic, not a replacement for it: where they say little or nothing about what was asked for, write standard cards for the requested topic anyway, and do not substitute material from the notes that is about something else.\n\nGroup related cards under a short \"subtopic\" label. Also propose a short, specific deck name (2-5 words).\n\nWrite any mathematical notation — equations, values, variables, integrals, fractions, roots — as\nLaTeX between single dollar signs: \"What is $\\frac{d}{dx}\\sin x$?\" with answer \"$\\cos x$\". This\napplies to short ones too: a coefficient is \"$3$\", not 3.\n\nSet \"is_math\": true on every card where you did that, however small the notation, and false only\non cards with no dollar signs at all. The two go together — if the card contains \"$\", it is a\nmaths card. Cards with no notation stay plain text with no dollar signs or backslashes anywhere.\n\nRespond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:\n{\"deck_name\": \"string\", \"cards\": [{\"subtopic\": \"string\", \"question\": \"string\", \"answer\": \"string\", \"is_math\": true|false}]}",
+      "role": "system"
+     },
+     {
+      "content": [
+       {
+        "text": "Subject: History\nTopic: The Reformation\n\nGenerate flashcards for this.",
+        "type": "text"
+       }
+      ],
+      "role": "user"
+     }
+    ],
+    "model": "anthropic/claude-haiku-4.5",
+    "response_format": {
+     "type": "json_object"
+    }
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 90.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key"
+   },
+   "json": {
+    "messages": [
+     {
+      "content": "You are reviewing AI-drafted flashcards before they enter a student's study queue. There is no source document — the cards were written from a topic description alone, so your job is to catch what that process gets wrong.\n\nYou are not being asked to re-derive each fact. You are being asked one question per card: is this standard, uncontested material that a course on this topic would actually teach at this level?\n\nDrop a card if it states a specific figure, date, named study, statistic or example that is not textbook-standard; if it is too advanced or too trivial for the stated level; if it is contested, or true only under assumptions the card doesn't state; or if the answer is vague enough that a student couldn't tell whether they got it right. Keep the core conceptual cards. Fix minor wording issues.\n\nBe willing to drop a lot. A short deck of solid cards is worth more than a long one a student has to second-guess.\n\nRespond with ONLY a JSON object (no markdown fence, no commentary), exactly shaped like:\n{\"cards\": [{\"subtopic\": \"string\", \"question\": \"string\", \"answer\": \"string\", \"is_math\": true|false}], \"dropped\": [{\"question\": \"string\", \"reason\": \"string\"}]}",
+      "role": "system"
+     },
+     {
+      "content": [
+       {
+        "text": "Subject: History\nTopic: The Reformation\n\nDraft flashcards to check:\n[{\"question\": \"Q\", \"answer\": \"A\"}]",
+        "type": "text"
+       }
+      ],
+      "role": "user"
+     }
+    ],
+    "model": "anthropic/claude-haiku-4.5",
+    "response_format": {
+     "type": "json_object"
+    }
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 90.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  }
+ ],
+ "grading_cloud": [
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key",
+    "Content-Type": "application/json"
+   },
+   "json": {
+    "max_tokens": 250,
+    "messages": [
+     {
+      "content": "You are grading a flashcard answer for a spaced-repetition study app.\n\nWrite TO the student, as \"you\". Never write \"the student\", \"the student's answer\", \"the response\",\nor \"the submission\". Do not narrate what the answer did — talk to the person who wrote it.\n\nFIRST decide whether the answer is right. A paraphrase IS right: if it means the same thing in\ndifferent words, or is a shorter way of saying it, that is full marks. Only once you have decided\nit is genuinely wrong may you use a correcting sentence.\n\nThe bracketed labels below are SLOTS. Replace every one with the real words from this card —\nnever print a label itself. Copy the shape of these sentences, not their contents, and never let\nthem influence the grade.\n\nRIGHT ANSWERS — confirm and stop. Never hunt for something to correct.\n  Good: That's right — [THE ANSWER] is exactly it.\n  Good: Yes, you've got it.\n  Good: That's it — same thing, just worded differently.\n  Bad:  The response correctly identifies [THE ANSWER].\n  Bad:  Not quite — you said [THEIR WORDS], but it's [THE ANSWER].   <- wrong when they match. That is a 5.\n\nWRONG OR PARTIAL ANSWERS — name what they wrote, then correct it.\n  Good: Not quite — you said [THEIR WORDS], but it's [THE ANSWER], because [WHY].\n  Bad:  The student's answer is incorrect. The correct answer is [THE ANSWER].\n  Bad:  [THE ANSWER] is what happens here, not [THEIR WORDS].        <- impersonal; name what THEY wrote.\n\nOFF-TOPIC, BLANK OR \"I DON'T KNOW\" — still speak to them. This is where it is most tempting to\nslip into reporting on the answer instead of talking to the person, so it needs its own shape.\n  Good: That's off track — this one's asking about [TOPIC]. The answer is [THE ANSWER], because [WHY].\n  Good: No problem — the answer is [THE ANSWER], because [WHY].\n  Bad:  The student's answer is unrelated to the question asked.\n  Bad:  The response does not address the question.\n\nQuestion: What is the capital of France?\nReference answer: Paris\nStudent's answer: It's Paris\n\nTHE QUESTION SETS THE BAR, NOT THE REFERENCE ANSWER'S LENGTH. The reference is one good way to answer, and it often carries more detail than the question actually asked for. Grade only whether the student answered what was asked:\n- If the question asks what/which/who/where/when, naming the right thing IS the complete answer. A single word can be a 5.\n- Only require mechanism, reasoning or extra detail when the question asks for it — \"why\", \"how\", \"explain\", \"describe\", \"list three\".\n- Never deduct for brevity, for omitting detail the question didn't request, or for not matching the reference's wording.\n\nGrade the student's answer on a 1-5 scale:\n5 = answers what the question asked, correctly\n4 = answers it correctly with only minor imprecision\n3 = partially answers it — part of what the question asked is missing or unclear\n2 = names something related, but what the question asked for is factually wrong\n1 = wrong, blank, unrelated, or saying they don't know (\"no idea\", \"not sure\", \"can't remember\") — a specific incorrect fact/value is still wrong, not partial credit\n\nSTRICT MODE — this overrides the 2 above: if the question asks for a specific fact (a name, place, value, date or term) and the student names the wrong one, score 1, not 2. Being in the right category is not partial credit. Where the question expects a specific technical term, vague or hedged wording drops the score by one.\n\nIf the grade is 4-5: respond with ONE short sentence of confirmation.\nIf the grade is 1-3: respond with 2-3 short sentences that actually teach — explain the correct reasoning or solution, not just that the answer was \"incomplete\" or \"lacked depth\". Help the student understand why the reference answer is right.\n\nThis card is rendered as maths, so write any notation as LaTeX between single dollar signs: \"the derivative is $2x$\". Keep the prose around it plain. The student is typing on a phone keyboard and may write \"sqrt(2)\", \"x^2\", or unicode like √ and π — treat those as equivalent to the same maths properly written, and never mark an answer down for how it was typed.\n\nOutput format exactly, nothing else — the feedback text, then the score on its own line:\n<feedback text>\n###SCORE: <1-5>",
+      "role": "user"
+     }
+    ],
+    "model": "google/gemini-2.5-flash",
+    "stream": true,
+    "temperature": 0.2
+   },
+   "method": "POST",
+   "streamed": true,
+   "timeout": 60.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  }
+ ],
+ "grading_cloud_dont_know": [
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key",
+    "Content-Type": "application/json"
+   },
+   "json": {
+    "max_tokens": 220,
+    "messages": [
+     {
+      "content": "A student drew a blank on a flashcard — they said they don't know, rather than\nguessing. You are not grading anything. Teach them the answer.\n\nWrite TO the student, as \"you\". Never write \"the student\" or \"the answer given\".\n\nOpen by taking the pressure off in a few words, then teach: what the answer is, and why it is that\nrather than something else. If there is a way to remember it or a hook that makes it stick, give it.\nTwo to four short sentences. No preamble, no closing question, no bullet points.\n\nNever use LaTeX or math markup (no backslash-parenthesis delimiters, \\cdot, curly-brace exponents, etc.) — this is displayed as plain text, so LaTeX shows up as broken backslash symbols. Write math in plain text instead: \"x^2\" not LaTeX-wrapped, \"2 * x\" or \"2 times x\" not \"2 \\cdot x\".\n\nQuestion: What is the capital of France?\nThe answer: Paris",
+      "role": "user"
+     }
+    ],
+    "model": "google/gemini-2.5-flash",
+    "stream": true,
+    "temperature": 0.3
+   },
+   "method": "POST",
+   "streamed": true,
+   "timeout": 60.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  }
+ ],
+ "grading_local": [
+  {
+   "data": null,
+   "files": null,
+   "headers": null,
+   "json": {
+    "model": "qwen2.5:7b",
+    "options": {
+     "num_predict": 250,
+     "temperature": 0.2
+    },
+    "prompt": "You are grading a flashcard answer for a spaced-repetition study app.\n\nWrite TO the student, as \"you\". Never write \"the student\", \"the student's answer\", \"the response\",\nor \"the submission\". Do not narrate what the answer did — talk to the person who wrote it.\n\nFIRST decide whether the answer is right. A paraphrase IS right: if it means the same thing in\ndifferent words, or is a shorter way of saying it, that is full marks. Only once you have decided\nit is genuinely wrong may you use a correcting sentence.\n\nThe bracketed labels below are SLOTS. Replace every one with the real words from this card —\nnever print a label itself. Copy the shape of these sentences, not their contents, and never let\nthem influence the grade.\n\nRIGHT ANSWERS — confirm and stop. Never hunt for something to correct.\n  Good: That's right — [THE ANSWER] is exactly it.\n  Good: Yes, you've got it.\n  Good: That's it — same thing, just worded differently.\n  Bad:  The response correctly identifies [THE ANSWER].\n  Bad:  Not quite — you said [THEIR WORDS], but it's [THE ANSWER].   <- wrong when they match. That is a 5.\n\nWRONG OR PARTIAL ANSWERS — name what they wrote, then correct it.\n  Good: Not quite — you said [THEIR WORDS], but it's [THE ANSWER], because [WHY].\n  Bad:  The student's answer is incorrect. The correct answer is [THE ANSWER].\n  Bad:  [THE ANSWER] is what happens here, not [THEIR WORDS].        <- impersonal; name what THEY wrote.\n\nOFF-TOPIC, BLANK OR \"I DON'T KNOW\" — still speak to them. This is where it is most tempting to\nslip into reporting on the answer instead of talking to the person, so it needs its own shape.\n  Good: That's off track — this one's asking about [TOPIC]. The answer is [THE ANSWER], because [WHY].\n  Good: No problem — the answer is [THE ANSWER], because [WHY].\n  Bad:  The student's answer is unrelated to the question asked.\n  Bad:  The response does not address the question.\n\nQuestion: What is the capital of France?\nReference answer: Paris\nStudent's answer: paris\n\nTHE QUESTION SETS THE BAR, NOT THE REFERENCE ANSWER'S LENGTH. The reference is one good way to answer, and it often carries more detail than the question actually asked for. Grade only whether the student answered what was asked:\n- If the question asks what/which/who/where/when, naming the right thing IS the complete answer. A single word can be a 5.\n- Only require mechanism, reasoning or extra detail when the question asks for it — \"why\", \"how\", \"explain\", \"describe\", \"list three\".\n- Never deduct for brevity, for omitting detail the question didn't request, or for not matching the reference's wording.\n\nGrade the student's answer on a 1-5 scale:\n5 = answers what the question asked, correctly\n4 = answers it correctly with only minor imprecision\n3 = partially answers it — part of what the question asked is missing or unclear\n2 = names something related, but what the question asked for is factually wrong\n1 = wrong, blank, unrelated, or saying they don't know (\"no idea\", \"not sure\", \"can't remember\") — a specific incorrect fact/value is still wrong, not partial credit\n\n\nIf the grade is 4-5: respond with ONE short sentence of confirmation.\nIf the grade is 1-3: respond with 2-3 short sentences that actually teach — explain the correct reasoning or solution, not just that the answer was \"incomplete\" or \"lacked depth\". Help the student understand why the reference answer is right.\n\nNever use LaTeX or math markup (no backslash-parenthesis delimiters, \\cdot, curly-brace exponents, etc.) — this is displayed as plain text, so LaTeX shows up as broken backslash symbols. Write math in plain text instead: \"x^2\" not LaTeX-wrapped, \"2 * x\" or \"2 times x\" not \"2 \\cdot x\".\n\nOutput format exactly, nothing else — the feedback text, then the score on its own line:\n<feedback text>\n###SCORE: <1-5>",
+    "stream": true
+   },
+   "method": "POST",
+   "streamed": true,
+   "timeout": 60.0,
+   "url": "http://127.0.0.1:11434/api/generate"
+  }
+ ],
+ "grading_local_dont_know": [
+  {
+   "data": null,
+   "files": null,
+   "headers": null,
+   "json": {
+    "model": "qwen2.5:7b",
+    "options": {
+     "num_predict": 220,
+     "temperature": 0.3
+    },
+    "prompt": "A student drew a blank on a flashcard — they said they don't know, rather than\nguessing. You are not grading anything. Teach them the answer.\n\nWrite TO the student, as \"you\". Never write \"the student\" or \"the answer given\".\n\nOpen by taking the pressure off in a few words, then teach: what the answer is, and why it is that\nrather than something else. If there is a way to remember it or a hook that makes it stick, give it.\nTwo to four short sentences. No preamble, no closing question, no bullet points.\n\nThis card is rendered as maths, so write any notation as LaTeX between single dollar signs: \"the derivative is $2x$\". Keep the prose around it plain. The student is typing on a phone keyboard and may write \"sqrt(2)\", \"x^2\", or unicode like √ and π — treat those as equivalent to the same maths properly written, and never mark an answer down for how it was typed.\n\nQuestion: What is the capital of France?\nThe answer: Paris",
+    "stream": true
+   },
+   "method": "POST",
+   "streamed": true,
+   "timeout": 60.0,
+   "url": "http://127.0.0.1:11434/api/generate"
+  }
+ ],
+ "grading_prometheus": [
+  {
+   "data": null,
+   "files": null,
+   "headers": null,
+   "json": {
+    "model": "hf.co/prometheus-eval/prometheus-7b-v2.0-GGUF",
+    "options": {
+     "num_predict": 300,
+     "temperature": 0.0
+    },
+    "prompt": "###Task Description:\nAn instruction (might include an Input inside it), a response to evaluate, a reference answer that gets a score of 5, and a score rubric representing a evaluation criteria are given.\n1. Write a feedback that assesses the quality of the response strictly based on the given score rubric, not evaluating in general.\n2. After writing a feedback, write a score that is an integer between 1 and 5. You should refer to the score rubric.\n3. The output format should look as follows: \"Feedback: (write a feedback for criteria) [RESULT] (an integer number between 1 and 5)\"\n4. Please do not generate any other opening, closing, and explanations.\n5. Keep the feedback short — at most two sentences.\n\n###The instruction to evaluate:\nWhat is the capital of France?\n\n###Response to evaluate:\nParis\n\n###Reference Answer (Score 5):\nParis\n\n###Score Rubrics:\n[Does the response correctly and completely answer the question, matching the meaning of the reference answer?]\nScore 1: The response is completely incorrect, irrelevant, or blank.\nScore 2: The response shows minimal understanding but is largely incorrect or missing key information.\nScore 3: The response is partially correct but missing important details or contains inaccuracies.\nScore 4: The response is mostly correct with only minor omissions or imprecision.\nScore 5: The response is fully correct and equivalent in meaning to the reference answer.\n\n###Feedback: ",
+    "raw": true,
+    "stream": false
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 60.0,
+   "url": "http://127.0.0.1:11434/api/generate"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": null,
+   "json": {
+    "model": "qwen2.5:7b",
+    "options": {
+     "num_predict": 60,
+     "temperature": 0.2
+    },
+    "prompt": "Rewrite this grading feedback as one short sentence (max ~15 words) spoken directly to the student, using \"you\"/\"your\". Keep the core point — what was right or wrong. No preamble or closing, just the sentence.\n\nFeedback to rewrite: Correct.\n\nRewritten:",
+    "stream": true
+   },
+   "method": "POST",
+   "streamed": true,
+   "timeout": 30.0,
+   "url": "http://127.0.0.1:11434/api/generate"
+  }
+ ],
+ "speech_cartesia": [
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-cartesia_api_key",
+    "Cartesia-Version": "2026-08-14"
+   },
+   "json": null,
+   "method": "GET",
+   "streamed": false,
+   "timeout": 15.0,
+   "url": "https://api.cartesia.ai/voices"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-cartesia_api_key",
+    "Cartesia-Version": "2026-08-14",
+    "Content-Type": "application/json"
+   },
+   "json": {
+    "add_timestamps": true,
+    "language": "en",
+    "model_id": "sonic-3",
+    "output_format": {
+     "container": "raw",
+     "encoding": "pcm_s16le",
+     "sample_rate": 44100
+    },
+    "transcript": "Hello there.",
+    "voice": {
+     "id": "db6b0ed5-d5d3-463d-ae85-518a07d3c2b4",
+     "mode": "id"
+    }
+   },
+   "method": "POST",
+   "streamed": true,
+   "timeout": 30.0,
+   "url": "https://api.cartesia.ai/tts/sse"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-cartesia_api_key",
+    "Cartesia-Version": "2026-08-14",
+    "Content-Type": "application/json"
+   },
+   "json": {
+    "add_timestamps": true,
+    "language": "en",
+    "model_id": "sonic-3",
+    "output_format": {
+     "container": "raw",
+     "encoding": "pcm_s16le",
+     "sample_rate": 44100
+    },
+    "transcript": "Hello there.",
+    "voice": {
+     "id": "chosen-voice",
+     "mode": "id"
+    }
+   },
+   "method": "POST",
+   "streamed": true,
+   "timeout": 30.0,
+   "url": "https://api.cartesia.ai/tts/sse"
+  }
+ ],
+ "speech_chatterbox": [
+  {
+   "data": null,
+   "files": null,
+   "headers": null,
+   "json": {
+    "text": "Hello there."
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 60.0,
+   "url": "http://127.0.0.1:13231/tts"
+  }
+ ],
+ "speech_inworld": [
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Basic test-inworld_api_key",
+    "Content-Type": "application/json"
+   },
+   "json": null,
+   "method": "GET",
+   "streamed": false,
+   "timeout": 15.0,
+   "url": "https://api.inworld.ai/tts/v1/voices"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Basic test-inworld_api_key",
+    "Content-Type": "application/json"
+   },
+   "json": {
+    "audioConfig": {
+     "audioEncoding": "LINEAR16",
+     "sampleRateHertz": 44100
+    },
+    "modelId": "inworld-tts-2-flash",
+    "text": "Hello there.",
+    "timestampType": "WORD",
+    "voiceId": "Ashley"
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 30.0,
+   "url": "https://api.inworld.ai/tts/v1/voice"
+  }
+ ],
+ "speech_to_text": [
+  {
+   "data": {
+    "language": "en",
+    "model": "whisper-large-v3-turbo"
+   },
+   "files": {
+    "file": "audio.webm"
+   },
+   "headers": {
+    "Authorization": "Bearer test-groq_api_key"
+   },
+   "json": null,
+   "method": "POST",
+   "streamed": false,
+   "timeout": 30.0,
+   "url": "https://api.groq.com/openai/v1/audio/transcriptions"
+  }
+ ],
+ "tutor_ollama": [
+  {
+   "data": null,
+   "files": null,
+   "headers": null,
+   "json": {
+    "messages": [
+     {
+      "content": "You are a tutor.",
+      "role": "system"
+     },
+     {
+      "content": "What is SN1?",
+      "role": "user"
+     },
+     {
+      "content": "A two-step substitution.",
+      "role": "assistant"
+     },
+     {
+      "content": "Why two steps?",
+      "role": "user"
+     }
+    ],
+    "model": "qwen2.5:7b",
+    "stream": true
+   },
+   "method": "POST",
+   "streamed": true,
+   "timeout": 60.0,
+   "url": "http://127.0.0.1:11434/api/chat"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": null,
+   "json": {
+    "messages": [
+     {
+      "content": "You are a tutor.",
+      "role": "system"
+     },
+     {
+      "content": "What is SN1?",
+      "role": "user"
+     }
+    ],
+    "model": "qwen2.5:7b",
+    "stream": false
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 60.0,
+   "url": "http://127.0.0.1:11434/api/chat"
+  }
+ ],
+ "tutor_openrouter": [
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key"
+   },
+   "json": {
+    "messages": [
+     {
+      "content": [
+       {
+        "cache_control": {
+         "type": "ephemeral"
+        },
+        "text": "You are a tutor.",
+        "type": "text"
+       }
+      ],
+      "role": "system"
+     },
+     {
+      "content": "What is SN1?",
+      "role": "user"
+     },
+     {
+      "content": [
+       {
+        "cache_control": {
+         "type": "ephemeral"
+        },
+        "text": "A two-step substitution.",
+        "type": "text"
+       }
+      ],
+      "role": "assistant"
+     },
+     {
+      "content": "Why two steps?",
+      "role": "user"
+     }
+    ],
+    "model": "anthropic/claude-sonnet-5",
+    "reasoning": {
+     "enabled": false
+    },
+    "stream": true,
+    "stream_options": {
+     "include_usage": true
+    }
+   },
+   "method": "POST",
+   "streamed": true,
+   "timeout": 60.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  },
+  {
+   "data": null,
+   "files": null,
+   "headers": {
+    "Authorization": "Bearer test-openrouter_api_key"
+   },
+   "json": {
+    "messages": [
+     {
+      "content": "You are a tutor.",
+      "role": "system"
+     },
+     {
+      "content": "What is SN1?",
+      "role": "user"
+     }
+    ],
+    "model": "google/gemini-2.5-flash"
+   },
+   "method": "POST",
+   "streamed": false,
+   "timeout": 60.0,
+   "url": "https://openrouter.ai/api/v1/chat/completions"
+  }
+ ]
+}
