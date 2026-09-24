@@ -56,15 +56,31 @@ def _extract_sentences(buffer: str, final: bool) -> tuple[list[str], str]:
 #
 # Two numbers rather than one, and this is the point: a sliding window that drops the oldest
 # message every turn would change the prefix every turn, and a changed prefix is a cache miss. So
-# nothing is trimmed until the history passes HISTORY_MAX, and then it drops all the way back to
-# HISTORY_KEEP. The prefix is stable for the forty turns in between, and the cache is only
+# nothing is trimmed until the history passes HISTORY_MAX, and then it drops back to just over
+# HISTORY_KEEP. The prefix is stable for the forty messages in between, and the cache is only
 # invalidated once per trim instead of once per turn.
 HISTORY_MAX = 80
 HISTORY_KEEP = 40
 
 
 def history_window(history: list[TutorMessage]) -> list[TutorMessage]:
-    return history if len(history) <= HISTORY_MAX else history[-HISTORY_KEEP:]
+    """The part of the conversation sent with this turn.
+
+    The start moves in whole steps of HISTORY_MAX - HISTORY_KEEP messages, and only when the
+    window would otherwise hold more than HISTORY_MAX: straight after a step it holds a little
+    over HISTORY_KEEP, and it grows a message at a time until the next. Computed from the length
+    alone, so every turn between two steps agrees on where the window starts.
+
+    It then starts on the student's turn. Cut anywhere else, the model would read a reply to a
+    message it was never sent; a regular conversation's steps land on one anyway, and this covers
+    one that isn't regular (a reply that failed leaves two of the student's messages in a row).
+    """
+    step = HISTORY_MAX - HISTORY_KEEP
+    start = max(0, (len(history) - HISTORY_KEEP - 1) // step * step)
+    if start:
+        while start < len(history) - 1 and history[start].role != TutorMessageRole.user:
+            start += 1
+    return history[start:]
 
 
 def stream_reply(

@@ -161,7 +161,9 @@ def _weak_cards_context(db: Session, user_id, deck_id) -> str:
         db.query(Card)
         .join(StudyListEntry, StudyListEntry.card_id == Card.id)
         .join(Deck, Card.deck_id == Deck.id)
-        .filter(StudyListEntry.user_id == user_id, Deck.user_id == user_id)
+        # A reported card is one the student said is wrong. Teaching from it would put back in
+        # front of them exactly what the report took out of their queue.
+        .filter(StudyListEntry.user_id == user_id, Deck.user_id == user_id, Card.suspended.is_(False))
     )
     if deck_id is not None:
         asked = asked.filter(Deck.id == deck_id)
@@ -170,7 +172,7 @@ def _weak_cards_context(db: Session, user_id, deck_id) -> str:
     query = db.query(Card).join(Deck, Card.deck_id == Deck.id).filter(Deck.user_id == user_id)
     if deck_id is not None:
         query = query.filter(Deck.id == deck_id)
-    query = query.filter(Card.state != CardState.new, Card.reviews > 0)
+    query = query.filter(Card.state != CardState.new, Card.reviews > 0, Card.suspended.is_(False))
     if asked_cards:
         query = query.filter(Card.id.notin_([c.id for c in asked_cards]))
     weak_cards = query.order_by(Card.lapses.desc(), Card.stability.asc().nulls_last()).limit(

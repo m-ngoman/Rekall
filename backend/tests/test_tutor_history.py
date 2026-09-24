@@ -24,11 +24,17 @@ def test_nothing_is_trimmed_until_the_history_passes_the_maximum(length: int) ->
     assert history_window(history) == history
 
 
-def test_past_the_maximum_it_drops_back_to_the_floor() -> None:
-    assert len(history_window(conversation(HISTORY_MAX + 1))) == HISTORY_KEEP
+def test_past_the_maximum_it_drops_back_to_just_over_the_floor() -> None:
+    """KEEP messages, and the student's message before them: a window of exactly KEEP would open
+    on the tutor's reply, since the conversation alternates and ends on the student."""
+    window = history_window(conversation(HISTORY_MAX + 1))
+    assert len(window) == HISTORY_KEEP + 1 and window[0].role == "user"
 
 
-@pytest.mark.xfail(strict=True, reason="bug: the window slides every turn, so the cached prefix never survives a turn")
+def test_the_window_never_holds_more_than_the_maximum() -> None:
+    assert max(len(history_window(conversation(n))) for n in range(1, 5 * HISTORY_MAX)) == HISTORY_MAX
+
+
 def test_the_start_of_the_window_holds_still_between_trims() -> None:
     """The trim exists so the prompt cache can reuse the history: nothing should move until the
     history has grown by another MAX - KEEP messages."""
@@ -36,7 +42,16 @@ def test_the_start_of_the_window_holds_still_between_trims() -> None:
     assert len(starts) == 1
 
 
-@pytest.mark.xfail(strict=True, reason="bug: past the maximum the window can start on an assistant message")
 def test_the_window_always_starts_on_a_user_message() -> None:
     for n in range(HISTORY_MAX + 1, 3 * HISTORY_MAX, 2):
         assert history_window(conversation(n))[0].role == "user"
+
+
+def test_a_window_that_would_open_on_a_reply_moves_on_to_the_students_turn() -> None:
+    """A reply that failed leaves two of the student's messages in a row, which shifts every
+    later message by one: the step then lands on the tutor's reply, and the window moves past it."""
+    n = HISTORY_MAX + 1
+    history = [Msg("user", -1)] + conversation(n - 1)
+    window = history_window(history)
+    assert window[0].role == "user" and len(window) == HISTORY_KEEP
+

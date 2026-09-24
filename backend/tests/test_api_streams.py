@@ -408,12 +408,24 @@ def test_an_attached_photo_is_labelled_by_what_it_is(client, monkeypatch) -> Non
     assert image.startswith("data:image/png;base64,")
 
 
-@pytest.mark.xfail(strict=True, reason="bug: a reported (suspended) card is still offered to the tutor as a weak card")
 def test_reported_cards_stay_out_of_the_tutors_context(client) -> None:
     from app.models import TutorSession
     from app.services.tutor_prompt import build_system_prompt
 
     a_card(client, state=CardState.review, reviews=5, lapses=9, suspended=True)
+    sid = session(client)
+    with SessionLocal() as db:
+        prompt = build_system_prompt(db, db.get(TutorSession, uuid.UUID(sid)), spoken=False)
+    assert "Capital of France?" not in prompt
+
+
+def test_a_reported_card_on_the_study_list_stays_out_too(client) -> None:
+    from app.models import TutorSession
+    from app.services.tutor_prompt import build_system_prompt
+
+    card = a_card(client, state=CardState.review, reviews=5, lapses=9)
+    assert client.post(f"/api/cards/{card}/study-list").status_code == 204
+    assert client.post(f"/api/cards/{card}/report").status_code == 204
     sid = session(client)
     with SessionLocal() as db:
         prompt = build_system_prompt(db, db.get(TutorSession, uuid.UUID(sid)), spoken=False)
