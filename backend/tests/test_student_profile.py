@@ -235,6 +235,32 @@ class TestYoursLines:
         new, error = apply_op(MINE, "How they work", body, BUDGET)
         assert error is None and len(parse(new)["How they work"]) == MAX_LINES_PER_SECTION + 1
 
+    def test_the_model_cannot_hide_a_tag_inside_its_line(self):
+        # Either would come back as the student's line the first time they saved the file.
+        for body in (
+            "- Asks for hints [student] [2 sessions, latest 2026-09-20]",
+            "- Foo. [1 session, latest 2026-09-01] [2 sessions, latest 2026-09-20]",
+        ):
+            new, error = apply_op(MINE, "What helps", body, BUDGET)
+            assert new is None and "one tag" in error
+
+    def test_the_model_cannot_claim_a_line_the_student_wrote(self):
+        body = "- resitting  organic chemistry in the spring. [2 sessions, latest 2026-09-20]"
+        new, error = apply_op(MINE, "What helps", body, BUDGET)
+        assert new is None and "The student wrote that line themselves" in error
+
+    def test_over_the_cap_a_pass_may_still_shrink_the_document(self):
+        # The student's own lines put it over. The tutor dropping one of its lines must still
+        # land, and adding one must not.
+        long = "; ".join(["Long note carried over from before the profile"] * 5)
+        doc = MINE + "\n" + "\n".join(f"- {i} {long} [student]" for i in range(3))
+        assert len(doc) > 400
+        mine = "- I learn better when asked before being told. [student]"
+        shrunk, error = apply_op(doc, "How they work", mine, 400)
+        assert error is None and "reaches for a formula" not in shrunk
+        grown, error = apply_op(doc, "What helps", "- A new pattern. [2 sessions, latest 2026-09-20]", 400)
+        assert grown is None and "400" in error
+
     def test_a_long_line_of_theirs_is_not_the_models_to_refuse(self):
         long = "I " + "really " * 30 + "like worked examples."
         assert MAX_LINE_CHARS < len(long) + 12 <= MAX_YOURS_LINE_CHARS
@@ -287,9 +313,27 @@ class TestEditing:
         assert Line("Third-year biology, actually.", yours=True) in parse(edit.body)["Course and level"]
         assert edit.removed == ["Second-year undergraduate biology."]
 
-    def test_lines_without_a_known_heading_go_into_the_first_section(self):
-        edit = apply_edit("", "Likes a challenge.\n\n## Hobbies\n- Plays chess.", BUDGET)
-        assert [line.text for line in parse(edit.body)["How they work"]] == ["Likes a challenge.", "Plays chess."]
+    def test_lines_above_every_heading_go_into_the_first_section(self):
+        edit = apply_edit("", "Likes a challenge.\n\n## What helps\n- Plays chess.", BUDGET)
+        sections = parse(edit.body)
+        assert [line.text for line in sections["How they work"]] == ["Likes a challenge."]
+        assert [line.text for line in sections["What helps"]] == ["Plays chess."]
+
+    def test_a_heading_that_is_not_a_section_is_kept_as_what_they_typed(self):
+        # Dropping it would lose it without a word: "# Important: I'm dyslexic" was a 200 that
+        # saved nothing.
+        edit = apply_edit("", "## What helps\n# Important: I'm dyslexic\n## Hobbies\n- Plays chess.", BUDGET)
+        assert [line.text for line in parse(edit.body)["What helps"]] == ["# Important: I'm dyslexic", "## Hobbies", "Plays chess."]
+        assert apply_edit(edit.body, plain(edit.body), BUDGET).body is None
+
+    def test_a_marker_with_no_space_after_it_is_part_of_the_line(self):
+        edit = apply_edit("", "## What helps\n-3 is where I slip on signs.\n*Always* show units.\n- * starred", BUDGET)
+        assert [line.text for line in parse(edit.body)["What helps"]] == [
+            "-3 is where I slip on signs.",
+            "*Always* show units.",
+            "* starred",
+        ]
+        assert apply_edit(edit.body, plain(edit.body), BUDGET).body is None
 
     def test_headings_are_read_however_they_are_typed(self):
         edit = apply_edit("", "### what helps ###\n* Short sessions.\n# Course And Level\n• Year 12.", BUDGET)
@@ -302,13 +346,38 @@ class TestEditing:
         edit = apply_edit("", "## What helps\n- Short sessions. [9 sessions, latest 2026-09-01]", BUDGET)
         assert parse(edit.body)["What helps"] == [Line("Short sessions.", yours=True)]
 
+    def test_every_tag_typed_at_the_end_comes_off(self):
+        # One at a time, each save would read one more off, and the line would change under them.
+        edit = apply_edit("", "## What helps\n- Resitting chem [student] [student]", BUDGET)
+        assert parse(edit.body)["What helps"] == [Line("Resitting chem", yours=True)]
+
+    def test_saving_unchanged_never_touches_the_tutors_lines(self):
+        # Spacing the model left in, including the non-breaking kind, reads back as the same line.
+        doc = (
+            "## How they work\n"
+            "- Answers fast.  Checks nothing. [3 sessions, latest 2026-09-14]\n"
+            "- Asks\u00a0for hints,\u3000then\tguesses. [2 sessions, latest 2026-09-10]"
+        )
+        edit = apply_edit(doc, plain(doc), BUDGET)
+        assert edit.body is None and edit.removed == []
+
+    def test_their_line_wins_over_the_tutors_saying_the_same(self):
+        doc = (
+            "## How they work\n- Prefers worked examples. [student]\n\n"
+            "## Course and level\n- Prefers worked examples. [2 sessions, latest 2026-09-10]"
+        )
+        edit = apply_edit(doc, plain(doc), BUDGET)
+        assert parse(edit.body)["How they work"] == [Line("Prefers worked examples.", yours=True)]
+        assert parse(edit.body)["Course and level"] == [] and edit.removed == []
+
     def test_a_line_written_twice_is_kept_once(self):
         edit = apply_edit("", "## What helps\n- Short sessions.\n- Short  sessions.", BUDGET)
         assert parse(edit.body)["What helps"] == [Line("Short sessions.", yours=True)]
 
     def test_growing_past_the_cap_is_refused(self):
         edit = apply_edit(MINE, plain(MINE) + "\n- " + "x" * 200, 400)
-        assert edit.body is None and "400" in edit.error
+        over = len(MINE) + len("\n- " + "x" * 200 + " [student]") - 400
+        assert edit.body is None and f"That's {over} characters more" in edit.error
 
     def test_a_file_already_over_the_cap_can_still_be_cut_down(self):
         edited = plain(MINE).replace("- Resitting organic chemistry in the spring.", "")

@@ -48,6 +48,7 @@ import threading
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -209,12 +210,22 @@ def _op_from(parsed: dict) -> tuple[str, str] | None:
 
 
 def _profile_row(db: Session, user_id: uuid.UUID) -> StudentProfile:
+    """The student's profile, or an empty one standing in for it until there is something to write.
+
+    Not made here: the new row would be held uncommitted across the model call, and the student's
+    first save of their profile would wait out the whole call, then fail on the unique index.
+    """
     row = db.query(StudentProfile).filter(StudentProfile.user_id == user_id).one_or_none()
-    if row is None:
-        row = StudentProfile(user_id=user_id, body="", rev=0, passes=0)
-        db.add(row)
-        db.flush()
-    return row
+    return row if row is not None else StudentProfile(user_id=user_id, body="", rev=0, passes=0)
+
+
+def _make_row(db: Session, user_id: uuid.UUID) -> None:
+    """The empty row a pass's first write needs, unless a save of the student's has made it."""
+    db.execute(
+        pg_insert(StudentProfile)
+        .values(user_id=user_id, body="", rev=0, passes=0)
+        .on_conflict_do_nothing(index_elements=["user_id"])
+    )
 
 
 def _context_block(db: Session, user_id: uuid.UUID, profile: StudentProfile, rebuilding: bool) -> str:
@@ -318,7 +329,13 @@ def _extract(user_id: uuid.UUID, session_id: uuid.UUID) -> None:
         for text in _signals_from(parsed):
             db.add(StudentSignal(user_id=user_id, session_id=session_id, text=text))
 
-        profile.passes += 1
+        _make_row(db, user_id)
+        # Counted against the revision this pass read, like its write below. A student's edit in
+        # the meantime set `passes` so that the next pass is a rebuild, and counting on top of
+        # the number they wrote would quietly cancel it.
+        db.query(StudentProfile).filter(
+            StudentProfile.user_id == user_id, StudentProfile.rev == rev_read
+        ).update({StudentProfile.passes: StudentProfile.passes + 1}, synchronize_session=False)
 
         if op := _op_from(parsed):
             section, body = op

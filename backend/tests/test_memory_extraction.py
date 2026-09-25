@@ -113,3 +113,50 @@ def test_a_pass_that_keeps_the_students_lines_is_written(client, monkeypatch) ->
     assert MINE in calls[0][-1]["content"]
     [row] = query(StudentProfile, user_id=user_id)
     assert row.body == f"## How they work\n{MINE}\n{newer}" and row.rev == 2
+
+
+# --- A pass and the student's own edit, at the same time -----------------------------------------
+
+
+@pytest.mark.pg
+def test_a_pass_running_while_the_student_deletes_a_line_keeps_the_rebuild_they_set_up(client, monkeypatch) -> None:
+    user_id, session_id = _session_with_a_message(client)
+    _profile(user_id, f"## How they work\n{PATTERN}\n{MINE}")
+
+    def meanwhile(messages, model=None, **kwargs):
+        edited = client.get("/api/tutor/memory").json()["text"].replace("\n- When a problem has more than one step, reaches for a formula first.", "")
+        assert client.put("/api/tutor/memory", json={"text": edited, "rev": 1}).status_code == 200
+        return json.dumps({"signals": [], "why": "nothing new", "op": None})
+
+    monkeypatch.setattr(memory_extraction, "complete_chat", meanwhile)
+    memory_extraction._extract(user_id, session_id)
+    [row] = query(StudentProfile, user_id=user_id)
+    # Still a multiple of the interval, so the next pass is the rebuild the deletion asked for.
+    assert row.passes == settings.profile_rebuild_every and row.rev == 2
+
+
+@pytest.mark.pg
+def test_a_first_save_while_the_first_pass_runs_goes_through(client, monkeypatch) -> None:
+    user_id, session_id = _session_with_a_message(client)
+    saved = {}
+
+    def meanwhile(messages, model=None, **kwargs):
+        text = client.get("/api/tutor/memory").json()["text"].replace("## What helps", "## What helps\n- Short sessions.")
+        saved["status"] = client.put("/api/tutor/memory", json={"text": text, "rev": 0}).status_code
+        return json.dumps({"signals": ["mixes up mitosis and meiosis"], "why": "once", "op": None})
+
+    monkeypatch.setattr(memory_extraction, "complete_chat", meanwhile)
+    memory_extraction._extract(user_id, session_id)
+    assert saved["status"] == 200
+    [row] = query(StudentProfile, user_id=user_id)
+    assert row.body == "## What helps\n- Short sessions. [student]" and row.rev == 1
+    assert [s.text for s in query(StudentSignal, user_id=user_id)] == ["mixes up mitosis and meiosis"]
+
+
+@pytest.mark.pg
+def test_a_first_pass_makes_the_row_it_counts_in(client, monkeypatch) -> None:
+    user_id, session_id = _session_with_a_message(client)
+    _model_says(monkeypatch, json.dumps({"signals": [], "why": "nothing yet", "op": None}))
+    memory_extraction._extract(user_id, session_id)
+    [row] = query(StudentProfile, user_id=user_id)
+    assert (row.body, row.rev, row.passes) == ("", 0, 1)
