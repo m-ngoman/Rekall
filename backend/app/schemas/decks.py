@@ -36,6 +36,18 @@ class DashboardOut(BaseModel):
     # still serve today — or that sum alone when no goal is set. Self-adjusts as the day goes.
     goal_today: int
     streak_days: int
+    # What the study queues will still serve today, goal or no goal. Home needs it apart from
+    # goal_today: with a goal set, "the goal is met" and "there is nothing left" both leave
+    # goal_today equal to reviewed_today, and only this tells them apart.
+    remaining_today: int
+
+
+class DayDeckOut(BaseModel):
+    """One deck's share of one calendar day: what the calendar lists when a day is tapped."""
+
+    id: uuid.UUID
+    name: str
+    cards: int
 
 
 class ImportRequest(BaseModel):

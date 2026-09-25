@@ -63,6 +63,10 @@ class StudyQueueOut(BaseModel):
     deck_id: uuid.UUID
     deck_name: str
     cards: list[StudyCardOut]
+    # Started cards whose next review hasn't come round yet: what `?ahead=true` would serve. An
+    # empty queue with this above zero is "nothing due, but you can review ahead"; with it at zero
+    # there is genuinely nothing to study.
+    later: int = 0
 
 
 class ReviewRequest(BaseModel):
