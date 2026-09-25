@@ -10,7 +10,7 @@ import pytest
 
 from app.db import SessionLocal
 from app.models import Card, CardState, ReviewLog
-from helpers import dev_user_id
+from helpers import dev_user_id, review
 
 pytestmark = pytest.mark.pg
 
@@ -74,6 +74,43 @@ def test_remaining_tells_a_met_goal_from_an_empty_plate(client) -> None:
     assert (body["reviewed_today"], body["goal_today"], body["remaining_today"]) == (2, 2, 5)
 
 
+def served(client, deck_id: str) -> list[dict]:
+    return client.get(f"/api/decks/{deck_id}/study-queue").json()["cards"]
+
+
+def test_remaining_runs_out_with_the_days_new_cards(client) -> None:
+    client.patch("/api/settings", json={"new_cards_per_day": 2})
+    deck_id = deck_with(
+        client,
+        dict(question="due", answer="a", state=CardState.review, due=NOW - timedelta(hours=2), reviews=2),
+        *[dict(question=f"new-{i}", answer="a") for i in range(5)],
+    )
+    body = client.get("/api/dashboard").json()
+    assert (body["reviewed_today"], body["goal_today"], body["remaining_today"]) == (0, 3, 3)
+    for card in served(client, deck_id):
+        if card["is_new"]:
+            review(client, card["id"])
+    body = client.get("/api/dashboard").json()
+    # Three new cards are still in the deck, but not today's: the goal holds at three.
+    assert (body["reviewed_today"], body["goal_today"], body["remaining_today"]) == (2, 3, 1)
+    for card in served(client, deck_id):
+        review(client, card["id"])
+    body = client.get("/api/dashboard").json()
+    assert (body["reviewed_today"], body["goal_today"], body["remaining_today"]) == (3, 3, 0)
+    assert served(client, deck_id) == []
+
+
+def test_a_new_only_deck_is_done_for_the_day_once_its_new_cards_are(client) -> None:
+    client.patch("/api/settings", json={"new_cards_per_day": 3})
+    deck_id = deck_with(client, *[dict(question=f"new-{i}", answer="a") for i in range(10)])
+    for card in served(client, deck_id):
+        review(client, card["id"])
+    body = client.get("/api/dashboard").json()
+    assert (body["reviewed_today"], body["remaining_today"]) == (3, 0)
+    [deck] = client.get("/api/decks").json()
+    assert deck["due"] + deck["new_today"] == 0
+
+
 def test_streaks_count_back_from_today_or_yesterday(client) -> None:
     reviews_on(client, 1, 2, 3, 5)
     body = client.get("/api/dashboard").json()
@@ -97,6 +134,27 @@ def test_the_load_timeline(client) -> None:
     # card due in three days lands on its own day; "far" is outside the window; the suspended card
     # counts nowhere; and empty days are simply absent.
     assert load == {day(0): 3, day(1): 2, day(2): 1, day(3): 1}
+
+
+def test_the_load_takes_todays_new_cards_off_today_only(client) -> None:
+    client.patch("/api/settings", json={"new_cards_per_day": 2})
+    deck_id = deck_with(
+        client,
+        dict(question="overdue", answer="a", state=CardState.review, due=NOW - timedelta(days=4), reviews=2),
+        dict(question="in-3", answer="a", state=CardState.review, due=NOW + timedelta(days=3), reviews=2),
+        *[dict(question=f"new-{i}", answer="a") for i in range(5)],
+    )
+    met = next(c for c in served(client, deck_id) if c["is_new"])
+    assert review(client, met["id"])["due"] > (TODAY + timedelta(days=10)).isoformat()
+    day = lambda n: (TODAY + timedelta(days=n)).isoformat()  # noqa: E731
+    load = client.get(f"/api/dashboard/load?start={day(0)}&end={day(10)}").json()
+    # One of today's two new cards is met, so today holds the overdue card and the one left; the
+    # other three new cards still drain two a day from tomorrow.
+    assert load == {day(0): 2, day(1): 2, day(2): 1, day(3): 1}
+    # The bar is what the queue will serve today, and the day's breakdown adds up to it.
+    assert len(served(client, deck_id)) == load[day(0)]
+    for n in range(4):
+        assert sum(r["cards"] for r in client.get(f"/api/dashboard/day?date={day(n)}").json()) == load[day(n)]
 
 
 def test_load_needs_both_ends_of_the_window(client) -> None:

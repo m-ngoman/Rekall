@@ -24,8 +24,9 @@ class InputMode(str, enum.Enum):
 
 class ReviewLog(UUIDPKMixin, Base):
     """One row per graded answer. Append-only history, read for the dashboard's count of today's
-    reviews and its streak. The tutor's weak-card context does not come from here: it reads each
-    card's own lapses and stability.
+    reviews and its streak, and for which cards were met for the first time today, which is what
+    the daily new-card cap counts against (study_plan.introduced_today). The tutor's weak-card
+    context does not come from here: it reads each card's own lapses and stability.
     """
 
     __tablename__ = "review_logs"

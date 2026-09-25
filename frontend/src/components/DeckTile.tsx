@@ -1,3 +1,4 @@
+import { leftToday } from '../lib/home'
 import type { Deck } from '../types'
 
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
  * setting it like the countdown is what stops a deck row and an exam row looking alike.
  */
 export default function DeckTile({ deck, onClick, onEdit, variant = 'card' }: Props) {
-  const left = deck.due + deck.new
+  const left = leftToday(deck)
   const status = deck.exam_paused
     ? 'Exam passed. Study anytime.'
     : left > 0

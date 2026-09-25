@@ -14,7 +14,12 @@ class DeckOut(BaseModel):
     name: str
     total: int
     due: int
+    # Every card not yet met, however many days it will take to get through them.
     new: int
+    # How many of those today's study queue will still serve: the day's intake (the user's cap,
+    # raised by an upcoming exam) less the cards already met today. Due plus this is what is left
+    # to do in the deck today.
+    new_today: int
     learned: int
     # Defaults keep DeckOut constructible without exam context (nothing does today, but the
     # fields are additive by design).
