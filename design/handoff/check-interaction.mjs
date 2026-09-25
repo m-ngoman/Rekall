@@ -16,6 +16,8 @@
 //   - A failed load keeps what was on screen, or says it couldn't load; never "nothing yet".
 //   - First run opens on a sample question.
 //   - The tutor's memory chip says "Memory", whatever it holds.
+//   - The tutor's memory is one file: its lines and yours together, edited whole, kept across a
+//     reload, and the same file under Settings. An edit that crosses a memory pass is not saved.
 //
 // Fixture setup as in check-fixes.mjs: the backend on :8011 with GRADER=stub against the
 // rekall_fixture database, `npm run dev:fixture` on :5199. Each block reseeds the fixture.
@@ -27,11 +29,29 @@ const repo = resolve(new URL('.', import.meta.url).pathname, '../..')
 const APP = 'http://127.0.0.1:5199/'
 const API = 'http://127.0.0.1:8011'
 
+const FIXTURE = { ...process.env, DATABASE_URL: 'postgresql+psycopg://pipcards:pipcards@localhost:5432/rekall_fixture' }
 const reseed = () =>
-  execFileSync(`${repo}/backend/.venv/bin/python`, [`${repo}/design/handoff/seed_fixture.py`], {
-    env: { ...process.env, DATABASE_URL: 'postgresql+psycopg://pipcards:pipcards@localhost:5432/rekall_fixture' },
-    stdio: 'ignore',
-  })
+  execFileSync(`${repo}/backend/.venv/bin/python`, [`${repo}/design/handoff/seed_fixture.py`], { env: FIXTURE, stdio: 'ignore' })
+/** Stores the tutor's profile as a memory pass would. Nothing in the API writes the tutor's own
+ * lines, which is the point of them, so this goes to the database. */
+const writeProfile = (body, rev) =>
+  execFileSync(
+    `${repo}/backend/.venv/bin/python`,
+    [
+      '-c',
+      `import sys
+from app.db import SessionLocal
+from app.models import StudentProfile, User
+with SessionLocal() as db:
+    user = db.query(User).filter(User.email == "dev@rekall.study").one()
+    db.query(StudentProfile).filter(StudentProfile.user_id == user.id).delete()
+    db.add(StudentProfile(user_id=user.id, body=sys.argv[1], rev=int(sys.argv[2]), passes=1))
+    db.commit()`,
+      body,
+      String(rev),
+    ],
+    { cwd: `${repo}/backend`, env: FIXTURE, stdio: 'ignore' },
+  )
 
 let failures = 0
 const check = (label, pass, detail = '') => {
@@ -315,6 +335,101 @@ const cardsTab = async (page) => {
   const chip = page.getByRole('button', { name: /^Tutor memory/ })
   await chip.waitFor({ timeout: 5000 }).catch(() => {})
   check('the memory chip reads "Memory"', (await chip.innerText()).startsWith('Memory'), await chip.innerText().catch(() => ''))
+  await page.close()
+}
+
+// --- The tutor's memory is one file ----------------------------------------------------------------
+{
+  reseed()
+  const today = new Date().toISOString().slice(0, 10)
+  const tutors = [
+    '## How they work',
+    `- When a problem has more than one step, reaches for a formula first. [3 sessions, latest ${today}]`,
+    '- Ask me before telling me the answer. [student]',
+    '',
+    '## Course and level',
+    `- Second-year pharmacology. [2 sessions, latest ${today}]`,
+  ].join('\n')
+  writeProfile(tutors, 1)
+  const page = await fresh()
+  const openMemory = async () => {
+    await page.getByRole('button', { name: 'Tutor', exact: true }).first().click()
+    const chip = page.getByRole('button', { name: /^Tutor memory/ })
+    await chip.waitFor({ timeout: 5000 }).catch(() => {})
+    await chip.click()
+    await page.waitForTimeout(400)
+    return chip.innerText().catch(() => '')
+  }
+  const shown = (text) => page.getByText(text, { exact: true }).first().isVisible().catch(() => false)
+
+  await page.goto(APP, { waitUntil: 'networkidle' })
+  const chipText = await openMemory()
+  check('the memory chip counts every line, the tutor\'s and yours', /^Memory\s*3$/.test(chipText.trim()), chipText)
+  check(
+    'Memory shows its lines and yours in one file',
+    (await shown('When a problem has more than one step, reaches for a formula first.')) && (await shown('Ask me before telling me the answer.')),
+  )
+  check('with how often it saw each of its own', await shown('3 sessions'))
+  check('and no separate list of notes', !(await page.getByText(/^(YOUR NOTES|WHAT IT.S NOTICED)$/).count()))
+
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
+  const box = page.getByRole('textbox', { name: 'Your profile' })
+  const text = await box.inputValue().catch(() => '')
+  check('Edit opens the whole file, headings and all, without the tags', text.includes('## What helps') && text.includes('- Second-year pharmacology.') && !text.includes('['), text)
+  await box.fill(
+    text
+      .replace('- Second-year pharmacology.', '- Third-year pharmacology, resitting.')
+      .replace('## What helps', '## What helps\n- Short sessions, with a break.'),
+  )
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByText('Third-year pharmacology, resitting.', { exact: true }).waitFor({ timeout: 5000 }).catch(() => {})
+
+  await page.reload({ waitUntil: 'networkidle' })
+  await openMemory()
+  check(
+    'saved, the edit is there after a reload',
+    (await shown('Third-year pharmacology, resitting.')) && (await shown('Short sessions, with a break.')) && !(await shown('Second-year pharmacology.')),
+  )
+  const saved = await get('/api/tutor/memory')
+  const lines = saved.sections.flatMap((s) => s.lines)
+  const line = (t) => lines.find((l) => l.text === t)
+  check(
+    'a reworded line becomes yours, and the tutor keeps the ones left alone',
+    line('Third-year pharmacology, resitting.')?.yours === true &&
+      line('When a problem has more than one step, reaches for a formula first.')?.sessions === 3,
+    JSON.stringify(lines),
+  )
+
+  await page.mouse.click(5, 5) // a tap outside closes the panel
+  await page.getByRole('button', { name: /^Settings$/ }).first().click()
+  await page.getByText('What the tutor knows about you').waitFor({ timeout: 5000 }).catch(() => {})
+  check(
+    'Settings shows the same file',
+    (await shown('What the tutor knows about you')) && (await shown('Third-year pharmacology, resitting.')) && (await shown('Ask me before telling me the answer.')),
+  )
+
+  // A memory pass lands while the file is open for editing. Saving would take out what it just
+  // wrote, so the save is refused and the editor reloads the latest version.
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
+  const settingsBox = page.getByRole('textbox', { name: 'Your profile' })
+  const stored = saved.sections
+    .map((s) => [`## ${s.name}`, ...s.lines.map((l) => `- ${l.text} ${l.yours ? '[student]' : `[${l.sessions} sessions, latest ${l.latest}]`}`)].join('\n'))
+    .join('\n\n')
+  writeProfile(
+    stored.replace('## What helps', `## What helps\n- Follows a worked example better than a rule. [2 sessions, latest ${today}]`),
+    saved.rev + 1,
+  )
+  await settingsBox.fill((await settingsBox.inputValue()) + '\n- Mornings are best.')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByText(/while you were editing/).waitFor({ timeout: 5000 }).catch(() => {})
+  const reloaded = await settingsBox.inputValue().catch(() => '')
+  check(
+    'an edit that crossed a memory pass is refused, with the latest version to redo it on',
+    (await shown("The tutor updated your profile while you were editing it. This is the latest version: make your change again.")) &&
+      reloaded.includes('Follows a worked example better than a rule.') &&
+      !reloaded.includes('Mornings are best.'),
+    reloaded,
+  )
   await page.close()
 }
 

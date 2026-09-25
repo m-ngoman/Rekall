@@ -112,10 +112,10 @@ class UserSettings(UUIDPKMixin, TimestampMixin, Base):
     # personality and back shouldn't silently discard a prompt someone wrote.
     tutor_custom_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Lets the tutor write its own memory notes after every few turns (see
+    # Lets the tutor add to the student's profile every few turns (see
     # app/services/memory_extraction.py). On by default because a tutor that remembers nothing
-    # unless you write it down yourself is the weaker product — but every note it writes is
-    # labelled and deletable, and this switch stops it entirely.
+    # unless you write it down yourself is the weaker product — but the student sees and can edit
+    # every line it writes, and this switch stops it entirely.
     tutor_auto_memory: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
     # --- AI feature toggles -------------------------------------------------------------------

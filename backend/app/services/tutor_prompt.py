@@ -1,7 +1,7 @@
 """Builds the tutor's system prompt: a non-overridable base layer (scope), a delivery layer
 (spoken-word rules for voice turns, LaTeX and graph rules for typed ones), a personality layer,
 and then what the tutor knows about this student — the cards they asked to go over and the ones
-they keep forgetting, their upcoming exams, their memory notes — and when to offer a calendar
+they keep forgetting, their upcoming exams, its profile of them — and when to offer a calendar
 entry.
 The base layer is never replaced by `custom_prompt` even under the `custom` personality — it's
 layered underneath, per the planning doc's guardrail requirement.
@@ -238,9 +238,10 @@ def _weak_cards_context(db: Session, user_id, deck_id) -> str:
 def _exam_context(db: Session, user_id) -> str:
     """Real exam dates from the student's calendar.
 
-    Deliberately read live rather than remembered: the tutor's memory notes never expire, so an
-    exam recorded there would still be "coming up" months after it happened. The calendar knows
-    when a date passes, so it is the only honest source for one.
+    Deliberately read live rather than remembered: nothing in the student's profile knows when a
+    date has passed, and the lines they write there never lapse, so an exam recorded there would
+    still be "coming up" months after it happened. The calendar knows when a date passes, so it is
+    the only honest source for one.
     """
     today = today_utc()
     exams = (
