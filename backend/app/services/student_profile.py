@@ -274,6 +274,10 @@ def apply_edit(current: str, edited: str, max_chars: int) -> Edit:
     """
     before = parse(current)
     tutors = {line.text: line for lines in before.values() for line in lines if not line.yours}
+    # Only a line being written now is held to the length limit. One already there — a long note
+    # folded in by the migration, say — stays until the student chooses to change it, rather
+    # than blocking every other edit they make.
+    already = set(tutors) | {line.text for lines in before.values() for line in lines if line.yours}
 
     after: dict[str, list[Line]] = {name: [] for name in SECTIONS}
     by_name = {name.lower(): name for name in SECTIONS}
@@ -290,7 +294,7 @@ def apply_edit(current: str, edited: str, max_chars: int) -> Edit:
         if not text or text in seen:
             continue
         seen.add(text)
-        if len(text) > MAX_YOURS_LINE_CHARS and text not in tutors:
+        if len(text) > MAX_YOURS_LINE_CHARS and text not in already:
             return Edit(None, [], f"A line can be at most {MAX_YOURS_LINE_CHARS} characters. This one is {len(text)}: “{text[:60]}…”")
         after[section].append(tutors.get(text, Line(text=text, yours=True)))
 

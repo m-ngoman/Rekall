@@ -318,3 +318,13 @@ class TestEditing:
     def test_an_overlong_line_is_refused(self):
         edit = apply_edit("", "## What helps\n- " + "y" * (MAX_YOURS_LINE_CHARS + 1), 10_000)
         assert edit.body is None and str(MAX_YOURS_LINE_CHARS) in edit.error
+
+    def test_an_overlong_line_already_there_does_not_block_other_edits(self):
+        # The migration folds old notes in whole, however long they were.
+        long = "z" * (MAX_YOURS_LINE_CHARS + 50)
+        current = f"## What helps\n- {long} [student]"
+        edit = apply_edit(current, plain(current) + "\n- Short sessions.", 10_000)
+        assert edit.error is None
+        after = parse(edit.body)
+        assert after["What helps"] == [Line(long, yours=True)]
+        assert after["Course and level"] == [Line("Short sessions.", yours=True)]

@@ -140,6 +140,13 @@ export default function ProfileFile({ profile, failed = false, onChange, compact
                 ))}
             </div>
           )}
+          {profile.chars > profile.max_chars && (
+            // Only notes carried over from before the profile can leave it this long: an edit
+            // can't grow it past the limit, and the tutor won't write past it.
+            <p className="mt-3 text-[0.6875rem] leading-snug text-[var(--text-muted)]">
+              This is longer than the tutor can keep up to date. It still reads all of it, but won't add anything new until it's shorter.
+            </p>
+          )}
           <button
             onClick={startEditing}
             className="mt-3 min-h-9 self-start rounded-[var(--r-full)] border border-[var(--rule)] px-3.5 text-xs font-bold text-[var(--text)]"
