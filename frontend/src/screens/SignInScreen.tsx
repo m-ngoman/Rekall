@@ -32,7 +32,7 @@ export default function SignInScreen({ error }: { error: string | null }) {
             XHR would be blocked by CORS and could not carry the browser's Google session. */}
         <a
           href="/api/auth/login"
-          className="on-accent flex w-full items-center justify-center gap-2.5 rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold"
+          className="on-accent flex w-full items-center justify-center gap-2.5 rounded-[var(--r-full)] py-4 text-[1.0625rem] font-bold"
         >
           <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden>
             <path fill="currentColor" d="M21.35 11.1h-9.17v2.96h5.26c-.23 1.37-1.6 4.02-5.26 4.02-3.17 0-5.75-2.62-5.75-5.85s2.58-5.85 5.75-5.85c1.8 0 3.01.77 3.7 1.43l2.52-2.43C16.8 3.8 14.72 2.9 12.18 2.9 6.9 2.9 2.63 7.17 2.63 12.45s4.27 9.55 9.55 9.55c5.51 0 9.16-3.87 9.16-9.32 0-.63-.07-1.1-.16-1.58z" />

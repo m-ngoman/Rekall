@@ -58,7 +58,7 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props)
           Rekall quizzes you on your own notes and checks what you actually wrote. Add cards, link
           them to an exam date, and new cards get paced to land before the day.
         </p>
-        <button onClick={onGoToCards} className="on-accent self-start rounded-[var(--r-full)] bg-[var(--accent)] px-6 py-3.5 text-[0.9375rem] font-bold">
+        <button onClick={onGoToCards} className="on-accent self-start rounded-[var(--r-full)] px-6 py-3.5 text-[0.9375rem] font-bold">
           Add cards
         </button>
       </div>
@@ -113,14 +113,13 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams }: Props)
         </div>
 
         {startDeck && dueToday > 0 ? (
-          // 19px bold, not 17px. On the light theme the dark .on-accent text measures 3.9:1
-          // against the accent fill, which fails AA at 17px but passes the 3:1 large-text
-          // threshold at 19px — so the button keeps its dark-on-warm look in both themes rather
-          // than flipping to a pale label in one of them. Height is unchanged; the padding gives
-          // the two extra pixels back.
+          // 19px bold, like the study screen's buttons. That size was what let the dark label
+          // pass on the light accent as large text; the light theme's fill has since been
+          // lightened for exactly this (see .on-accent), so it no longer has to, but the button
+          // keeps its weight. Height is unchanged; the padding gives the two extra pixels back.
           <button
             onClick={() => onStudy(startDeck.id)}
-            className="on-accent mt-5 w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2] lg:w-auto lg:self-start lg:px-9 lg:py-[0.6875rem]"
+            className="on-accent mt-5 w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2] lg:w-auto lg:self-start lg:px-9 lg:py-[0.6875rem]"
           >
             Start {startDeck.name}, {startCount} due
           </button>

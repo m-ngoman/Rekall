@@ -93,7 +93,7 @@ export default function MemoryPicker({ notes, onAdd, onDelete }: Props) {
           />
           <button
             onClick={handleAdd}
-            className="on-accent flex-shrink-0 rounded-[var(--r-full)] bg-[var(--accent)] px-3.5 py-2 text-xs font-bold"
+            className="on-accent flex-shrink-0 rounded-[var(--r-full)] px-3.5 py-2 text-xs font-bold"
           >
             Add
           </button>

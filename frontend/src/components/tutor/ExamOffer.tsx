@@ -73,7 +73,6 @@ export function StageExamOffer({ offer, onDismiss, onAdd }: Props) {
           <button
             onClick={onAdd}
             className="on-accent flex h-9 items-center rounded-[var(--r-full)] px-4 text-[0.8125rem] font-bold"
-            style={{ background: 'var(--accent)' }}
           >
             Add
           </button>

@@ -117,7 +117,7 @@ export default function PricingScreen({ onBack }: Props) {
                     <button
                       onClick={() => buy(p)}
                       disabled={absorbed || buying !== null}
-                      className="on-accent self-start rounded-[var(--r-full)] bg-[var(--accent)] px-5 py-2.5 text-[0.875rem] font-bold disabled:opacity-50"
+                      className="on-accent self-start rounded-[var(--r-full)] px-5 py-2.5 text-[0.875rem] font-bold disabled:opacity-50"
                     >
                       {buying === p.id ? 'Opening checkout' : p.recurring ? 'Subscribe' : 'Buy'}
                     </button>

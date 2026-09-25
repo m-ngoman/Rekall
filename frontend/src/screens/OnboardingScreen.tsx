@@ -211,7 +211,7 @@ function Primary({ children, onClick, disabled }: { children: React.ReactNode; o
     <button
       onClick={onClick}
       disabled={disabled}
-      className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] px-6 py-4 text-[1.0625rem] font-bold disabled:opacity-50"
+      className="on-accent w-full rounded-[var(--r-full)] px-6 py-4 text-[1.0625rem] font-bold disabled:opacity-50"
     >
       {children}
     </button>
