@@ -15,9 +15,34 @@ export default function SignInScreen({ error }: { error: string | null }) {
           <Logo size={92} color="var(--text)" />
         </div>
         <h1 className="mb-2 text-[1.375rem] font-bold tracking-tight">Rekall</h1>
-        <p className="mx-auto mb-8 max-w-xs text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+        <p className="mx-auto mb-6 max-w-xs text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
           Flashcards that read what you actually wrote, and tell you what you missed.
         </p>
+
+        {/* One graded answer, drawn the way the study screen draws it: the proof for the sentence
+            above, before anyone is asked to sign in for it. Static on purpose. The page stays one
+            card and one button; this is evidence, not a tour. */}
+        <figure className="mb-8 rounded-[var(--r-md)] bg-[var(--bg)] px-4 py-3.5 text-left">
+          <figcaption className="sr-only">An example of a graded answer</figcaption>
+          <div className="text-[0.875rem] font-bold leading-snug [text-wrap:pretty]">
+            Why does an SN1 reaction give a racemic mixture?
+          </div>
+          <div className="mt-2.5 text-[0.75rem] font-semibold text-[var(--text-muted)]">You wrote</div>
+          <div className="mt-0.5 text-[0.8125rem] leading-snug text-[var(--text-muted)]">
+            You get a carbocation in the middle of the reaction.
+          </div>
+          <div className="mt-3 flex items-baseline gap-2" style={{ color: 'var(--grade-hard)' }}>
+            <span className="flex items-baseline gap-0.5">
+              <span className="numeral text-[1.75rem]">3</span>
+              <span className="numeral text-[1rem] opacity-70">/5</span>
+            </span>
+            <span className="text-[0.8125rem] font-bold">Hard</span>
+          </div>
+          <p className="mt-1.5 text-[0.8125rem] leading-relaxed [text-wrap:pretty]">
+            You missed why it matters: the carbocation is planar, so the nucleophile can attack
+            either face equally.
+          </p>
+        </figure>
 
         {error && (
           <div

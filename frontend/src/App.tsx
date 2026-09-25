@@ -105,10 +105,12 @@ export default function App() {
       <div className="min-h-screen text-[var(--text)]">
         <main className="mx-auto max-w-xl px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(1.5rem+env(safe-area-inset-top))]">
           <OnboardingScreen
-            settings={settings}
             onChange={updateSettings}
-            onFinish={({ goToCards }) => {
+            onFinish={({ goToCards, studyDeckId }) => {
               replace({ kind: 'tab', tab: goToCards ? 'cards' : 'home' })
+              // The sample question is the point of the sample deck, so it opens straight into a
+              // session, pushed over Home so that leaving the session lands there.
+              if (studyDeckId) go({ kind: 'study', deckId: studyDeckId })
               setRefreshKey((k) => k + 1)
             }}
           />
