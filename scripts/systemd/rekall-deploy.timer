@@ -1,0 +1,11 @@
+# Checks for a new main every five minutes, counted from the end of the last check, so a slow
+# deploy never overlaps the next one.
+[Unit]
+Description=Check for a new Rekall main every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+
+[Install]
+WantedBy=timers.target

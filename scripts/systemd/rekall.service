@@ -1,0 +1,15 @@
+# The backend, which also serves the built frontend. Only needed if it isn't already running as a
+# service: the deploy has to be able to restart it. If it is, skip this file and point
+# REKALL_RESTART at whatever restarts it. Assumes the checkout is ~/Rekall and that the tunnel
+# forwards to port 8000; edit both lines if not.
+[Unit]
+Description=Rekall
+
+[Service]
+# The backend reads backend/.env relative to where it starts.
+WorkingDirectory=%h/Rekall/backend
+ExecStart=%h/Rekall/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -3,7 +3,13 @@ export interface Deck {
   name: string
   total: number
   due: number
+  /** Every card not yet met, however many days the daily cap spreads them over. Not today's work:
+   * that is `new_today`. */
   new: number
+  /** The new cards today's study queue will still serve: the day's intake (the new-cards-per-day
+   * setting, raised by an upcoming exam) less the cards already met today. With `due`, what is
+   * left in the deck today. */
+  new_today: number
   learned: number
   /** All linked exams are in the past: off the daily to-do, still studiable from the library. */
   exam_paused: boolean
@@ -47,6 +53,18 @@ export interface StudyQueue {
   deck_id: string
   deck_name: string
   cards: StudyCard[]
+  /** Started cards whose next review hasn't come round yet: what reviewing ahead would serve. */
+  later: number
+  /** New cards the day's intake is holding back for later days. With nothing `later` either, an
+   * empty queue is a deck done for today rather than an empty deck. */
+  waiting: number
+}
+
+/** One deck's share of one calendar day, from GET /api/dashboard/day. */
+export interface DayDeck {
+  id: string
+  name: string
+  cards: number
 }
 
 export interface ReviewResult {
@@ -70,6 +88,9 @@ export interface Dashboard {
   reviewed_today: number
   goal_today: number
   streak_days: number
+  /** What the study queues will still serve today, goal or no goal. With a daily goal set, it is
+   * the only way to tell "goal met, cards still waiting" from "nothing left". */
+  remaining_today: number
 }
 
 export type TutorPersonality = 'strict_socratic' | 'direct' | 'encouraging' | 'terse' | 'custom'

@@ -48,9 +48,11 @@ const settings = async (p) => {
   await p.getByRole('button', { name: /^Settings$/ }).first().click()
   await p.waitForTimeout(700)
 }
-/** Cards -> one of the three action rows. */
+/** Cards -> one of the three ways in. On a phone with a library they wait behind "Add cards". */
 const fromCards = (label) => async (p) => {
   await tab('Cards')(p)
+  const add = p.getByRole('button', { name: 'Add cards', exact: true })
+  if (await add.isVisible()) await add.click()
   await p.getByRole('button', { name: new RegExp(label) }).first().click()
   await p.waitForTimeout(900)
 }
@@ -102,6 +104,71 @@ const SCREENS = {
     await tab('Calendar')(p)
     await p.getByRole('button', { name: /Add exam/ }).first().click()
     await p.waitForTimeout(800)
+  },
+  // A day tapped on the calendar: its cards by deck, its exams, and adding one.
+  'calendar-day': async (p) => {
+    await tab('Calendar')(p)
+    const tomorrow = new Date(Date.now() + 86_400_000)
+    const spoken = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).format(tomorrow)
+    await p.getByRole('button', { name: new RegExp(`^${spoken}`) }).first().click()
+    await p.waitForTimeout(900)
+  },
+  'cards-add': async (p) => {
+    await tab('Cards')(p)
+    const add = p.getByRole('button', { name: 'Add cards', exact: true })
+    if (await add.isVisible()) await add.click()
+    await p.waitForTimeout(400)
+  },
+  'deck-editor': async (p) => {
+    await tab('Cards')(p)
+    await p.getByRole('button', { name: /^Edit Pharmacology/ }).click()
+    await p.waitForTimeout(900)
+  },
+  'deck-editor-rename': async (p) => {
+    await tab('Cards')(p)
+    await p.getByRole('button', { name: /^Edit Pharmacology/ }).click()
+    await p.getByRole('button', { name: /^Rename or delete/ }).click()
+    await p.waitForTimeout(400)
+  },
+  'deck-editor-add': async (p) => {
+    await tab('Cards')(p)
+    await p.getByRole('button', { name: /^Edit Pharmacology/ }).click()
+    await p.getByRole('button', { name: 'Add card', exact: true }).click()
+    await p.waitForTimeout(400)
+  },
+  'generate-topic': async (p) => {
+    await fromCards('Generate with AI')(p)
+    await p.getByRole('button', { name: 'From a topic' }).click()
+    await p.waitForTimeout(400)
+  },
+  // Statistics has nothing due in the fixture, so it opens on the offer to review ahead.
+  'study-empty': async (p) => {
+    await p.getByRole('button', { name: /Statistics/ }).last().click()
+    await p.waitForTimeout(1200)
+  },
+  'study-ahead': async (p) => {
+    await p.getByRole('button', { name: /Statistics/ }).last().click()
+    await p.getByRole('button', { name: 'Review ahead' }).click()
+    await p.waitForSelector('textarea', { timeout: 15000 })
+    await p.waitForTimeout(600)
+  },
+  // A daily goal of one, met: Home says so and offers more rather than "come back tomorrow".
+  'home-goal-met': async (p) => {
+    await p.evaluate(async () => {
+      const json = { 'content-type': 'application/json' }
+      await fetch('/api/settings', { method: 'PATCH', headers: json, body: JSON.stringify({ daily_goal: 1 }) })
+      const decks = await (await fetch('/api/decks')).json()
+      const deck = decks.find((d) => d.due > 0)
+      const { cards } = await (await fetch(`/api/decks/${deck.id}/study-queue`)).json()
+      const res = await fetch(`/api/cards/${cards[0].id}/review`, {
+        method: 'POST',
+        headers: json,
+        body: JSON.stringify({ answer_input: '', input_mode: 'self_assessed', grade: 3 }),
+      })
+      await res.text()
+    })
+    await p.reload({ waitUntil: 'networkidle' })
+    await p.waitForTimeout(900)
   },
   'note-editor': async (p) => {
     await tab('Notes')(p)
@@ -192,11 +259,15 @@ for (const [tag, viewport] of VIEWPORTS) {
     for (const [name, drive] of Object.entries(SCREENS)) {
       if (!wanted(name)) continue
       reseed()
-      await fetch(`${API}/api/settings`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ theme }),
-      })
+      // Once more on a dropped socket: the reseed can outlast uvicorn's five-second keep-alive,
+      // and fetch won't retry a PATCH on the connection the server has since closed.
+      const setTheme = () =>
+        fetch(`${API}/api/settings`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ theme }),
+        })
+      await setTheme().catch(setTheme)
       const page = await browser.newPage({ viewport, deviceScaleFactor: 1, timezoneId: 'UTC' })
       if (BLOCK_FONTS) await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort())
       const errs = []

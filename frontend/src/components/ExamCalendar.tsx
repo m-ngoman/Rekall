@@ -11,6 +11,8 @@ interface Props {
   load: LoadByDay
   /** The load that was on screen before `load` arrived. A day whose count fell drains its bar. */
   prevLoad: LoadByDay
+  /** The day whose detail is open, if any. */
+  selected: string | null
   onDayTap: (iso: string) => void
   onExamTap: (exam: Exam) => void
 }
@@ -35,7 +37,7 @@ export function gridRange(year: number, month: number): { start: Date; end: Date
  * count only under today, because 44px cells have no room for more. From `lg` up each day is a
  * surface tile with the count spelled out under the number and the bar as a gauge in a track on
  * the right edge — the wider cell can afford to say "14 cards" instead of making you read a tick. */
-export default function ExamCalendar({ year, month, exams, load, prevLoad, onDayTap, onExamTap }: Props) {
+export default function ExamCalendar({ year, month, exams, load, prevLoad, selected, onDayTap, onExamTap }: Props) {
   const { start } = gridRange(year, month)
   const todayISO = toISODate(new Date())
 
@@ -85,6 +87,7 @@ export default function ExamCalendar({ year, month, exams, load, prevLoad, onDay
           const dayExams = byDate.get(iso) ?? []
           const isToday = iso === todayISO
           const isPast = iso < todayISO
+          const isSelected = iso === selected
           // Brightness is the only encoding: 0 → --accent-dim, max → --accent.
           const mix = Math.round((shown / max) * 100)
           // Height and brightness both grow with count so the scale reads without the key.
@@ -96,6 +99,7 @@ export default function ExamCalendar({ year, month, exams, load, prevLoad, onDay
               key={iso}
               role={isPast ? undefined : 'button'}
               tabIndex={isPast ? -1 : 0}
+              aria-pressed={isPast ? undefined : isSelected}
               aria-label={`${spoken}${count ? `, ${count} cards` : ''}${dayExams.length ? `, ${dayExams.map((e) => e.name).join(', ')}` : ''}`}
               onClick={() => !isPast && onDayTap(iso)}
               onKeyDown={(e) => {
@@ -107,6 +111,10 @@ export default function ExamCalendar({ year, month, exams, load, prevLoad, onDay
               className={`relative box-border flex h-11 min-w-0 flex-col items-center rounded-[var(--r-sm)] pt-1.5 lg:h-[76px] lg:items-start lg:bg-[var(--surface)] lg:py-2 lg:pl-2.5 lg:pr-[22px] ${
                 isPast ? 'opacity-40' : 'cursor-pointer'
               } ${inMonth ? '' : 'opacity-30'}`}
+              // The same 2px --text ring the accent swatches in Settings use for "this one",
+              // drawn inset as a zero-blur shadow so it costs no layout and leaves the accent
+              // focus outline free for the keyboard.
+              style={isSelected ? { boxShadow: 'inset 0 0 0 2px var(--text)' } : undefined}
             >
               {isToday && (
                 <span aria-hidden className="absolute bottom-1 left-0 top-1 w-px bg-[var(--accent)] lg:bottom-2 lg:top-2 lg:w-0.5 lg:rounded-[1px]" />

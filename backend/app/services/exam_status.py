@@ -33,11 +33,12 @@ def exam_paused(deck: Deck, today: date) -> bool:
 
 
 def boosted_new_cap(deck: Deck, today: date, base_cap: int, new_count: int) -> int:
-    """How many new cards this deck may introduce today: the user's cap, raised before an
-    upcoming exam to ceil(remaining / days_left) so every card is met by exam day (day-of
-    counts as one day). Used by the study queue to build the session and by the dashboard to
-    count what's genuinely on today's plate — one formula, or the ring promises cards the
-    queue won't serve."""
+    """How many new cards this deck may introduce in a day: the user's cap, raised before an
+    upcoming exam to ceil(new_count / days_left) so every card is met by exam day (day-of counts
+    as one day). Called only through study_plan.intake, which passes the new pile as it stood
+    when the day began and subtracts what today has already introduced — the study queue, the
+    deck tiles, the dashboard and the calendar all read that, so the ring never promises cards
+    the queue won't serve."""
     exam = next_exam(deck, today)
     if exam is None:
         return base_cap

@@ -89,7 +89,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
   const [paywall, setPaywall] = useState(false)
   // Only used by the empty state's starters, and it rides the same cache the Calendar tab fills,
   // so opening Tutor after Calendar costs no request.
-  const [exams] = useCachedResource<Exam[]>('exams', listExams, () => [])
+  const [exams] = useCachedResource<Exam[]>('exams', listExams)
   const nextExam = useMemo(() => upcomingExams(exams)[0] ?? null, [exams])
   const [orbState, setOrbState] = useState<OrbState>('idle')
   const [voiceModeActive, setVoiceModeActive] = useState(false)
@@ -1072,7 +1072,6 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
               <button
                 onClick={handleSendText}
                 className="on-accent flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--r-full)]"
-                style={{ background: 'var(--accent)' }}
               >
                 {SEND_ICON}
               </button>
@@ -1090,7 +1089,6 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
                 disabled={voiceModeActive}
                 className="on-accent flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--r-full)] transition-opacity duration-150"
                 style={{
-                  background: 'var(--accent)',
                   opacity: voiceModeActive ? 0 : 1,
                   pointerEvents: voiceModeActive ? 'none' : 'auto',
                 }}

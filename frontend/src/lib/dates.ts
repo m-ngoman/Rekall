@@ -40,3 +40,11 @@ export function formatDayShort(iso: string): string {
   const mo = d.toLocaleDateString(undefined, { month: 'short' })
   return `${wd} ${d.getDate()} ${mo}`
 }
+
+/** "Saturday 26 September" — a heading for one day, where there is room to say it in full. */
+export function formatDayFull(iso: string): string {
+  const d = parseISODate(iso)
+  const wd = d.toLocaleDateString(undefined, { weekday: 'long' })
+  const mo = d.toLocaleDateString(undefined, { month: 'long' })
+  return `${wd} ${d.getDate()} ${mo}`
+}

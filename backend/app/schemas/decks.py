@@ -14,7 +14,12 @@ class DeckOut(BaseModel):
     name: str
     total: int
     due: int
+    # Every card not yet met, however many days it will take to get through them.
     new: int
+    # How many of those today's study queue will still serve: the day's intake (the user's cap,
+    # raised by an upcoming exam) less the cards already met today. Due plus this is what is left
+    # to do in the deck today.
+    new_today: int
     learned: int
     # Defaults keep DeckOut constructible without exam context (nothing does today, but the
     # fields are additive by design).
@@ -36,6 +41,18 @@ class DashboardOut(BaseModel):
     # still serve today — or that sum alone when no goal is set. Self-adjusts as the day goes.
     goal_today: int
     streak_days: int
+    # What the study queues will still serve today, goal or no goal. Home needs it apart from
+    # goal_today: with a goal set, "the goal is met" and "there is nothing left" both leave
+    # goal_today equal to reviewed_today, and only this tells them apart.
+    remaining_today: int
+
+
+class DayDeckOut(BaseModel):
+    """One deck's share of one calendar day: what the calendar lists when a day is tapped."""
+
+    id: uuid.UUID
+    name: str
+    cards: int
 
 
 class ImportRequest(BaseModel):

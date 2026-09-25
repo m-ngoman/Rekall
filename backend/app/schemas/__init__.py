@@ -25,6 +25,7 @@ from app.schemas.cards import (
 )
 from app.schemas.decks import (
     DashboardOut,
+    DayDeckOut,
     DeckCreate,
     DeckOut,
     DeckUpdate,
@@ -89,6 +90,7 @@ __all__ = [
     "CardUpdate",
     "DailyPointOut",
     "DashboardOut",
+    "DayDeckOut",
     "DeckCreate",
     "DeckOut",
     "DeckUpdate",

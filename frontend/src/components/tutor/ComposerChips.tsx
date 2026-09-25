@@ -139,20 +139,20 @@ export default function ComposerChips({
       <div className="relative">
         <button
           onClick={() => onToggle('memory')}
-          aria-label={`What the tutor remembers: ${memoryCount}`}
+          aria-label={`Tutor memory: ${memoryCount} saved`}
           className="flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
           style={{ background: open === 'memory' ? 'var(--bg)' : undefined }}
         >
           {MEMORY_ICON}
-          {/* Named even at zero, like its neighbours: an unlabelled glyph in a row of
-              labelled chips reads as a different kind of control, and "Memory" is what
-              tells you the tutor keeps notes at all. */}
-          {/* Counts both halves of the panel. Your notes and the tutor's own observations
-              are deliberately separate inside it, but on the chip the useful number is
-              "how much does it hold about me", not one of the two. */}
-          <span className="inline">
-            {memoryCount > 0 ? `${memoryCount} ${memoryCount === 1 ? 'thing' : 'things'}` : 'Memory'}
-          </span>
+          {/* Always "Memory", with the count beside it. It used to turn into "6 notes" once
+              anything was saved, which put a second meaning of "notes" one tab away from the
+              Notes tab and its "No notes yet": two different things under one word. Named even
+              at zero, like its neighbours, because an unlabelled glyph in a row of labelled
+              chips reads as a different kind of control. The count covers both halves of the
+              panel — what you told it and what it has noticed — because the question the chip
+              answers is "how much does it hold about me", not one of the two. */}
+          <span className="inline">Memory</span>
+          {memoryCount > 0 && <span className="font-bold tabular-nums">{memoryCount}</span>}
         </button>
         {open === 'memory' && (
           <>

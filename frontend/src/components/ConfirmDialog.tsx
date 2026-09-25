@@ -62,18 +62,14 @@ export default function ConfirmDialog({ confirmation, onCancel }: { confirmation
             Cancel
           </button>
           {/* Destructive carries the forgot pair, which measures 5.4:1 in light and 4.5:1 in
-              dark. Anything else is the ordinary primary button, so it takes .on-accent. */}
+              dark. Anything else is the ordinary primary button, so it takes .on-accent, fill and all. */}
           <button
             onClick={() => {
               onConfirm()
               onCancel()
             }}
             className={`flex h-11 items-center rounded-[var(--r-full)] px-5 text-[0.9375rem] font-bold ${destructive ? '' : 'on-accent'}`}
-            style={
-              destructive
-                ? { background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' }
-                : { background: 'var(--accent)' }
-            }
+            style={destructive ? { background: 'var(--grade-forgot-bg)', color: 'var(--grade-forgot)' } : undefined}
           >
             {confirmLabel}
           </button>

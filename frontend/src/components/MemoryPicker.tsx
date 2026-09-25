@@ -6,7 +6,7 @@ const CATEGORY_LABELS: Record<MemoryCategory, string> = {
   preference: 'Preference',
   gap: 'Gap',
   context: 'Context',
-  custom: 'Note',
+  custom: 'Other',
 }
 
 interface Props {
@@ -32,7 +32,8 @@ export default function MemoryPicker({ notes, profile, onAdd, onDelete, onDelete
     <div className="w-80 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4">
       <div className="mb-1 text-[0.9375rem] font-bold">Memory</div>
       <p className="mb-3.5 text-xs text-[var(--text-muted)]">
-        What the tutor remembers about you across sessions.
+        What the tutor remembers about you across sessions. What it has noticed on its own is listed
+        separately — delete anything that&rsquo;s wrong.
       </p>
 
       {/* The tutor's own reading of you, kept visually apart from what you told it. Two different
@@ -87,7 +88,7 @@ export default function MemoryPicker({ notes, profile, onAdd, onDelete, onDelete
       {notes === null ? (
         <p className="text-xs text-[var(--text-muted)]">Loading…</p>
       ) : notes.length === 0 ? (
-        <p className="mb-3 text-xs text-[var(--text-muted)]">Nothing yet — add something you want it to know.</p>
+        <p className="mb-3 text-xs text-[var(--text-muted)]">Nothing remembered yet. Add something below.</p>
       ) : (
         <div className="mb-3 flex max-h-52 flex-col gap-1.5 overflow-y-auto">
           {notes.map((n) => (
@@ -100,7 +101,7 @@ export default function MemoryPicker({ notes, profile, onAdd, onDelete, onDelete
               </div>
               <button
                 onClick={() => onDelete(n.id)}
-                aria-label="Delete note"
+                aria-label="Forget this"
                 className="-mr-1 -mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-sm)] text-[var(--text-muted)]"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -121,19 +122,19 @@ export default function MemoryPicker({ notes, profile, onAdd, onDelete, onDelete
           <option value="preference">Preference — how you like to learn</option>
           <option value="gap">Gap — something you keep struggling with</option>
           <option value="context">Context — what you're studying for</option>
-          <option value="custom">Note — anything else</option>
+          <option value="custom">Other — anything else</option>
         </select>
         <div className="flex gap-2">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            placeholder="Add a note…"
+            placeholder="Something to remember…"
             className="min-w-0 flex-1 rounded-[var(--r-sm)] bg-[var(--bg)] px-3 py-2 text-xs"
           />
           <button
             onClick={handleAdd}
-            className="on-accent flex-shrink-0 rounded-[var(--r-full)] bg-[var(--accent)] px-3.5 py-2 text-xs font-bold"
+            className="on-accent flex-shrink-0 rounded-[var(--r-full)] px-3.5 py-2 text-xs font-bold"
           >
             Add
           </button>
