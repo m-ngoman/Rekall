@@ -11,6 +11,11 @@ venv/
 node_modules/
 dist/
 .vite/
+# scripts/deploy.sh builds beside the live frontend and swaps it in; these are that build's
+# staging and the one it replaced, kept until the new one is known to be healthy.
+frontend/dist.next/
+frontend/dist.prev/
+frontend/dist.failed/
 
 # Env
 .env
