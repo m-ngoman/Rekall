@@ -31,6 +31,13 @@ const check = (label, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${label}${pass || !detail ? '' : `  (${detail})`}`)
 }
 const get = async (path) => (await fetch(`${API}${path}`)).json()
+/** Cards -> one of its ways in, which on a phone with a library wait behind "Add cards". */
+const wayIn = async (page, label) => {
+  await page.getByRole('button', { name: 'Cards', exact: true }).first().click()
+  const add = page.getByRole('button', { name: 'Add cards', exact: true })
+  if (await add.isVisible()) await add.click()
+  await page.getByRole('button', { name: label }).first().click()
+}
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, timezoneId: 'UTC' })
@@ -59,8 +66,8 @@ page.on('pageerror', (e) => errs.push(e.message))
   // Missed first time, so it is queued for a second showing: every card is still to come.
   const before = await page.getByRole('button', { name: /^Next card/ }).innerText()
   check('a missed card is queued again', before === `Next card, ${cards.length} left`, before)
-  await page.getByRole('button', { name: "This card doesn't look right" }).click()
-  await page.getByText("Reported. You won't see it again.").waitFor()
+  await page.getByRole('button', { name: 'Report and remove this card' }).click()
+  await page.getByText('Removed from your reviews.').waitFor()
   const after = await page.getByRole('button', { name: /^(Next card|Finish)/ }).innerText()
   check('reporting takes its second showing out of the queue', after === `Next card, ${cards.length - 1} left`, after)
 
@@ -89,8 +96,7 @@ page.on('pageerror', (e) => errs.push(e.message))
 
   const pharmacology = (await get('/api/decks')).find((d) => d.name === 'Pharmacology')
   await page.goto(APP, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'Cards', exact: true }).first().click()
-  await page.getByRole('button', { name: /Write your own/ }).first().click()
+  await wayIn(page, /Write your own/)
   // Under StrictMode the deck list is fetched twice in development, and each answer pre-selects
   // the newest deck, so a choice made before the second one lands is overwritten. Choose until
   // the choice holds.
@@ -118,11 +124,10 @@ page.on('pageerror', (e) => errs.push(e.message))
     route.fulfill({ status: 200, contentType: 'text/event-stream', body: `event: done\ndata: ${JSON.stringify(result)}\n\n` }),
   )
   await page.goto(APP, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'Cards', exact: true }).first().click()
-  await page.getByRole('button', { name: /Generate with AI/ }).first().click()
-  await page.getByRole('button', { name: /Describe a topic/ }).click()
-  await page.getByPlaceholder('Subject — Chemistry, History…').fill('Calculus')
-  await page.getByPlaceholder("Topic — what you're studying right now").fill('Derivatives')
+  await wayIn(page, /Generate with AI/)
+  await page.getByRole('button', { name: 'From a topic' }).click()
+  await page.getByLabel('Subject').fill('Calculus')
+  await page.getByLabel('Topic', { exact: true }).fill('Derivatives')
   await page.getByRole('button', { name: 'Generate flashcards' }).click()
   await page.getByText('Added to Pharmacology').waitFor()
   await list.locator('.katex').first().waitFor({ timeout: 10000 }).catch(() => {})
@@ -181,8 +186,7 @@ page.on('pageerror', (e) => errs.push(e.message))
 // --- What a failed import says --------------------------------------------------------------------
 {
   await page.goto(APP, { waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: 'Cards', exact: true }).first().click()
-  await page.getByRole('button', { name: /Import CSV/ }).first().click()
+  await wayIn(page, /Import CSV/)
   await page.getByPlaceholder('Paste CSV here').fill('just one line, no header')
   await page.getByRole('button', { name: 'Import these cards' }).click()
   const said = page.getByText('Could not parse CSV. Expected header: DeckName,Subtopic,Front,Back', { exact: true })
