@@ -4,7 +4,7 @@ import json
 import random
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session, selectinload
@@ -27,22 +27,22 @@ from app.schemas import (
     StudyCardOut,
     StudyQueueOut,
 )
-from app.services.exam_status import boosted_new_cap, exam_paused, next_exam, today_utc
+from app.services.exam_status import exam_paused, next_exam, today_utc
 from app.services.sample_deck import SAMPLE_CARDS, SAMPLE_DECK_NAME
-from app.services.study_plan import is_due, is_new, live_cards
+from app.services.study_plan import Intake, is_due, is_new, live_cards, new_card_intake
 
 router = APIRouter(prefix="/api/decks", tags=["decks"])
 
 
-def _deck_out(deck: Deck) -> DeckOut:
+def _deck_out(deck: Deck, today: date, intake: Intake) -> DeckOut:
     """`learned` is total-minus-new — cards you've *started*, not mastered. The UI labels it that
-    way; keep the two in step."""
+    way; keep the two in step. `new` is every card not yet met; `new_today` is how many of them
+    today's queue will still serve, which is the number to show as work."""
     cards = live_cards(deck)
     total = len(cards)
     new = sum(1 for c in cards if is_new(c))
     now = datetime.now(timezone.utc)
     due = sum(1 for c in cards if is_due(c, now))
-    today = today_utc()
     upcoming = next_exam(deck, today)
     return DeckOut(
         id=deck.id,
@@ -50,10 +50,21 @@ def _deck_out(deck: Deck) -> DeckOut:
         total=total,
         due=due,
         new=new,
+        new_today=intake.left,
         learned=total - new,
         exam_paused=exam_paused(deck, today),
         next_exam=ExamRef(name=upcoming.name, date=upcoming.date) if upcoming else None,
     )
+
+
+def _deck_outs(db: Session, decks: list[Deck], base_cap: int) -> list[DeckOut]:
+    """Every deck the API returns goes through here, so a tile's count is always today's intake
+    as the queue will serve it. `base_cap` is the user's new_cards_per_day, read by the caller
+    before its decks are loaded: reading the settings can commit (the row is made on first use),
+    and a commit expires every loaded deck's cards."""
+    today = today_utc()
+    intakes = new_card_intake(db, decks, today, base_cap)
+    return [_deck_out(d, today, intakes[d.id]) for d in decks]
 
 
 def _parse_csv(text: str) -> dict[str, list[dict[str, str]]]:
@@ -98,6 +109,7 @@ def import_deck(request: Request, payload: ImportRequest, db: Session = Depends(
 @router.get("", response_model=list[DeckOut])
 def list_decks(request: Request, db: Session = Depends(get_db)) -> list[DeckOut]:
     user = get_current_user(request, db)
+    base_cap = get_settings_row(db, user.id).new_cards_per_day
     # Both relationships, not just exams: _deck_out counts `deck.cards` for every deck, so
     # loading only the exams left the card list to lazy-load one query per deck.
     decks = (
@@ -107,7 +119,7 @@ def list_decks(request: Request, db: Session = Depends(get_db)) -> list[DeckOut]
         .order_by(Deck.created_at.desc())
         .all()
     )
-    return [_deck_out(d) for d in decks]
+    return _deck_outs(db, decks, base_cap)
 
 
 @router.post("", response_model=DeckOut, status_code=201)
@@ -118,11 +130,12 @@ def create_deck(request: Request, payload: DeckCreate, db: Session = Depends(get
     its notes.
     """
     user = get_current_user(request, db)
+    base_cap = get_settings_row(db, user.id).new_cards_per_day
     deck = Deck(user_id=user.id, name=require_name(payload.name))
     db.add(deck)
     db.commit()
     db.refresh(deck)
-    return _deck_out(deck)
+    return _deck_outs(db, [deck], base_cap)[0]
 
 
 @router.patch("/{deck_id}", response_model=DeckOut)
@@ -131,11 +144,12 @@ def rename_deck(request: Request, deck_id: uuid.UUID, payload: DeckUpdate, db: S
     so a rename can't orphan either of them.
     """
     user = get_current_user(request, db)
+    base_cap = get_settings_row(db, user.id).new_cards_per_day
     deck = get_owned_deck(db, deck_id, user.id)
     deck.name = require_name(payload.name)
     db.commit()
     db.refresh(deck)
-    return _deck_out(deck)
+    return _deck_outs(db, [deck], base_cap)[0]
 
 
 @router.delete("/{deck_id}", status_code=204)
@@ -200,7 +214,8 @@ def study_queue(
     now = datetime.now(timezone.utc)
     live = live_cards(deck)
     # New cards are left out on purpose: the normal queue already serves every new card the daily
-    # intake allows, so the only new cards left over are ones the user's own setting holds back.
+    # intake allows, so the only new cards left over are ones the user's own setting holds back
+    # until tomorrow.
     later = sorted((c for c in live if not is_new(c) and not is_due(c, now)), key=lambda c: c.due or now)
     if ahead:
         return StudyQueueOut(
@@ -220,12 +235,16 @@ def study_queue(
     due_cards.sort(key=lambda c: c.due)
     random.shuffle(new_cards)
 
-    # An upcoming exam paces the deck's remaining new cards evenly across the days left, so every
-    # card is introduced before the date (see boosted_new_cap). A *passed* exam changes nothing
+    # New cards up to what is left of the deck's intake for the day. It is a day's allowance, not
+    # a session's: the cards already met today count against it, so studying the deck a second
+    # time today brings back its due cards but no more new ones than the day allows. An upcoming
+    # exam raises the intake to pace the deck's new cards evenly across the days left, so every
+    # card is introduced before the date (see study_plan.intake). A *passed* exam changes nothing
     # here — pausing only affects the dashboard; manual study always works.
-    exam = next_exam(deck, today_utc())
-    new_cap = boosted_new_cap(deck, today_utc(), prefs.new_cards_per_day, len(new_cards))
-    queue = due_cards + new_cards[:new_cap]
+    today = today_utc()
+    exam = next_exam(deck, today)
+    left_today = new_card_intake(db, [deck], today, prefs.new_cards_per_day)[deck.id].left
+    queue = due_cards + new_cards[:left_today]
 
     # session_size trims the combined queue, so due cards are kept in preference to new ones —
     # forgetting something you've already learned costs more than meeting a new card a day late.
@@ -334,6 +353,7 @@ def create_sample_deck(request: Request, db: Session = Depends(get_db)) -> DeckO
     delete away rather than something to guard with a uniqueness rule.
     """
     user = get_current_user(request, db)
+    base_cap = get_settings_row(db, user.id).new_cards_per_day
     deck = Deck(user_id=user.id, name=SAMPLE_DECK_NAME)
     db.add(deck)
     db.flush()
@@ -341,7 +361,7 @@ def create_sample_deck(request: Request, db: Session = Depends(get_db)) -> DeckO
         db.add(Card(deck_id=deck.id, subtopic=c["subtopic"], question=c["question"], answer=c["answer"]))
     db.commit()
     db.refresh(deck)
-    return _deck_out(deck)
+    return _deck_outs(db, [deck], base_cap)[0]
 
 
 @router.get("/export")

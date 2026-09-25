@@ -3,6 +3,8 @@
 //
 //   - Home tells "daily goal complete, cards left" from "caught up", and offers the cards.
 //   - Caught up is status text naming when cards come back, not a button-shaped pill.
+//   - New cards per day is a day's allowance: a deck counts what today will serve, and a second
+//     session the same day doesn't start the allowance over.
 //   - A deck with nothing due offers to review ahead, and that starts a session.
 //   - "Report and remove this card" can be undone, into the session and the schedule.
 //   - A graded answer on a phone can show the model answer.
@@ -82,7 +84,7 @@ const cardsTab = async (page) => {
 // --- Home: caught up ------------------------------------------------------------------------------
 {
   reseed()
-  for (const deck of (await get('/api/decks')).filter((d) => !d.exam_paused && d.due + d.new > 0)) {
+  for (const deck of (await get('/api/decks')).filter((d) => !d.exam_paused && d.due + d.new_today > 0)) {
     for (const card of (await get(`/api/decks/${deck.id}/study-queue`)).cards) await review(card.id)
   }
   const page = await fresh()
@@ -93,6 +95,29 @@ const cardsTab = async (page) => {
   await page.getByText(/cards? comes? back/).waitFor({ timeout: 5000 }).catch(() => {})
   check('and says when cards come back', await page.getByText(/cards? comes? back (later today|tomorrow|in \d+ days|on )/).isVisible())
   check('with no button pretending to be one', !(await page.getByRole('button', { name: /Start |Keep studying|Come back/ }).count()))
+  await page.close()
+}
+
+// --- New cards: a day's worth, not a session's -----------------------------------------------------
+{
+  reseed()
+  // The fixture has no new cards (they would redraw the mocks' tiles), so this brings its own: the
+  // six-card sample deck, under a cap of two.
+  await send('/api/settings', 'PATCH', { new_cards_per_day: 2 })
+  const sample = await (await send('/api/decks/sample', 'POST')).json()
+  check('a deck counts the new cards today will serve, not all of them', sample.new === 6 && sample.new_today === 2, `new ${sample.new}, new_today ${sample.new_today}`)
+  const page = await fresh()
+  await page.goto(APP, { waitUntil: 'networkidle' })
+  const tile = page.getByRole('button', { name: /^Sample deck/ }).first()
+  await tile.waitFor({ timeout: 5000 }).catch(() => {})
+  check('and its tile says two left today', (await tile.innerText().catch(() => '')).includes('2 left today'), await tile.innerText().catch(() => ''))
+  for (const card of (await get(`/api/decks/${sample.id}/study-queue`)).cards) await review(card.id)
+  const again = (await get(`/api/decks/${sample.id}/study-queue`)).cards
+  check('a second session the same day serves no more new cards', again.length === 0, `${again.length} served`)
+  await page.reload({ waitUntil: 'networkidle' })
+  await tile.waitFor({ timeout: 5000 }).catch(() => {})
+  await page.getByText('Done for today').first().waitFor({ timeout: 5000 }).catch(() => {})
+  check('and the tile is done for today, with four still to meet', (await tile.innerText().catch(() => '')).includes('Done for today'), await tile.innerText().catch(() => ''))
   await page.close()
 }
 

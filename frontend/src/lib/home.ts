@@ -1,6 +1,25 @@
 import { daysUntil, formatDayShort } from './dates'
 import type { LoadByDay } from './load'
-import type { Dashboard } from '../types'
+import type { Dashboard, Deck, Exam } from '../types'
+
+/** What a deck has left to do today: its due cards and the new cards today's queue will still
+ * serve. Not every new card in it: the daily cap holds the rest for later days, and counting
+ * them promised a session the queue would never hand over. */
+export function leftToday(deck: Pick<Deck, 'due' | 'new_today'>): number {
+  return deck.due + deck.new_today
+}
+
+/** The deck Home's button opens, from the decks on the daily list: the one cramming for the
+ * nearest exam, else the one with the most left today. Study sessions are per deck, so Home has
+ * to pick, and only a deck with something left today can be picked, or the button would open
+ * an empty session. */
+export function pickStartDeck(decks: Deck[], nextExam: Exam | undefined): Deck | undefined {
+  const withWork = decks.filter((d) => leftToday(d) > 0)
+  return (
+    (nextExam && withWork.find((d) => nextExam.deck_ids.includes(d.id))) ??
+    [...withWork].sort((a, b) => leftToday(b) - leftToday(a))[0]
+  )
+}
 
 /** Which of Home's three days this is. They used to share one sentence: "Nothing due. Come back
  * tomorrow." stood both for a plate that was genuinely empty and for a daily goal that had merely

@@ -3,7 +3,13 @@ export interface Deck {
   name: string
   total: number
   due: number
+  /** Every card not yet met, however many days the daily cap spreads them over. Not today's work:
+   * that is `new_today`. */
   new: number
+  /** The new cards today's study queue will still serve: the day's intake (the new-cards-per-day
+   * setting, raised by an upcoming exam) less the cards already met today. With `due`, what is
+   * left in the deck today. */
+  new_today: number
   learned: number
   /** All linked exams are in the past: off the daily to-do, still studiable from the library. */
   exam_paused: boolean

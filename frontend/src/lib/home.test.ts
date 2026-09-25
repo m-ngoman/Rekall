@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { comingBackLine, firstScheduledDay, homeDay } from './home'
+import { comingBackLine, firstScheduledDay, homeDay, leftToday, pickStartDeck } from './home'
+import type { Deck, Exam } from '../types'
 
 const dash = (reviewed: number, goal: number, remaining: number) => ({
   reviewed_today: reviewed,
@@ -21,6 +22,44 @@ describe('homeDay', () => {
 
   it('is caught up with nothing to start, whatever the numbers say', () => {
     expect(homeDay(dash(0, 20, 20), false)).toBe('caught-up')
+  })
+})
+
+const deck = (id: string, due: number, newToday: number, newAll = newToday): Deck => ({
+  id,
+  name: id,
+  total: due + newAll,
+  due,
+  new: newAll,
+  new_today: newToday,
+  learned: due,
+  exam_paused: false,
+  next_exam: null,
+})
+const exam = (...deckIds: string[]): Exam => ({ id: 'e', name: 'Exam', date: '2026-10-01', deck_ids: deckIds })
+
+describe('leftToday', () => {
+  it("counts today's new cards, not every card the cap is holding back", () => {
+    expect(leftToday(deck('bio', 4, 20, 100))).toBe(24)
+    expect(leftToday(deck('bio', 0, 0, 80))).toBe(0)
+  })
+})
+
+describe('pickStartDeck', () => {
+  it('opens the deck cramming for the next exam', () => {
+    const decks = [deck('bio', 30, 0), deck('chem', 2, 0)]
+    expect(pickStartDeck(decks, exam('chem'))?.id).toBe('chem')
+  })
+
+  it('passes over a deck whose day is done, however many new cards it still holds', () => {
+    const decks = [deck('bio', 0, 0, 80), deck('chem', 3, 0)]
+    expect(pickStartDeck(decks, exam('bio'))?.id).toBe('chem')
+    expect(pickStartDeck([deck('bio', 0, 0, 80)], undefined)).toBeUndefined()
+  })
+
+  it('else takes the deck with the most left today', () => {
+    const decks = [deck('bio', 1, 2, 90), deck('chem', 6, 0)]
+    expect(pickStartDeck(decks, undefined)?.id).toBe('chem')
   })
 })
 

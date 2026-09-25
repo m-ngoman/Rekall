@@ -49,7 +49,8 @@ class UserSettings(UUIDPKMixin, TimestampMixin, Base):
     # this user's accent if that default ever changes.
     accent: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    # Caps how many never-seen cards enter a study queue. Was hardcoded at 20 in the queue builder.
+    # Caps how many never-seen cards a deck introduces per day, across however many sessions the
+    # day holds (see study_plan.intake). Was hardcoded at 20 in the queue builder.
     new_cards_per_day: Mapped[int] = mapped_column(Integer, default=20, server_default="20")
     # Total cards per session, due ones included. 0 means no cap, which is what the app did before
     # this setting existed — so an untouched setting reproduces the old behaviour exactly.

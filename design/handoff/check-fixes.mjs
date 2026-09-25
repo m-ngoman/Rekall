@@ -47,7 +47,7 @@ page.on('pageerror', (e) => errs.push(e.message))
 // --- A reported card leaves the session ---------------------------------------------------------
 {
   const decks = await get('/api/decks')
-  const deck = decks.find((d) => d.due + d.new >= 3)
+  const deck = decks.find((d) => d.due + d.new_today >= 3)
   const { cards } = await get(`/api/decks/${deck.id}/study-queue`)
   const reported = cards[0].question
   const onScreen = () => page.getByText(reported, { exact: true }).isVisible()

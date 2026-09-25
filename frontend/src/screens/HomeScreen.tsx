@@ -5,7 +5,7 @@ import LoadNotice from '../components/LoadNotice'
 import { useCachedResource } from '../hooks/useCachedResource'
 import { daysUntil } from '../lib/dates'
 import { upcomingExams } from '../lib/exams'
-import { comingBackLine, firstScheduledDay, homeDay, type NextReview } from '../lib/home'
+import { comingBackLine, firstScheduledDay, homeDay, leftToday, pickStartDeck, type NextReview } from '../lib/home'
 import { getLoad, loadCache, loadKey } from '../lib/load'
 import type { Dashboard, Deck, Exam } from '../types'
 
@@ -29,14 +29,10 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams, aiGradin
   const retry = () => statuses.filter((s) => s.failed).forEach((s) => s.retry())
 
   const active = decks?.filter((d) => !d.exam_paused) ?? []
-  // The deck to open when "Start" is tapped: the one cramming for the nearest exam, else the one
-  // with the most waiting. Study sessions are per deck, so Home has to pick.
   const upcoming = upcomingExams(exams)
   const next = upcoming[0]
-  const withWork = active.filter((d) => d.due > 0 || d.new > 0)
-  const startDeck =
-    (next && withWork.find((d) => next.deck_ids.includes(d.id))) ??
-    [...withWork].sort((a, b) => b.due + b.new - (a.due + a.new))[0]
+  const withWork = active.filter((d) => leftToday(d) > 0)
+  const startDeck = pickStartDeck(active, next)
 
   // Three different days, which used to share one sentence — see homeDay.
   const goalLeft = dashboard ? Math.max(0, dashboard.goal_today - dashboard.reviewed_today) : 0
@@ -60,7 +56,7 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams, aiGradin
   // What the button will actually deliver, which is not the same as the day's total. The total
   // sums every deck; a session is one deck. The button used to promise the sum and hand over one
   // deck's worth with no explanation, so it names the deck and counts its cards.
-  const startCount = startDeck ? startDeck.due + startDeck.new : 0
+  const startCount = startDeck ? leftToday(startDeck) : 0
   const acrossDecks = withWork.length
 
   if (decks.length === 0) {

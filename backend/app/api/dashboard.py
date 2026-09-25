@@ -9,8 +9,8 @@ from app.core.settings_store import get_settings_row
 from app.db import get_db
 from app.models import Deck, ReviewLog
 from app.schemas import DashboardOut, DayDeckOut
-from app.services.exam_status import boosted_new_cap, exam_paused, today_utc
-from app.services.study_plan import is_due, is_new, live_cards
+from app.services.exam_status import exam_paused, today_utc
+from app.services.study_plan import Intake, is_due, is_new, live_cards, new_card_intake
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -40,21 +40,21 @@ def get_dashboard(request: Request, db: Session = Depends(get_db)) -> DashboardO
     )
 
     # "Remaining" is what the study queues will actually *serve* today, not the raw card count:
-    # every due card, but new cards only up to each deck's per-day intake (the user's cap, raised
-    # by an upcoming exam — boosted_new_cap is the same formula the queue uses). Counting new
-    # cards the queue would refuse to serve would make the goal ring unfinishable.
+    # every due card, but new cards only up to what is left of each deck's intake for the day
+    # (study_plan.intake, the same numbers the queue uses). Counting new cards the queue would
+    # refuse to serve would make the goal ring unfinishable, and never counting down the ones
+    # already met today would keep it from ever reaching zero.
     remaining = 0
     today = today_utc()
-    for deck in _decks_with_cards(db, user.id):
+    decks = _decks_with_cards(db, user.id)
+    intakes = new_card_intake(db, decks, today, prefs.new_cards_per_day)
+    for deck in decks:
         # A deck whose exams have all passed is off the daily plate (it stays studiable from the
         # library). Must match the study queue's view of "paused" — both go through exam_status.
         if exam_paused(deck, today):
             continue
-        live = live_cards(deck)
-        due_count = sum(1 for c in live if is_due(c, now))
-        new_count = sum(1 for c in live if is_new(c))
-        new_served = min(new_count, boosted_new_cap(deck, today, prefs.new_cards_per_day, new_count))
-        remaining += due_count + new_served
+        due_count = sum(1 for c in live_cards(deck) if is_due(c, now))
+        remaining += due_count + intakes[deck.id].left
 
     # Distinct calendar dates with >=1 review, consecutive streak ending today or yesterday.
     dates = {ts.date() for (ts,) in db.query(ReviewLog.reviewed_at).filter(ReviewLog.user_id == user.id).all()}
@@ -77,15 +77,16 @@ def get_dashboard(request: Request, db: Session = Depends(get_db)) -> DashboardO
     return DashboardOut(reviewed_today=reviewed_today, goal_today=goal, streak_days=streak, remaining_today=remaining)
 
 
-def _deck_load(deck: Deck, today: date, base_cap: int, start: date, end: date) -> dict[date, int]:
+def _deck_load(deck: Deck, today: date, intake: Intake, start: date, end: date) -> dict[date, int]:
     """The cards one deck puts on each calendar day in [start, end]: the load timeline's rules,
     one deck at a time, so the whole-calendar sum and a single day's breakdown can't disagree.
 
     Review cards land on their FSRS `due` date; anything already overdue lands today, since that
     is when the queue will actually serve it. New cards have no due date yet, so they are
-    projected forward from today at the deck's daily intake (boosted_new_cap, the same number
-    the queue uses) until the deck's new pile is exhausted. A paused deck (every linked exam
-    passed) contributes nothing: it is off the daily list, so it carries no load.
+    projected forward: today gets what is left of today's intake, the same number the queue
+    serves (study_plan.intake), and each day after takes a full day's intake until the deck's new
+    pile is exhausted. A paused deck (every linked exam passed) contributes nothing: it is off
+    the daily list, so it carries no load.
     """
     counts: dict[date, int] = {}
     if exam_paused(deck, today):
@@ -105,11 +106,13 @@ def _deck_load(deck: Deck, today: date, base_cap: int, start: date, end: date) -
         due_day = c.due.date() if isinstance(c.due, datetime) else c.due
         add(max(due_day, today))
 
-    cap = boosted_new_cap(deck, today, base_cap, new_count)
-    if cap > 0:
-        day = today
+    if intake.left:
+        add(today, intake.left)
+        new_count -= intake.left
+    if intake.per_day > 0:
+        day = today + timedelta(days=1)
         while new_count > 0 and day <= end:
-            served = min(cap, new_count)
+            served = min(intake.per_day, new_count)
             add(day, served)
             new_count -= served
             day += timedelta(days=1)
@@ -131,9 +134,11 @@ def get_load(
     user = get_current_user(request, db)
     prefs = get_settings_row(db, user.id)
     today = today_utc()
+    decks = _decks_with_cards(db, user.id)
+    intakes = new_card_intake(db, decks, today, prefs.new_cards_per_day)
     counts: dict[str, int] = {}
-    for deck in _decks_with_cards(db, user.id):
-        for day, n in _deck_load(deck, today, prefs.new_cards_per_day, start, end).items():
+    for deck in decks:
+        for day, n in _deck_load(deck, today, intakes[deck.id], start, end).items():
             key = day.isoformat()
             counts[key] = counts.get(key, 0) + n
     return counts
@@ -152,9 +157,11 @@ def get_day(
     user = get_current_user(request, db)
     prefs = get_settings_row(db, user.id)
     today = today_utc()
+    decks = _decks_with_cards(db, user.id)
+    intakes = new_card_intake(db, decks, today, prefs.new_cards_per_day)
     rows = []
-    for deck in _decks_with_cards(db, user.id):
-        n = _deck_load(deck, today, prefs.new_cards_per_day, day, day).get(day, 0)
+    for deck in decks:
+        n = _deck_load(deck, today, intakes[deck.id], day, day).get(day, 0)
         if n:
             rows.append(DayDeckOut(id=deck.id, name=deck.name, cards=n))
     rows.sort(key=lambda r: (-r.cards, r.name.lower()))
