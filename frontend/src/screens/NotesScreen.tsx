@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createDeck, createTextNote, deleteNote, getNote, listDecks, listNotes, moveNote, renameDeck, unfileCategory } from '../api'
 import { getCached, setCached, useCachedResource } from '../hooks/useCachedResource'
+import LoadNotice from '../components/LoadNotice'
 import Notice from '../components/Notice'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useConfirm } from '../hooks/useConfirm'
@@ -34,9 +35,12 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
   const [query, setQuery] = useState('')
   const [openNote, setOpenNote] = useState<NoteDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The list itself didn't load. Kept apart from `error`, which is for actions: this one has a
+  // retry, and while it's up the screen must not fall through to "No notes yet".
+  const [listFailed, setListFailed] = useState(false)
   // Coalesced to [] at the boundary: every consumer below treats "no categories yet" and "not
   // loaded yet" the same way, and the note list already owns the screen's loading state.
-  const [cachedDecks, setDecks] = useCachedResource<Deck[]>('decks', listDecks, () => [])
+  const [cachedDecks, setDecks] = useCachedResource<Deck[]>('decks', listDecks)
   const decks = cachedDecks ?? []
   const [adding, setAdding] = useState(false)
   // A note being written that hasn't been saved yet. Becomes `openNote` on its first save.
@@ -75,8 +79,9 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
           if (!current) return
           if (!query.trim()) setCached('notes', rows)
           setNotes(rows)
+          setListFailed(false)
         })
-        .catch(() => current && setError('Could not load your notes.'))
+        .catch(() => current && setListFailed(true))
     }, 250)
     return () => {
       current = false
@@ -331,8 +336,19 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
 
       {error && <Notice tone="error">{error}</Notice>}
 
+      {listFailed && (
+        <LoadNotice
+          stale={notes !== null}
+          what="your notes"
+          onRetry={() => {
+            setListFailed(false)
+            setReloadKey((k) => k + 1)
+          }}
+        />
+      )}
+
       {notes === null ? (
-        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+        !listFailed && <p className="text-sm text-[var(--text-muted)]">Loading…</p>
       ) : notes.length === 0 && searching ? (
         <div className="rounded-[var(--r-md)] border border-dashed border-[var(--rule)] p-10 text-center">
           <p className="text-sm text-[var(--text-muted)]">No notes match "{query.trim()}".</p>

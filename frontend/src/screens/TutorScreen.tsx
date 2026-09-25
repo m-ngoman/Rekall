@@ -83,7 +83,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
   const [paywall, setPaywall] = useState(false)
   // Only used by the empty state's starters, and it rides the same cache the Calendar tab fills,
   // so opening Tutor after Calendar costs no request.
-  const [exams] = useCachedResource<Exam[]>('exams', listExams, () => [])
+  const [exams] = useCachedResource<Exam[]>('exams', listExams)
   const nextExam = useMemo(() => upcomingExams(exams)[0] ?? null, [exams])
   const [orbState, setOrbState] = useState<OrbState>('idle')
   const [voiceModeActive, setVoiceModeActive] = useState(false)

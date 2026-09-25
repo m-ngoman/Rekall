@@ -1,3 +1,4 @@
+import type { DayDeck } from '../types'
 import { toISODate } from './dates'
 
 /** Cards scheduled per day, `YYYY-MM-DD` → count. Missing key = 0. */
@@ -7,6 +8,14 @@ export type LoadByDay = Record<string, number>
  * calendar's window-keyed cache below lives next to the one caller that uses it. */
 export async function getLoad(start: Date, end: Date): Promise<LoadByDay> {
   const res = await fetch(`/api/dashboard/load?start=${toISODate(start)}&end=${toISODate(end)}`)
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return res.json()
+}
+
+/** GET /api/dashboard/day — one day of the timeline split by deck, busiest first. Built on the
+ * server from the same rules as getLoad, so the rows add up to that day's bar. */
+export async function getDayLoad(iso: string): Promise<DayDeck[]> {
+  const res = await fetch(`/api/dashboard/day?date=${iso}`)
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
   return res.json()
 }
