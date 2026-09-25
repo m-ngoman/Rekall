@@ -201,6 +201,35 @@ Database names and credentials, the Compose volume, and the keys the browser kee
 under still use the project's original `pipcards` name. Harmless, and renaming any of them means
 moving live data, so they've been left alone.
 
+## Deploying
+
+Merging to `main` is the release. On the server, a systemd timer runs
+[`scripts/deploy.sh`](scripts/deploy.sh) every five minutes. When `main` has moved, the script
+fast-forwards the checkout, installs, builds the frontend beside the live one, runs the
+migrations, swaps the new build in and restarts the backend, then checks that `/health` and `/`
+answer. If anything fails before the restart, the running app is left as it was. If the restart
+doesn't come up healthy, it is rolled back to the previous commit, keeping any migrations the new
+commit ran. Either way, that commit isn't retried until `main` moves again, and
+`journalctl --user -u rekall-deploy` says what happened.
+
+One-time setup on the server, as the user that runs Rekall, from the checkout:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp scripts/systemd/rekall-deploy.service scripts/systemd/rekall-deploy.timer ~/.config/systemd/user/
+cp scripts/systemd/rekall.service ~/.config/systemd/user/   # only if the backend isn't a service yet
+systemctl --user daemon-reload
+systemctl --user enable --now rekall.service rekall-deploy.timer
+loginctl enable-linger "$USER"   # keeps user units running with nobody logged in
+```
+
+The units assume the checkout is `~/Rekall`; edit their paths if it isn't. The checkout has to
+fetch from GitHub unattended, so use a read-only deploy key without a passphrase, or a token in
+git's credential store. Settings go in `~/.config/rekall/deploy.env`: `REKALL_RESTART` if the
+backend is restarted some other way, `REKALL_URL` if it isn't on port 8000, and `PATH` if node
+comes from nvm, since systemd doesn't read shell profiles. `scripts/deploy.sh` deploys at once,
+and `scripts/deploy.sh --retry` tries a commit that failed again.
+
 The scripts in [`scripts/`](scripts/) back up the database and uploads and read the owner's bug
 inbox. They reach Postgres through a podman container named `pipcards-db`: set
 `REKALL_DB_CONTAINER` if yours is called something else, and `REKALL_NOTES_DIR` if uploads aren't
