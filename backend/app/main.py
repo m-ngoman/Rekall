@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -59,9 +60,14 @@ app.include_router(admin_router)
 app.include_router(billing_router)
 
 
+# When this process started, in whole seconds. scripts/deploy.sh reads it off /health to tell the
+# backend it just restarted from one that never stopped: both answer "ok".
+_STARTED = int(time.time())
+
+
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict[str, str | int]:
+    return {"status": "ok", "started": _STARTED}
 
 
 # Serving the built frontend from the API process, rather than putting a separate web server in
