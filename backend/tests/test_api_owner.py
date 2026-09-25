@@ -1,4 +1,4 @@
-"""Owner-only surfaces (the bug inbox and the usage dashboard), and the tutor's memory notes.
+"""Owner-only surfaces: the bug inbox and the usage dashboard.
 
 The owner is whoever OWNER_EMAIL names; to everyone else these routes answer 404, as if they did
 not exist.
@@ -12,7 +12,7 @@ from app.api.admin import FEATURE_LABELS
 from app.api.bugs import MAX_TEXT
 from app.config import settings
 from app.core.auth import DEV_EMAIL
-from app.models import BugReport, MemorySource, StudentMemoryNote
+from app.models import BugReport
 from helpers import query
 
 pytestmark = pytest.mark.pg
@@ -76,24 +76,3 @@ def test_the_usage_dashboard_lists_every_feature_even_unused(owner) -> None:
     assert stats["users"]["registered"] == 1
     assert owner.get("/api/admin/stats?days=0").status_code == 422
     assert owner.get("/api/admin/stats?days=366").status_code == 422
-
-
-def test_memory_notes_crud(client) -> None:
-    created = client.post("/api/tutor/memory", json={"category": "context", "content": "Pass chemistry"})
-    assert created.status_code == 200
-    note = created.json()
-    assert note["source"] == "manual" and note["category"] == "context"
-    client.post("/api/tutor/memory", json={"category": "gap", "content": "Stereochemistry"})
-    assert [n["content"] for n in client.get("/api/tutor/memory").json()] == ["Pass chemistry", "Stereochemistry"]
-
-    patched = client.patch(f"/api/tutor/memory/{note['id']}", json={"content": "Pass organic chemistry"}).json()
-    assert patched["content"] == "Pass organic chemistry" and patched["category"] == "context"
-
-    assert client.delete(f"/api/tutor/memory/{note['id']}").status_code == 204
-    assert [n.source for n in query(StudentMemoryNote)] == [MemorySource.manual]
-
-
-def test_an_unknown_memory_note_is_not_found(client) -> None:
-    for method, kwargs in (("patch", {"json": {"content": "x"}}), ("delete", {})):
-        res = getattr(client, method)(f"/api/tutor/memory/{uuid.uuid4()}", **kwargs)
-        assert res.status_code == 404 and res.json()["detail"] == "Note not found"

@@ -1,126 +1,112 @@
-import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.auth import get_current_user
-from app.core.ownership import get_owned
 from app.db import get_db
-from app.models import MemorySource, StudentMemoryNote, StudentProfile, StudentProfileSuppression
-from app.schemas import (
-    MemoryNoteCreate,
-    MemoryNoteOut,
-    MemoryNoteUpdate,
-    ProfileLineDelete,
-    ProfileLineOut,
-    StudentProfileOut,
-)
+from app.models import StudentProfile, StudentProfileSuppression
+from app.schemas import ProfileLineOut, ProfileSectionOut, StudentProfileOut, StudentProfileUpdate
 from app.services import student_profile
 
 router = APIRouter(prefix="/api/tutor/memory", tags=["memory"])
 
-
-def _note_out(note: StudentMemoryNote) -> MemoryNoteOut:
-    return MemoryNoteOut(id=note.id, category=note.category, content=note.content, source=note.source)
-
-
-@router.get("", response_model=list[MemoryNoteOut])
-def list_notes(request: Request, db: Session = Depends(get_db)) -> list[MemoryNoteOut]:
-    user = get_current_user(request, db)
-    notes = (
-        db.query(StudentMemoryNote)
-        .filter(StudentMemoryNote.user_id == user.id)
-        .order_by(StudentMemoryNote.created_at)
-        .all()
-    )
-    return [_note_out(n) for n in notes]
+_CHANGED_MEANWHILE = (
+    "The tutor updated your profile while you were editing it. This is the latest version: "
+    "make your change again."
+)
 
 
-@router.get("/profile", response_model=StudentProfileOut)
-def get_profile(request: Request, db: Session = Depends(get_db)) -> StudentProfileOut:
-    """What the tutor has inferred, separate from what the student wrote themselves."""
-    user = get_current_user(request, db)
-    row = db.query(StudentProfile).filter(StudentProfile.user_id == user.id).one_or_none()
+def _profile_out(row: StudentProfile | None) -> StudentProfileOut:
     body = row.body if row else ""
-    today = date.today()
-    quiet = student_profile.stale_lines(body, today, settings.profile_stale_days)
-    lines = [
-        ProfileLineOut(
-            section=section,
-            text=line.text,
-            sessions=line.sessions,
-            latest=line.latest,
-            stale=line.text in quiet,
-        )
-        for section, section_lines in student_profile.parse(body).items()
-        for line in section_lines
-    ]
-    return StudentProfileOut(lines=lines, chars=len(body), max_chars=settings.profile_max_chars)
+    quiet = student_profile.stale_lines(body, date.today(), settings.profile_stale_days)
+    return StudentProfileOut(
+        sections=[
+            ProfileSectionOut(
+                name=name,
+                lines=[
+                    ProfileLineOut(text=line.text, yours=True)
+                    if line.yours
+                    else ProfileLineOut(
+                        text=line.text,
+                        yours=False,
+                        sessions=line.sessions,
+                        latest=line.latest,
+                        stale=line.text in quiet,
+                    )
+                    for line in lines
+                ],
+            )
+            for name, lines in student_profile.parse(body).items()
+        ],
+        text=student_profile.plain(body),
+        chars=len(body),
+        max_chars=settings.profile_max_chars,
+        rev=row.rev if row else 0,
+    )
 
 
-@router.post("/profile/delete", status_code=204)
-def delete_profile_line(request: Request, payload: ProfileLineDelete, db: Session = Depends(get_db)) -> None:
-    """Remove a line and make sure it cannot come back.
+def _row(db: Session, user_id) -> StudentProfile | None:
+    return db.query(StudentProfile).filter(StudentProfile.user_id == user_id).one_or_none()
 
-    A POST rather than a DELETE because the line is identified by its text, which does not belong
-    in a URL — and because this writes a row as well as removing one.
 
-    The suppression is the point. The signals that produced the line are still in the log, so
-    without recording that the student rejected it, the very next pass re-derives the same line
-    and they watch the thing they deleted reappear. That failure would cost more trust than the
-    feature earns.
+@router.get("", response_model=StudentProfileOut)
+def get_profile(request: Request, db: Session = Depends(get_db)) -> StudentProfileOut:
+    """The profile: one document, the tutor's lines and the student's together."""
+    user = get_current_user(request, db)
+    return _profile_out(_row(db, user.id))
+
+
+@router.put("", response_model=StudentProfileOut)
+def save_profile(request: Request, payload: StudentProfileUpdate, db: Session = Depends(get_db)) -> StudentProfileOut:
+    """Save the student's edit of the whole file. See `student_profile.apply_edit` for how the
+    plain text they edited maps back onto the tagged document.
+
+    Every tutor line the edit took out is recorded as a suppression. The signals that produced a
+    line are still in the log, so without that the very next pass would re-derive it and the
+    student would watch the thing they deleted come back — a failure that would cost more trust
+    than the feature earns.
     """
     user = get_current_user(request, db)
-    row = db.query(StudentProfile).filter(StudentProfile.user_id == user.id).one_or_none()
+    row = _row(db, user.id)
+    rev = row.rev if row else 0
+    if payload.rev != rev:
+        raise HTTPException(409, _CHANGED_MEANWHILE)
+
+    edit = student_profile.apply_edit(row.body if row else "", payload.text, settings.profile_max_chars)
+    if edit.error:
+        raise HTTPException(422, edit.error)
+    if edit.body is None:
+        return _profile_out(row)
+
     if row is None:
-        raise HTTPException(404, "No profile yet")
+        try:
+            db.add(StudentProfile(user_id=user.id, body="", rev=0, passes=0))
+            db.flush()
+        except IntegrityError:
+            # A memory pass made the row between the read and here.
+            db.rollback()
+            raise HTTPException(409, _CHANGED_MEANWHILE) from None
 
-    text = payload.text.strip()
-    sections = student_profile.parse(row.body)
-    if not any(line.text == text for lines in sections.values() for line in lines):
-        raise HTTPException(404, "That line isn't in the profile")
-
-    row.body = student_profile.render(
-        {name: [line for line in lines if line.text != text] for name, lines in sections.items()}
+    values = {StudentProfile.body: edit.body, StudentProfile.rev: rev + 1}
+    if edit.removed:
+        # The next pass rebuilds from the signal log instead of extending a document the removed
+        # lines may have been shaping: `passes` at a multiple of the rebuild interval is what
+        # makes that pass a rebuild.
+        values[StudentProfile.passes] = settings.profile_rebuild_every
+    # Conditional on the revision read, like the memory pass's own writes: a pass that lands
+    # between the check above and this line is refused rather than silently overwritten.
+    updated = (
+        db.query(StudentProfile)
+        .filter(StudentProfile.user_id == user.id, StudentProfile.rev == rev)
+        .update(values, synchronize_session=False)
     )
-    row.rev += 1
-    # Forces the next pass to reconcile against the log rather than extend a document this line
-    # may have been shaping.
-    row.passes = 0
-    db.add(StudentProfileSuppression(user_id=user.id, text=text))
+    if not updated:
+        db.rollback()
+        raise HTTPException(409, _CHANGED_MEANWHILE)
+    for text in edit.removed:
+        db.add(StudentProfileSuppression(user_id=user.id, text=text))
     db.commit()
-
-
-@router.post("", response_model=MemoryNoteOut)
-def create_note(request: Request, payload: MemoryNoteCreate, db: Session = Depends(get_db)) -> MemoryNoteOut:
-    user = get_current_user(request, db)
-    note = StudentMemoryNote(
-        user_id=user.id, category=payload.category, content=payload.content, source=MemorySource.manual
-    )
-    db.add(note)
-    db.commit()
-    db.refresh(note)
-    return _note_out(note)
-
-
-@router.patch("/{note_id}", response_model=MemoryNoteOut)
-def update_note(request: Request, note_id: uuid.UUID, payload: MemoryNoteUpdate, db: Session = Depends(get_db)) -> MemoryNoteOut:
-    user = get_current_user(request, db)
-    note = get_owned(db, StudentMemoryNote, note_id, user.id, "Note not found")
-    if payload.category is not None:
-        note.category = payload.category
-    if payload.content is not None:
-        note.content = payload.content
-    db.commit()
-    db.refresh(note)
-    return _note_out(note)
-
-
-@router.delete("/{note_id}", status_code=204)
-def delete_note(request: Request, note_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
-    user = get_current_user(request, db)
-    note = get_owned(db, StudentMemoryNote, note_id, user.id, "Note not found")
-    db.delete(note)
-    db.commit()
+    return _profile_out(_row(db, user.id))

@@ -1,9 +1,8 @@
-import enum
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,53 +12,20 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
-class MemoryCategory(str, enum.Enum):
-    preference = "preference"  # e.g. "responds well to analogies"
-    gap = "gap"  # recurring conceptual gap, not just a low-FSRS-stability card
-    context = "context"  # e.g. "studying for the AP Bio exam in March"
-    custom = "custom"
-
-
-class MemorySource(str, enum.Enum):
-    manual = "manual"  # student/Adam wrote it directly
-    auto = "auto"  # written by the tutor via services/memory_extraction.py; badged "auto" in the
-    # UI and deletable in one tap
-
-
-class StudentMemoryNote(UUIDPKMixin, TimestampMixin, Base):
-    """Persistent, student-visible notes fed into every tutor system prompt.
-
-    Originally manual-only, so a bad LLM inference could not silently corrupt a student's profile.
-    The tutor now writes notes itself with no approval gate — see the module docstring in
-    services/memory_extraction.py for why that trade was made, and what replaces the gate.
-    """
-
-    __tablename__ = "student_memory_notes"
-
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
-    )
-    category: Mapped[MemoryCategory] = mapped_column(Enum(MemoryCategory, name="memory_category"))
-    content: Mapped[str] = mapped_column(Text)
-    source: Mapped[MemorySource] = mapped_column(
-        Enum(MemorySource, name="memory_source"), default=MemorySource.manual, server_default=MemorySource.manual.value
-    )
-
-    user: Mapped["User"] = relationship()
-
-
 class StudentProfile(UUIDPKMixin, TimestampMixin, Base):
-    """One short document per student, injected into every tutor system prompt.
+    """One short document per student: the whole of what the tutor remembers about them, injected
+    into every tutor system prompt, and what the student reads and edits as one file.
 
-    Replaces what auto notes used to be, for a reason that was structural rather than cosmetic.
+    Replaces the note list that used to be, for a reason that was structural rather than cosmetic.
     Notes were append-only and deduplicated at insert time by word overlap, so the model could
     never write "tends to reach for a formula before reading the question" — that generalisation
     looks like a duplicate of each of the three specific notes behind it, and was rejected. A
     document that can be *rewritten* is what lets three specifics become the pattern they share.
 
-    Notes the student wrote themselves stay in `StudentMemoryNote` and are never touched by any of
-    this. The asymmetry is deliberate and is preserved all the way into the prompt: one set is
-    what they told us, the other is what a model inferred.
+    The student writes in it too. Their lines carry a `[yours]` tag instead of the tutor's
+    evidence tag, the extractor may not change them, and the prompt presents them as the
+    student's own words rather than the tutor's impressions: the asymmetry between what they told
+    us and what a model inferred survives inside the one document. See services/student_profile.py.
     """
 
     __tablename__ = "student_profiles"
