@@ -6,10 +6,10 @@ Description=Ship Rekall's main branch if it has moved
 
 [Service]
 Type=oneshot
-# Optional: REKALL_RESTART, REKALL_URL and the rest (see the top of scripts/deploy.sh), and PATH
-# if node or npm come from somewhere a login shell adds, like nvm: systemd doesn't read profiles.
-EnvironmentFile=-%h/.config/rekall/deploy.env
-# Assumes the checkout is ~/Rekall. Edit this line if it isn't.
-ExecStart=%h/Rekall/scripts/deploy.sh
-# A oneshot waits forever by default, and a hung install would hold the deploy lock with it.
+# Through /bin/bash rather than the script's own #! line, so the script starts whatever PATH the
+# user manager has. Its settings, PATH included, are in ~/.config/rekall/deploy.env, which the
+# script reads itself; see the top of scripts/deploy.sh. Assumes the checkout is ~/Rekall: edit
+# this line if it isn't.
+ExecStart=/bin/bash %h/Rekall/scripts/deploy.sh
+# A oneshot waits forever by default. A run stopped by this is picked up and put right by the next.
 TimeoutStartSec=20min

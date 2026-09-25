@@ -5,6 +5,8 @@ frontend/src/lib/route.ts. A route added to the frontend and not here works unti
 refreshes the page, which is exactly the kind of break that reaches a user rather than a test.
 """
 
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -92,3 +94,10 @@ def test_the_404_page_is_not_named_404_html(client: TestClient) -> None:
     """StaticFiles(html=True) claims that exact filename for itself. See the comment on
     _NOT_FOUND_PAGE in app/main.py."""
     assert not (_DIST / "404.html").exists()
+
+
+def test_health_says_when_this_process_started(client: TestClient) -> None:
+    """The deploy's proof that a restart happened: an old process still answering says "ok" too."""
+    before = int(time.time())
+    body = client.get("/health").json()
+    assert body["status"] == "ok" and isinstance(body["started"], int) and body["started"] <= before
