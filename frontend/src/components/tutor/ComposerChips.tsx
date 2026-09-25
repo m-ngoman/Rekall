@@ -1,7 +1,8 @@
-import MemoryPicker from '../MemoryPicker'
 import PersonalityPicker, { PERSONALITY_PRESETS } from '../PersonalityPicker'
+import ProfileFile from '../ProfileFile'
 import VoicePicker from '../VoicePicker'
-import type { MemoryCategory, MemoryNote, Settings, StudentProfile, TutorPersonality, TutorSession, TutorVoice } from '../../types'
+import { profileLineCount } from '../../lib/profile'
+import type { Settings, StudentProfile, TutorPersonality, TutorSession, TutorVoice } from '../../types'
 import type { Popover } from './types'
 
 /** Derived from the picker's own presets rather than restated here — two hand-written copies of
@@ -51,35 +52,31 @@ export default function ComposerChips({
   settings,
   voices,
   voiceName,
-  memoryNotes,
   profile,
+  profileFailed,
   open,
   onToggle,
   onPersonalityChange,
   onVoiceChange,
-  onAddMemory,
-  onDeleteMemory,
-  onDeleteProfileLine,
+  onProfileChange,
   onNewConversation,
 }: {
   session: TutorSession | null
   settings: Settings | null
   voices: TutorVoice[] | null
   voiceName: string | undefined
-  memoryNotes: MemoryNote[] | null
-  /** The tutor's own reading of the student, kept apart from the notes they wrote. */
+  /** Everything the tutor remembers about the student, as one file. Null while it loads. */
   profile: StudentProfile | null
+  profileFailed: boolean
   open: Popover | null
   onToggle: (which: Popover) => void
   onPersonalityChange: (personality: TutorPersonality, customPrompt?: string) => void
   onVoiceChange: (voiceId: string) => void
-  onAddMemory: (category: MemoryCategory, content: string) => void
-  onDeleteMemory: (id: string) => void
-  onDeleteProfileLine: (text: string) => void
+  onProfileChange: (profile: StudentProfile) => void
   /** Offered only once there is something to leave behind; null hides the chip. */
   onNewConversation: (() => void) | null
 }) {
-  const memoryCount = (memoryNotes?.length ?? 0) + (profile?.lines.length ?? 0)
+  const memoryCount = profileLineCount(profile)
   return (
     <div className="relative z-20 flex flex-wrap items-end gap-1.5">
       <div className="relative">
@@ -136,7 +133,9 @@ export default function ComposerChips({
         )}
       </div>
 
-      <div className="relative">
+      {/* Positioned from the whole row on a phone, not from the chip: the chip sits mid-row, and a
+          panel anchored at its left edge ran off the right of the screen. */}
+      <div className="sm:relative">
         <button
           onClick={() => onToggle('memory')}
           aria-label={`Tutor memory: ${memoryCount} saved`}
@@ -148,22 +147,22 @@ export default function ComposerChips({
               anything was saved, which put a second meaning of "notes" one tab away from the
               Notes tab and its "No notes yet": two different things under one word. Named even
               at zero, like its neighbours, because an unlabelled glyph in a row of labelled
-              chips reads as a different kind of control. The count covers both halves of the
-              panel — what you told it and what it has noticed — because the question the chip
-              answers is "how much does it hold about me", not one of the two. */}
+              chips reads as a different kind of control. The count is every line in the file,
+              yours and the tutor's, because the question the chip answers is "how much does it
+              hold about me". */}
           <span className="inline">Memory</span>
           {memoryCount > 0 && <span className="font-bold tabular-nums">{memoryCount}</span>}
         </button>
         {open === 'memory' && (
           <>
-            <div className="absolute bottom-12 left-0 z-20">
-              <MemoryPicker
-                notes={memoryNotes}
-                profile={profile}
-                onAdd={onAddMemory}
-                onDelete={onDeleteMemory}
-                onDeleteProfileLine={onDeleteProfileLine}
-              />
+            <div className="absolute bottom-12 left-0 right-0 z-20 sm:right-auto">
+              <div className="w-full rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4 sm:w-96">
+                <div className="mb-1 text-[0.9375rem] font-bold">Memory</div>
+                <p className="mb-3.5 text-xs text-[var(--text-muted)]">
+                  What the tutor remembers about you, as one file. It reads all of it before every reply.
+                </p>
+                <ProfileFile profile={profile} failed={profileFailed} onChange={onProfileChange} compact />
+              </div>
             </div>
           </>
         )}

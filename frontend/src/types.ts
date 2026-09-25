@@ -148,33 +148,37 @@ export interface WordTiming {
   e: number
 }
 
-export type MemoryCategory = 'preference' | 'gap' | 'context' | 'custom'
-
-export interface MemoryNote {
-  id: string
-  category: MemoryCategory
-  content: string
-  source: 'manual' | 'auto'
-}
-
-/** One line of the tutor's own profile of you — a recurring pattern, not a fact about one
- * week's material. Deleted by text rather than id: a line has no stable identity across a
- * rewrite, and the text is what gets recorded so it cannot be re-derived. */
+/** One line of the profile. The tutor's lines are recurring patterns it noticed, with the
+ * evidence behind them; yours are lines you wrote, or tutor lines you reworded. */
 export interface ProfileLine {
-  section: string
   text: string
-  sessions: number
+  /** You wrote it. The tutor never changes these. */
+  yours: boolean
+  /** How many sessions the tutor saw this in. Null on your lines. */
+  sessions: number | null
   /** `YYYY-MM-DD` of the most recent thing that supported this. Parse with parseISODate. */
-  latest: string
+  latest: string | null
   /** Gone quiet, so it is no longer sent to the tutor. Still kept — if the pattern comes back the
-   * next pass re-dates it and it returns on its own. */
+   * next pass re-dates it and it returns on its own. Never true of your lines. */
   stale: boolean
 }
 
-export interface StudentProfile {
+export interface ProfileSection {
+  name: string
   lines: ProfileLine[]
+}
+
+/** Everything the tutor remembers about you, as one document. */
+export interface StudentProfile {
+  /** Always the same three, in order, empty or not. */
+  sections: ProfileSection[]
+  /** The document as you edit it: headings and lines, without the tutor's evidence tags. */
+  text: string
   chars: number
   max_chars: number
+  /** The version this is. A save names it, so an edit made while the tutor rewrote the file is
+   * refused rather than overwriting what it wrote. */
+  rev: number
 }
 
 export interface GeneratedCard {
@@ -256,7 +260,7 @@ export interface Settings {
   tutor_personality: TutorPersonality
   tutor_voice_id: string | null
   tutor_custom_prompt: string | null
-  /** Lets the tutor write its own memory notes as you talk. Its notes are labelled and deletable. */
+  /** Lets the tutor add to your profile as you talk: patterns it sees across sessions. */
   tutor_auto_memory: boolean
 }
 
