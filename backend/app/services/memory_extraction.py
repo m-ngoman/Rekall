@@ -35,8 +35,9 @@ Design constraints this is built around:
 * **The writer is not the reader.** A cheap model writes the profile; the tutor (Sonnet) only ever
   reads it. That is a guard against a model confirming its own inferences, not just a cost
   decision — do not "simplify" this by letting the tutor maintain its own profile.
-* **The student's own notes are untouchable.** `StudentMemoryNote` is never written or rewritten
-  here. It is shown to the extractor only as a constraint on what it may say.
+* **The student's own lines are untouchable.** They live in the same document, tagged
+  `[student]`, and `student_profile.apply_op` refuses any rewrite that changes, drops or adds one.
+  The extractor sees them as the student's instructions about what may be said.
 """
 
 from __future__ import annotations
@@ -54,7 +55,6 @@ from app.core import spend as spend_log
 from app.core.settings_store import get_settings_row
 from app.db import SessionLocal
 from app.models import (
-    StudentMemoryNote,
     StudentProfile,
     StudentProfileSuppression,
     StudentSignal,
@@ -121,15 +121,22 @@ Never write:
   would still claim the exam is coming up months later. What subject they study is fine; when it
   is tested is not.
 - relative time — "recently", "lately", "at the moment". This text is read months from now.
-- anything in the student's own notes, or anything they have asked not to be recorded.
+- anything that repeats or contradicts one of the student's own lines, or anything they have
+  asked not to be recorded.
 
 EDITING. Choose AT MOST ONE section and return its complete new body. The sections are exactly:
 {", ".join(profile_doc.SECTIONS)}. Do not invent one. Rewriting a section is how a pattern gets \
 better: merge two lines that say the same thing at different sizes, replace three specifics with \
 the one pattern behind them, drop a line the log has stopped supporting. Never rewrite a section \
 for phrasing, tidiness or completeness — if the meaning does not change, the edit was not worth \
-making. At most {profile_doc.MAX_LINES_PER_SECTION} lines per section, {profile_doc.MAX_LINE_CHARS} \
-characters per line.
+making. At most {profile_doc.MAX_LINES_PER_SECTION} of your lines per section, \
+{profile_doc.MAX_LINE_CHARS} characters per line.
+
+THE STUDENT'S OWN LINES. Lines ending [student] were written by the student. They are not yours to \
+edit: when you rewrite a section, copy each of its [student] lines back exactly as it is, tag \
+included, and never tag a line of your own [student]. They don't count toward the line limit. \
+Read them as the student's instructions: honour anything they say about what not to record, and \
+never write a line that repeats or contradicts one.
 
 Each line ends with its evidence, exactly: [<n> sessions, latest YYYY-MM-DD]
 Count sessions from the log. Use the date of the most recent supporting signal.
@@ -155,8 +162,8 @@ _REBUILD_NOTE = """
 THIS PASS IS A REBUILD. Judge the profile above against the signal log rather than extending it —
 it is shown only so you can see what it has been claiming. Find the section whose lines the log
 supports least well and rewrite that one section from the log alone, dropping whatever the
-evidence no longer carries. Still one section, and still op: null if the log genuinely agrees with
-everything the profile says."""
+evidence no longer carries. The section's [student] lines stay exactly as they are. Still one
+section, and still op: null if the log genuinely agrees with everything the profile says."""
 
 # One extraction per session at a time. Turns can overlap (a fast typist, or a voice turn landing
 # while the previous thread is still working), and two concurrent passes would read the same
@@ -233,9 +240,6 @@ def _context_block(db: Session, user_id: uuid.UUID, profile: StudentProfile, reb
         for s in signals
     ) or "(nothing logged yet)"
 
-    notes = db.query(StudentMemoryNote).filter(StudentMemoryNote.user_id == user_id).all()
-    own = "\n".join(f"- ({n.category.value}) {n.content}" for n in notes) or "(none)"
-
     banned = (
         db.query(StudentProfileSuppression)
         .filter(StudentProfileSuppression.user_id == user_id)
@@ -254,10 +258,6 @@ def _context_block(db: Session, user_id: uuid.UUID, profile: StudentProfile, reb
         )
 
     return f"""Today: {date.today().isoformat()}
-
-The student's own notes. Never copy these into the profile, and honour any instruction in them
-about what not to record:
-{own}
 
 Lines the student has deleted. Never write these again, in any wording:
 {never}
@@ -322,8 +322,15 @@ def _extract(user_id: uuid.UUID, session_id: uuid.UUID) -> None:
 
         if op := _op_from(parsed):
             section, body = op
+            # All of them, not the twenty the prompt shows: this is the check, not the reminder.
+            banned = [
+                text
+                for (text,) in db.query(StudentProfileSuppression.text)
+                .filter(StudentProfileSuppression.user_id == user_id)
+                .all()
+            ]
             new_body, error = profile_doc.apply_op(
-                profile.body, section, body, settings.profile_max_chars
+                profile.body, section, body, settings.profile_max_chars, banned
             )
             if error:
                 # One retry, with the specific complaint appended. Telling the model exactly what
@@ -345,7 +352,7 @@ def _extract(user_id: uuid.UUID, session_id: uuid.UUID) -> None:
                 )
                 if (again := _parse_response(retry)) and (op2 := _op_from(again)):
                     new_body, error = profile_doc.apply_op(
-                        profile.body, op2[0], op2[1], settings.profile_max_chars
+                        profile.body, op2[0], op2[1], settings.profile_max_chars, banned
                     )
                 if error:
                     logger.info("memory pass edit rejected twice: %s", error)

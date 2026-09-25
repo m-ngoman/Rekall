@@ -6,9 +6,6 @@ from app.models.deck import Deck
 from app.models.exam import Exam
 from app.models.feedback import Feedback, FeedbackCategory
 from app.models.memory import (
-    MemoryCategory,
-    MemorySource,
-    StudentMemoryNote,
     StudentProfile,
     StudentProfileSuppression,
     StudentSignal,
@@ -42,12 +39,9 @@ __all__ = [
     "TutorMessage",
     "TutorPersonality",
     "TutorMessageRole",
-    "StudentMemoryNote",
     "StudentProfile",
     "StudentProfileSuppression",
     "StudentSignal",
-    "MemoryCategory",
-    "MemorySource",
     "StudyListEntry",
     "SpendEvent",
     "UsageEvent",

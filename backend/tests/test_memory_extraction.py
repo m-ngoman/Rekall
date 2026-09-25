@@ -1,6 +1,7 @@
 """The tutor's own memory notes: parsing what the model wrote, not writing a note twice, and the pass
 that does both."""
 
+import json
 import uuid
 
 import httpx
@@ -45,3 +46,70 @@ def test_under_the_stub_tutor_a_memory_pass_calls_nothing_and_writes_nothing(cli
     rec = Recorder(monkeypatch, lambda req: pytest.fail(f"no call expected, got {req.url}"))
     memory_extraction._extract(user_id, session_id)
     assert rec.requests == [] and query(StudentSignal, user_id=user_id) == []
+
+
+# --- The student's lines and deletions hold against the model ----------------------------------
+
+
+def _profile(user_id, body: str) -> None:
+    with SessionLocal() as db:
+        db.add(StudentProfile(user_id=user_id, body=body, rev=1, passes=1))
+        db.commit()
+
+
+def _model_says(monkeypatch, *replies: str) -> list:
+    """Stands in for the memory model, replying with each of `replies` in turn."""
+    calls: list = []
+
+    def reply(messages, model=None, **kwargs):
+        calls.append(messages)
+        return replies[min(len(calls), len(replies)) - 1]
+
+    monkeypatch.setattr(memory_extraction, "complete_chat", reply)
+    return calls
+
+
+PATTERN = "- When a problem has more than one step, reaches for a formula first. [2 sessions, latest 2026-09-20]"
+MINE = "- Ask me before telling me. [student]"
+
+
+@pytest.mark.pg
+def test_a_pass_cannot_write_back_a_line_the_student_deleted(client, monkeypatch) -> None:
+    user_id, session_id = _session_with_a_message(client)
+    _profile(user_id, f"## How they work\n{PATTERN}")
+    edited = client.get("/api/tutor/memory").json()["text"].replace("\n- When a problem has more than one step, reaches for a formula first.", "")
+    assert client.put("/api/tutor/memory", json={"text": edited, "rev": 1}).status_code == 200
+
+    op = json.dumps({"signals": [], "why": "log shows it twice", "op": {"section": "How they work", "body": PATTERN}})
+    calls = _model_says(monkeypatch, op, op)
+    memory_extraction._extract(user_id, session_id)
+    # Refused, told why, refused again: nothing written.
+    assert len(calls) == 2 and "The student deleted this line" in calls[1][-1]["content"]
+    [row] = query(StudentProfile, user_id=user_id)
+    assert "reaches for a formula" not in row.body
+
+
+@pytest.mark.pg
+def test_a_pass_cannot_drop_the_students_lines(client, monkeypatch) -> None:
+    user_id, session_id = _session_with_a_message(client)
+    _profile(user_id, f"## How they work\n{PATTERN}\n{MINE}")
+    op = json.dumps({"signals": [], "why": "merged", "op": {"section": "How they work", "body": PATTERN.replace("[2 sessions", "[3 sessions")}})
+    _model_says(monkeypatch, op, op)
+    memory_extraction._extract(user_id, session_id)
+    [row] = query(StudentProfile, user_id=user_id)
+    assert row.body == f"## How they work\n{PATTERN}\n{MINE}" and row.rev == 1
+
+
+@pytest.mark.pg
+def test_a_pass_that_keeps_the_students_lines_is_written(client, monkeypatch) -> None:
+    user_id, session_id = _session_with_a_message(client)
+    _profile(user_id, f"## How they work\n{PATTERN}\n{MINE}")
+    newer = PATTERN.replace("[2 sessions", "[3 sessions")
+    op = json.dumps({"signals": ["reached for a formula again"], "why": "third session", "op": {"section": "How they work", "body": f"{MINE}\n{newer}"}})
+    calls = _model_says(monkeypatch, op)
+    memory_extraction._extract(user_id, session_id)
+    assert len(calls) == 1
+    # The prompt showed the student's line as theirs, in the document.
+    assert MINE in calls[0][-1]["content"]
+    [row] = query(StudentProfile, user_id=user_id)
+    assert row.body == f"## How they work\n{MINE}\n{newer}" and row.rev == 2

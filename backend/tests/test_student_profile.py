@@ -10,12 +10,15 @@ from datetime import date
 from app.services.student_profile import (
     MAX_LINE_CHARS,
     MAX_LINES_PER_SECTION,
+    MAX_YOURS_LINE_CHARS,
     SECTIONS,
     Line,
+    apply_edit,
     apply_op,
     for_prompt,
     parse,
     parse_line,
+    plain,
     render,
     stale_lines,
     validate_section_body,
@@ -174,3 +177,144 @@ class TestStaleness:
 
     def test_empty_document(self):
         assert for_prompt("", TODAY, stale_days=60) == ""
+
+
+# --- the student's own lines ---------------------------------------------------------------------
+
+MINE = """## How they work
+- When a problem has more than one step, reaches for a formula before finishing the question. [3 sessions, latest 2026-09-14]
+- I learn better when asked before being told. [student]
+
+## Course and level
+- Second-year undergraduate biology. [6 sessions, latest 2026-09-18]
+- Resitting organic chemistry in the spring. [student]"""
+
+
+class TestYoursLines:
+    def test_round_trip(self):
+        assert render(parse(MINE)) == MINE
+        mine = parse(MINE)["How they work"][1]
+        assert mine.yours and mine.text == "I learn better when asked before being told."
+        assert parse_line("- Stop telling me I rush. [student]") == Line("Stop telling me I rush.", yours=True)
+
+    def test_they_never_go_quiet(self):
+        # A year on, the tutor's dated lines have lapsed; the student's have no evidence to age.
+        shown = for_prompt(MINE, date(2027, 9, 21), stale_days=60)
+        assert "asked before being told" in shown and "Resitting organic chemistry" in shown
+        assert "reaches for a formula" not in shown
+        assert stale_lines(MINE, date(2027, 9, 21), stale_days=60) == {
+            "When a problem has more than one step, reaches for a formula before finishing the question.",
+            "Second-year undergraduate biology.",
+        }
+
+    def test_a_rewrite_must_keep_them_word_for_word(self):
+        pattern = "- When a problem has more than one step, reaches for a formula first. [4 sessions, latest 2026-09-20]"
+        kept = pattern + "\n- I learn better when asked before being told. [student]"
+        new, error = apply_op(MINE, "How they work", kept, BUDGET)
+        assert error is None and "reaches for a formula first" in new and "asked before being told. [student]" in new
+
+        dropped, error = apply_op(MINE, "How they work", pattern, BUDGET)
+        assert dropped is None and "missing: I learn better when asked before being told." in error
+
+        reworded = pattern + "\n- Learns better when asked before being told. [student]"
+        new, error = apply_op(MINE, "How they work", reworded, BUDGET)
+        assert new is None and "[student]" in error
+
+    def test_the_model_cannot_speak_for_the_student(self):
+        body = (
+            "- When a problem has more than one step, reaches for a formula before finishing the question. [3 sessions, latest 2026-09-14]\n"
+            "- I learn better when asked before being told. [student]\n"
+            "- Likes flashcards best. [student]"
+        )
+        new, error = apply_op(MINE, "How they work", body, BUDGET)
+        assert new is None and "not the student's: Likes flashcards best." in error
+
+    def test_the_line_cap_counts_the_tutors_lines_only(self):
+        ours = "\n".join(f"- Pattern {i}. [2 sessions, latest 2026-09-01]" for i in range(MAX_LINES_PER_SECTION))
+        body = ours + "\n- I learn better when asked before being told. [student]"
+        new, error = apply_op(MINE, "How they work", body, BUDGET)
+        assert error is None and len(parse(new)["How they work"]) == MAX_LINES_PER_SECTION + 1
+
+    def test_a_long_line_of_theirs_is_not_the_models_to_refuse(self):
+        long = "I " + "really " * 30 + "like worked examples."
+        assert MAX_LINE_CHARS < len(long) + 12 <= MAX_YOURS_LINE_CHARS
+        lines, error = validate_section_body(f"- {long} [student]")
+        assert error is None and lines[0].yours
+
+
+# --- editing the whole file ----------------------------------------------------------------------
+
+
+class TestEditing:
+    def test_the_student_sees_every_heading_and_no_tags(self):
+        assert plain(MINE) == (
+            "## How they work\n"
+            "- When a problem has more than one step, reaches for a formula before finishing the question.\n"
+            "- I learn better when asked before being told.\n\n"
+            "## What helps\n\n"
+            "## Course and level\n"
+            "- Second-year undergraduate biology.\n"
+            "- Resitting organic chemistry in the spring."
+        )
+        assert plain("") == "## How they work\n\n## What helps\n\n## Course and level"
+
+    def test_saving_it_unchanged_changes_nothing(self):
+        edit = apply_edit(MINE, plain(MINE), BUDGET)
+        assert edit.body is None and edit.removed == [] and edit.error is None
+
+    def test_what_they_keep_keeps_its_tag_and_what_they_type_is_theirs(self):
+        edited = plain(MINE).replace("## What helps", "## What helps\n- Diagrams, always diagrams.")
+        edit = apply_edit(MINE, edited, BUDGET)
+        sections = parse(edit.body)
+        assert sections["What helps"] == [Line("Diagrams, always diagrams.", yours=True)]
+        assert sections["How they work"][0].sessions == 3  # the tutor's evidence survives the round trip
+        assert edit.removed == []
+
+    def test_a_tutor_line_taken_out_is_reported_for_suppression(self):
+        edited = plain(MINE).replace("- Second-year undergraduate biology.\n", "")
+        edit = apply_edit(MINE, edited, BUDGET)
+        assert "Second-year" not in edit.body
+        assert edit.removed == ["Second-year undergraduate biology."]
+
+    def test_a_line_of_theirs_taken_out_is_just_gone(self):
+        edited = plain(MINE).replace("- I learn better when asked before being told.\n", "")
+        edit = apply_edit(MINE, edited, BUDGET)
+        assert "asked before being told" not in edit.body and edit.removed == []
+
+    def test_a_reworded_tutor_line_becomes_theirs_and_the_original_is_suppressed(self):
+        edited = plain(MINE).replace("Second-year undergraduate biology.", "Third-year biology, actually.")
+        edit = apply_edit(MINE, edited, BUDGET)
+        assert Line("Third-year biology, actually.", yours=True) in parse(edit.body)["Course and level"]
+        assert edit.removed == ["Second-year undergraduate biology."]
+
+    def test_lines_without_a_known_heading_go_into_the_first_section(self):
+        edit = apply_edit("", "Likes a challenge.\n\n## Hobbies\n- Plays chess.", BUDGET)
+        assert [line.text for line in parse(edit.body)["How they work"]] == ["Likes a challenge.", "Plays chess."]
+
+    def test_headings_are_read_however_they_are_typed(self):
+        edit = apply_edit("", "### what helps ###\n* Short sessions.\n# Course And Level\n• Year 12.", BUDGET)
+        sections = parse(edit.body)
+        assert sections["What helps"] == [Line("Short sessions.", yours=True)]
+        assert sections["Course and level"] == [Line("Year 12.", yours=True)]
+
+    def test_a_pasted_tag_is_not_taken_at_face_value(self):
+        # Typing a tutor-style tag doesn't make a line the tutor's, or give it evidence.
+        edit = apply_edit("", "## What helps\n- Short sessions. [9 sessions, latest 2026-09-01]", BUDGET)
+        assert parse(edit.body)["What helps"] == [Line("Short sessions.", yours=True)]
+
+    def test_a_line_written_twice_is_kept_once(self):
+        edit = apply_edit("", "## What helps\n- Short sessions.\n- Short  sessions.", BUDGET)
+        assert parse(edit.body)["What helps"] == [Line("Short sessions.", yours=True)]
+
+    def test_growing_past_the_cap_is_refused(self):
+        edit = apply_edit(MINE, plain(MINE) + "\n- " + "x" * 200, 400)
+        assert edit.body is None and "400" in edit.error
+
+    def test_a_file_already_over_the_cap_can_still_be_cut_down(self):
+        edited = plain(MINE).replace("- Resitting organic chemistry in the spring.", "")
+        edit = apply_edit(MINE, edited, 100)
+        assert edit.error is None and "Resitting" not in edit.body
+
+    def test_an_overlong_line_is_refused(self):
+        edit = apply_edit("", "## What helps\n- " + "y" * (MAX_YOURS_LINE_CHARS + 1), 10_000)
+        assert edit.body is None and str(MAX_YOURS_LINE_CHARS) in edit.error

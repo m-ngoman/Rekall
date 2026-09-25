@@ -7,7 +7,7 @@ from datetime import date as Date, datetime
 
 from pydantic import BaseModel
 
-from app.models import MemoryCategory, MemorySource, TutorMessageRole, TutorPersonality
+from app.models import TutorMessageRole, TutorPersonality
 
 
 class TutorSessionCreate(BaseModel):
@@ -56,32 +56,45 @@ class TutorSessionStart(BaseModel):
 
 
 class ProfileLineOut(BaseModel):
-    """One line of the auto profile, as the memory panel shows it."""
+    """One line of the profile, as the memory panel shows it."""
 
-    section: str
     text: str
-    sessions: int
-    #: Date of the most recent signal behind this line.
-    latest: Date
+    #: The student wrote it (or reworded one of the tutor's). The tutor's lines carry the evidence
+    #: below instead.
+    yours: bool
+    #: How many sessions the tutor saw this in, and the date of the most recent. None on the
+    #: student's own lines.
+    sessions: int | None = None
+    latest: Date | None = None
     #: True when the line has gone quiet and is no longer being sent to the tutor. It stays in the
     #: document — if the pattern comes back, the next pass re-dates it and it returns by itself.
-    stale: bool
+    stale: bool = False
+
+
+class ProfileSectionOut(BaseModel):
+    name: str
+    lines: list[ProfileLineOut]
 
 
 class StudentProfileOut(BaseModel):
-    """What the tutor has worked out on its own, as opposed to what the student told it."""
+    """The whole of what the tutor remembers about the student, as one document."""
 
-    lines: list[ProfileLineOut]
+    sections: list[ProfileSectionOut]
+    #: The document as the student edits it: every heading, the lines without their tags. What
+    #: comes back in `StudentProfileUpdate.text`.
+    text: str
     #: Characters used against the cap, so the panel can say the profile is full rather than
     #: leaving "why has it stopped noticing things" a mystery.
     chars: int
     max_chars: int
+    #: The revision this was read at. A save names it, so an edit made while a memory pass rewrote
+    #: the document is refused rather than silently overwriting what the pass wrote.
+    rev: int
 
 
-class ProfileLineDelete(BaseModel):
-    #: Matched on text, not an id — a line has no stable identity across a section rewrite, and
-    #: the text is what gets recorded as suppressed anyway.
+class StudentProfileUpdate(BaseModel):
     text: str
+    rev: int
 
 
 class TutorSessionUpdate(BaseModel):
@@ -107,18 +120,3 @@ class VoiceTurnTextRequest(BaseModel):
     text: str
 
 
-class MemoryNoteOut(BaseModel):
-    id: uuid.UUID
-    category: MemoryCategory
-    content: str
-    source: MemorySource
-
-
-class MemoryNoteCreate(BaseModel):
-    category: MemoryCategory
-    content: str
-
-
-class MemoryNoteUpdate(BaseModel):
-    category: MemoryCategory | None = None
-    content: str | None = None

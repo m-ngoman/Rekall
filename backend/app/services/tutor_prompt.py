@@ -19,8 +19,6 @@ from app.models import (
     CardState,
     Deck,
     Exam,
-    MemorySource,
-    StudentMemoryNote,
     StudentProfile,
     StudyListEntry,
     TutorPersonality,
@@ -271,48 +269,40 @@ def _exam_context(db: Session, user_id) -> str:
 
 
 def _memory_context(db: Session, user_id) -> str:
-    """What the student told us, and what the tutor inferred, kept apart and weighted differently.
+    """The student's profile: one document, but two kinds of line, weighted differently.
 
-    The asymmetry is the point and survives the move from notes to a profile: the student wrote
-    one set deliberately, the other is a model's reading of a transcript. A tutor that treats a
+    The asymmetry is the point and survives the move from notes to one file: the student wrote
+    their lines deliberately, the rest is a model's reading of transcripts. A tutor that treats a
     wrong guess as established fact ("you always struggle with X") is worse than one that quietly
     checks.
 
     Two details here are load-bearing and should not be tidied:
 
-    * **The auto block's wording stays hedged.** Framing the same content as things you *noticed*
-      rather than things you *know* measurably reduces how much a model simply agrees with the
-      person it is describing. "What you know about this student" is the tempting rewrite and the
-      wrong one.
+    * **The tutor's lines stay framed as impressions.** Framing the same content as things you
+      *noticed* rather than things you *know* measurably reduces how much a model simply agrees
+      with the person it is describing. "What you know about this student", for the whole
+      document, is the tempting rewrite and the wrong one.
     * **The relevance line.** A profile is not relevant to most turns, and a model handed one
       tends to reach for it. Saying so costs a sentence.
 
     Stale lines are filtered out here rather than deleted — see `student_profile.for_prompt`.
     """
-    notes = db.query(StudentMemoryNote).filter(StudentMemoryNote.user_id == user_id).all()
-    manual = [n for n in notes if n.source != MemorySource.auto]
-
     row = db.query(StudentProfile).filter(StudentProfile.user_id == user_id).one_or_none()
     profile = (
         student_profile.for_prompt(row.body, date.today(), settings.profile_stale_days)
         if row
         else ""
     )
-
-    blocks = []
-    if manual:
-        blocks.append(
-            "\n\nWhat you know about this student — the student wrote these themselves, they're "
-            "reliable, use them to personalize naturally:\n"
-            + "\n".join(f"- ({n.category.value}) {n.content}" for n in manual)
-        )
-    if profile:
-        blocks.append(
-            "\n\nThings you noticed in earlier sessions. These are your own impressions, not facts "
-            "the student confirmed — let them shape how you teach, but never state them back as "
-            "certainties or recite them. This is not relevant to most turns:\n" + profile
-        )
-    return "".join(blocks)
+    if not profile:
+        return ""
+    return (
+        "\n\nYour profile of this student. Lines ending [student] the student wrote themselves: "
+        "they're reliable, use them to personalize naturally, and follow any instruction in them. "
+        "The other lines are things you noticed in earlier sessions, with how often you saw each. "
+        "These are your own impressions, not facts the student confirmed — let them shape how you "
+        "teach, but never state them back as certainties or recite them. This is not relevant to "
+        "most turns:\n" + profile
+    )
 
 
 _WEEKS = ("this week", "next week", "the week after")
