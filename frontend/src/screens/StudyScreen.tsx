@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import BackButton from '../components/BackButton'
 import MaybeMath from '../components/MaybeMath'
 import Notice from '../components/Notice'
-import { PaymentRequired, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview } from '../api'
+import { PaymentRequired, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview, unreportCard } from '../api'
 
 import { daysUntil } from '../lib/dates'
 import { errorMessage } from '../lib/errors'
 import { upcomingExams } from '../lib/exams'
 import { afterReport, type SessionStats } from '../lib/study'
-import type { Exam, ReviewResult, StudyCard } from '../types'
+import type { Exam, ReviewResult, StudyCard, StudyQueue } from '../types'
 
 interface Props {
   deckId: string
@@ -16,8 +16,9 @@ interface Props {
   /** False when AI grading is off in settings: the card reveals its answer and you rate your own
    * recall instead of typing an answer for the grader. */
   aiGrading: boolean
-  /** Whether the tutor is switched on. Only decides whether the offer to go over a missed card is
-   * shown — the list itself is a note the student makes to themselves and is recorded either way. */
+  /** Whether the tutor is switched on. Only decides whether the offer to save a missed card for
+   * it is shown — the list itself is a note the student makes to themselves and is recorded
+   * either way. */
   aiTutor: boolean
   /** Where a 402 on grading sends you. */
   onOpenPricing: () => void
@@ -80,32 +81,62 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
   // retry rather than a dead end.
   const [error, setError] = useState<string | null>(null)
   // Reporting is a per-card thing, so this resets with the card rather than with the session.
-  const [reported, setReported] = useState(false)
+  // 'done' is when the undo is on offer, and it only is once the report has landed: an undo sent
+  // while the report is still in flight could reach the server first and be overtaken by it.
+  const [report, setReport] = useState<'idle' | 'sending' | 'done' | 'undoing'>('idle')
+  /** The session as it was before the report took the card out, for the undo to put back. */
+  const beforeReport = useRef<{ queue: StudyCard[]; stats: SessionStats } | null>(null)
   const [queued, setQueued] = useState(false)
+  // Phone only: the model answer, and the whole of what you wrote, behind one row once graded.
+  // The desktop rail shows both beside the card; a phone has room for them only on request.
+  const [comparing, setComparing] = useState(false)
+  // Nothing was due and the student asked to review ahead. Changes nothing but the done screen's
+  // wording: these are early reviews, not the day's.
+  const [ahead, setAhead] = useState(false)
+  const [later, setLater] = useState(0)
   // The last error was a 402: the panel gets a link to plans instead of just a sentence.
   const [paywall, setPaywall] = useState(false)
   const answerRef = useRef<HTMLTextAreaElement>(null)
 
+  const startSession = (q: StudyQueue) => {
+    setDeckName(q.deck_name)
+    setLater(q.later)
+    if (q.cards.length === 0) {
+      setPhase('empty')
+      return
+    }
+    const [first, ...rest] = q.cards
+    setCurrent(first)
+    setQueue(rest)
+    setRelearn(new Set())
+    setStats({ total: q.cards.length, done: 0, correct: 0 })
+    setPhase('answering')
+  }
+
   useEffect(() => {
     getStudyQueue(deckId)
-      .then((q) => {
-        setDeckName(q.deck_name)
-        if (q.cards.length === 0) {
-          setPhase('empty')
-          return
-        }
-        const [first, ...rest] = q.cards
-        setCurrent(first)
-        setQueue(rest)
-        setStats({ total: q.cards.length, done: 0, correct: 0 })
-        setPhase('answering')
-      })
+      .then(startSession)
       // Without this the screen sat on "Loading…" indefinitely whenever the queue request failed.
       .catch(() => setPhase('unavailable'))
     listExams()
       .then(setExams)
       .catch(() => {})
   }, [deckId])
+
+  /** "Nothing due" used to be a dead end with one way out, even from a tile that said "Study
+   * anytime". This is the way in: the cards scheduled soonest, answered early. */
+  const handleReviewAhead = async () => {
+    setError(null)
+    setPhase('loading')
+    try {
+      setAhead(true)
+      startSession(await getStudyQueue(deckId, { ahead: true }))
+    } catch (e) {
+      setAhead(false)
+      setPhase('empty')
+      setError(errorMessage(e, "Couldn't load those cards."))
+    }
+  }
 
   const advance = () => {
     setAnswer('')
@@ -114,8 +145,10 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
     setStreamedExplanation('')
     setRevealed(null)
     setModelAnswer(null)
-    setReported(false)
+    setReport('idle')
+    beforeReport.current = null
     setQueued(false)
+    setComparing(false)
     setQueue((prevQueue) => {
       if (prevQueue.length === 0) {
         setCurrent(null)
@@ -212,19 +245,41 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
   }
 
   const handleReport = async () => {
-    if (!current) return
+    if (!current || report !== 'idle') return
     // Out of this session straight away, before the round-trip: the student has made their
-    // judgement, and the card is going out of the queue either way. Only "Reported" waits for the
-    // server. A failure here loses a report, not a card — so it says so and lets them try again
-    // rather than pretending it worked.
+    // judgement, and the card is going out of the queue either way. Only the confirmation waits
+    // for the server. A failure here loses a report, not a card — so it says so and lets them try
+    // again rather than pretending it worked.
+    beforeReport.current = { queue, stats }
     const next = afterReport(queue, stats, current.id)
     setQueue(next.queue)
     setStats(next.stats)
+    setReport('sending')
     try {
       await reportCard(current.id)
-      setReported(true)
+      setReport('done')
     } catch (e) {
+      setReport('idle')
       setError(errorMessage(e, "Couldn't report that card."))
+    }
+  }
+
+  /** Reporting takes a card out of every future review at one tap, so the tap gets an undo: the
+   * card goes back into the schedule, and into this session where it was. */
+  const handleUndoReport = async () => {
+    if (!current || report !== 'done') return
+    setReport('undoing')
+    try {
+      await unreportCard(current.id)
+      if (beforeReport.current) {
+        setQueue(beforeReport.current.queue)
+        setStats(beforeReport.current.stats)
+      }
+      beforeReport.current = null
+      setReport('idle')
+    } catch (e) {
+      setReport('done')
+      setError(errorMessage(e, "Couldn't bring that card back."))
     }
   }
 
@@ -287,13 +342,35 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
     return (
       <div className="flex flex-col gap-10">
         {header}
-        <div>
-          <div className="text-[1.25rem] font-bold leading-snug">Nothing due in this deck</div>
-          <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">Every card is scheduled for later. Come back when the calendar says so.</p>
-          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
-            Back to Home
-          </button>
-        </div>
+        {later > 0 ? (
+          <div>
+            <div className="text-[1.25rem] font-bold leading-snug">Nothing due in this deck</div>
+            <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+              Every card is scheduled for later. You can still review the next ones early: each is
+              rescheduled from today, so nothing is wasted.
+            </p>
+            {error && <Notice tone="error" className="mt-5">{error}</Notice>}
+            <button onClick={handleReviewAhead} className="on-accent mt-6 w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
+              Review ahead
+            </button>
+            <button
+              onClick={onExit}
+              className="mt-1.5 flex h-11 items-center text-[0.875rem] font-semibold text-[var(--text-muted)] underline decoration-[var(--rule)] underline-offset-4"
+            >
+              Back to Home
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div className="text-[1.25rem] font-bold leading-snug">Nothing to review in this deck yet</div>
+            <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+              Add some cards to it from the Cards tab and they'll show up here.
+            </p>
+            <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
+              Back to Home
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -304,7 +381,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
       <div className="flex flex-col gap-12">
         {header}
         <div>
-          <div className="text-[1.25rem] font-bold leading-snug">Done for today</div>
+          <div className="text-[1.25rem] font-bold leading-snug">{ahead ? 'Reviewed ahead' : 'Done for today'}</div>
           <div className="mt-1 flex items-baseline gap-3">
             <span className="numeral text-[8.5rem] text-[var(--accent)]">{stats.done}</span>
             <span className="text-[1.0625rem] font-semibold text-[var(--text-muted)]">{stats.done === 1 ? 'card' : 'cards'}</span>
@@ -474,10 +551,35 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
             <MaybeMath text={streamedExplanation} math={current.is_math} />
             {phase === 'grading' && <span className="ml-0.5 inline-block h-[18px] w-[2px] align-text-bottom bg-[var(--accent)]" />}
           </p>
+          {/* Phone: what you wrote, three lines of it, and the model answer one tap below. The
+              desktop rail shows the pair side by side; a phone used to show only the clipped half
+              of it, in an app whose whole promise is the comparison. The explanation stays first,
+              and opening the row un-clips your answer too, so the two read together. */}
           <div className="mt-5 border-t border-[var(--rule)] pt-3 lg:hidden">
             <div className="text-[0.8125rem] font-semibold text-[var(--text-muted)]">You wrote</div>
-            <p className="mt-1.5 line-clamp-3 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">{answer || <em>Nothing</em>}</p>
+            <p className={`mt-1.5 text-[0.875rem] leading-relaxed text-[var(--text-muted)] ${comparing ? '' : 'line-clamp-3'}`}>
+              {answer || <em>Nothing</em>}
+            </p>
           </div>
+          {graded && modelAnswer !== null && (
+            <div className="mt-3 border-t border-[var(--rule)] lg:hidden">
+              <button
+                onClick={() => setComparing((open) => !open)}
+                aria-expanded={comparing}
+                className="flex w-full items-center justify-between py-3 text-[0.8125rem] font-semibold text-[var(--text-muted)]"
+              >
+                {comparing ? 'Model answer' : 'Show model answer'}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={comparing ? 'M6 15l6-6 6 6' : 'M9 6l6 6-6 6'} />
+                </svg>
+              </button>
+              {comparing && (
+                <p className="-mt-1.5 text-[0.875rem] leading-relaxed text-[var(--text-muted)] [text-wrap:pretty]">
+                  <MaybeMath text={modelAnswer} math={current.is_math} />
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -542,31 +644,43 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
           {/* Only on a card they actually missed. Offering to queue a card they just got right
               would be noise on the majority of reviews, and the tutor's list is worth more when
               everything on it is there for a reason. */}
+          {/* "Save", not "Go over this with the tutor": that read as a way to the tutor, and the
+              tap only adds the card to the list its next session opens on. */}
           {aiTutor && result !== null && result.grade <= 2 && (
             queued ? (
               <span className="self-start text-[0.8125rem] text-[var(--text-muted)] lg:self-auto">
-                Added — the tutor will start here.
+                Saved. The tutor will start here next time.
               </span>
             ) : (
               <button
                 onClick={handleAddToStudyList}
                 className="self-start text-[0.8125rem] font-semibold text-[var(--text-muted)] underline decoration-[var(--rule)] underline-offset-4 lg:self-auto"
               >
-                Go over this with the tutor
+                Save for tutor
               </button>
             )
           )}
-          {!reported ? (
+          {/* The label says what the tap does. "This card doesn't look right" read like the start
+              of a feedback form, and the tap reported and suspended the card outright. */}
+          {report === 'done' || report === 'undoing' ? (
+            <span className="flex items-baseline gap-2 self-start text-[0.8125rem] text-[var(--text-muted)] lg:self-auto">
+              Removed from your reviews.
+              <button
+                onClick={handleUndoReport}
+                disabled={report === 'undoing'}
+                className="font-semibold text-[var(--text)] underline decoration-[var(--rule)] underline-offset-4"
+              >
+                Undo
+              </button>
+            </span>
+          ) : (
             <button
               onClick={handleReport}
+              disabled={report === 'sending'}
               className="self-start text-[0.8125rem] font-semibold text-[var(--text-muted)] underline decoration-[var(--rule)] underline-offset-4 lg:self-auto"
             >
-              This card doesn't look right
+              Report and remove this card
             </button>
-          ) : (
-            <span className="self-start text-[0.8125rem] text-[var(--text-muted)] lg:self-auto">
-              Reported. You won't see it again.
-            </span>
           )}
         </div>
       )}
