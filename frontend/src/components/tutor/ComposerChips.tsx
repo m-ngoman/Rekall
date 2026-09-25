@@ -133,9 +133,10 @@ export default function ComposerChips({
         )}
       </div>
 
-      {/* Positioned from the whole row on a phone, not from the chip: the chip sits mid-row, and a
-          panel anchored at its left edge ran off the right of the screen. */}
-      <div className="sm:relative">
+      {/* Not positioned itself: the panel is placed from the whole chip row. Anchored at this
+          chip, which sits mid-row, a panel as wide as the file needs ran off the right of the
+          screen, and one placed from the row's bottom covered the chips when the row wraps. */}
+      <div>
         <button
           onClick={() => onToggle('memory')}
           aria-label={`Tutor memory: ${memoryCount} saved`}
@@ -153,19 +154,24 @@ export default function ComposerChips({
           <span className="inline">Memory</span>
           {memoryCount > 0 && <span className="font-bold tabular-nums">{memoryCount}</span>}
         </button>
-        {open === 'memory' && (
-          <>
-            <div className="absolute bottom-12 left-0 right-0 z-20 sm:right-auto">
-              <div className="w-full rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4 sm:w-96">
-                <div className="mb-1 text-[0.9375rem] font-bold">Memory</div>
-                <p className="mb-3.5 text-xs text-[var(--text-muted)]">
-                  What the tutor remembers about you, as one file. It reads all of it before every reply.
-                </p>
-                <ProfileFile profile={profile} failed={profileFailed} onChange={onProfileChange} compact />
-              </div>
-            </div>
-          </>
-        )}
+        {/* Kept mounted while closed, hidden: a tap outside to copy something from the chat
+            would otherwise throw away an edit of the whole file, and a save still in flight
+            would have nowhere to say it failed. */}
+        <div className={`absolute bottom-full left-0 right-0 z-20 mb-3 sm:right-auto ${open === 'memory' ? '' : 'hidden'}`}>
+          <div className="max-h-[calc(100dvh-16rem)] w-full overflow-y-auto rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4 sm:w-96">
+            <div className="mb-1 text-[0.9375rem] font-bold">Memory</div>
+            <p className="mb-3.5 text-xs text-[var(--text-muted)]">
+              What the tutor remembers about you, as one file. It reads this before every reply.
+            </p>
+            <ProfileFile
+              profile={profile}
+              failed={profileFailed}
+              onChange={onProfileChange}
+              autoMemory={settings?.tutor_auto_memory ?? true}
+              compact
+            />
+          </div>
+        </div>
       </div>
 
       {/* Only once there is something to leave behind. On an empty log it would be a

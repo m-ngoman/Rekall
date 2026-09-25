@@ -105,10 +105,10 @@ export default function TutorSection({ settings, onChange }: { settings: Setting
         <div>
           <div className="text-[0.9375rem] font-semibold">What the tutor knows about you</div>
           <p className="mt-0.5 text-[0.8125rem] leading-snug text-[var(--text-muted)]">
-            One file. The tutor reads all of it before every reply.
+            One file. The tutor reads it before every reply.
           </p>
         </div>
-        <ProfileFile profile={profile} failed={profileFailed} onChange={setProfile} />
+        <ProfileFile profile={profile} failed={profileFailed} onChange={setProfile} autoMemory={settings.tutor_auto_memory} />
       </div>
     </Section>
   )
