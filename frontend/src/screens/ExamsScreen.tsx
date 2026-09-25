@@ -2,24 +2,28 @@ import { useEffect, useRef, useState } from 'react'
 import { listDecks, listExams } from '../api'
 import ExamCalendar, { gridRange } from '../components/ExamCalendar'
 import ExamSheet from '../components/ExamSheet'
+import LoadNotice from '../components/LoadNotice'
 import { useCachedResource } from '../hooks/useCachedResource'
-import { daysUntil, formatDayShort, formatMonth, toISODate } from '../lib/dates'
+import { daysUntil, formatDayFull, formatDayShort, formatMonth, toISODate } from '../lib/dates'
 import { upcomingExams } from '../lib/exams'
-import { getLoad, loadCache, loadKey, type LoadByDay } from '../lib/load'
-import type { Deck, Exam } from '../types'
+import { getDayLoad, getLoad, loadCache, loadKey, type LoadByDay } from '../lib/load'
+import type { DayDeck, Deck, Exam } from '../types'
 
 interface Props {
   onChanged: () => void
 }
 
 /** The Calendar tab. Reads as "what's coming": the next exam and its countdown on top, then the
- * month as a load timeline — every day shows how many cards FSRS has put on it. */
+ * month as a load timeline — every day shows how many cards FSRS has put on it. Tapping a day
+ * opens that day: its cards by deck, its exams, and adding one. It used to go straight to "Add
+ * exam", which a grid drawn as a workload doesn't lead anyone to expect. */
 export default function ExamsScreen({ onChanged }: Props) {
   const now = new Date()
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
-  const [exams, setExams] = useCachedResource<Exam[]>('exams', listExams, () => [])
-  const [decks] = useCachedResource<Deck[]>('decks', listDecks, () => [])
+  const [exams, setExams, examsStatus] = useCachedResource<Exam[]>('exams', listExams)
+  const [decks] = useCachedResource<Deck[]>('decks', listDecks)
   const [sheet, setSheet] = useState<{ exam: Exam | null; date: string; pickDate: boolean } | null>(null)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   const { start, end } = gridRange(cursor.year, cursor.month)
   const key = loadKey(start, end)
@@ -52,6 +56,8 @@ export default function ExamsScreen({ onChanged }: Props) {
   const moveMonth = (delta: number) => {
     const d = new Date(cursor.year, cursor.month + delta, 1)
     setCursor({ year: d.getFullYear(), month: d.getMonth() })
+    // The open day's count is read off this month's grid, so it closes with the month.
+    setSelectedDay(null)
   }
 
   const handleSaved = (saved: Exam | null, deletedId?: string) => {
@@ -110,15 +116,46 @@ export default function ExamsScreen({ onChanged }: Props) {
     }
   }, [nextDate, loadToken])
 
+  // The selected day's cards, by deck. Fetched here rather than in the panel because the panel is
+  // drawn twice (under the grid on a phone, in the column on desktop) and one request serves both.
+  // Refetched when scheduling changes, so the rows keep adding up to the bar above them.
+  const [dayDecks, setDayDecks] = useState<DayDeck[] | null>(null)
+  useEffect(() => {
+    setDayDecks(null)
+    if (!selectedDay) return
+    let alive = true
+    getDayLoad(selectedDay)
+      .then((rows) => alive && setDayDecks(rows))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [selectedDay, loadToken])
+
   const monthPrefix = `${cursor.year}-${String(cursor.month + 1).padStart(2, '0')}`
   const monthExams = (exams ?? []).filter((e) => e.date.startsWith(monthPrefix))
   const openExam = (e: Exam) => setSheet({ exam: e, date: e.date, pickDate: true })
+  const dayPanel = selectedDay && (
+    <DayPanel
+      iso={selectedDay}
+      total={load[selectedDay] ?? 0}
+      decks={dayDecks}
+      exams={(exams ?? []).filter((e) => e.date === selectedDay)}
+      onOpenExam={openExam}
+      onAddExam={() => setSheet({ exam: null, date: selectedDay, pickDate: false })}
+    />
+  )
 
   // Phone: countdown, month, this month's exams, top to bottom. Desktop: the month on the left,
   // and the countdown with everything coming up in a column beside it — the calendar is the
   // thing you scan, the column is the thing you read.
   return (
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-14">
+      {/* Without the exams the countdown would say there are none, which is the one thing it
+          can't say without knowing. */}
+      {examsStatus.failed && (
+        <LoadNotice stale={exams !== null} what="your exams" onRetry={examsStatus.retry} className="lg:col-span-2" />
+      )}
       <div className="lg:order-2 lg:pt-1.5">
         {next ? (
           <button onClick={() => openExam(next)} className="flex w-full flex-col text-left">
@@ -137,14 +174,18 @@ export default function ExamsScreen({ onChanged }: Props) {
               <div className="mt-3.5 hidden text-[0.875rem] text-[var(--text-muted)] lg:block">{cardsBeforeNext} cards before it</div>
             )}
           </button>
-        ) : (
+        ) : exams === null ? null : (
           <div className="flex flex-col">
             <div className="text-[1.125rem] font-bold">No exam coming up</div>
             <div className="mt-0.5 text-[0.875rem] text-[var(--text-muted)]">
-              Tap a day to add one. Linked decks pace their new cards to land before the date.
+              Tap its day, or Add exam. Linked decks pace their new cards to land before the date.
             </div>
           </div>
         )}
+
+        {/* Desktop: the open day reads in the column, between the countdown and what's coming,
+            since the column is the thing you read and the grid the thing you scan. */}
+        {dayPanel && <div className="mt-9 hidden lg:block">{dayPanel}</div>}
 
         {/* Desktop puts Add exam here rather than beside the month title. A filled accent pill
             sitting next to the countdown numeral was a second accent fill competing with the one
@@ -187,9 +228,12 @@ export default function ExamsScreen({ onChanged }: Props) {
           exams={exams ?? []}
           load={load}
           prevLoad={prevLoad.current}
-          onDayTap={(iso) => setSheet({ exam: null, date: iso, pickDate: false })}
+          selected={selectedDay}
+          onDayTap={(iso) => setSelectedDay((open) => (open === iso ? null : iso))}
           onExamTap={openExam}
         />
+        {/* Phone: straight under the grid, where the tap was. */}
+        {dayPanel && <div className="mt-4 lg:hidden">{dayPanel}</div>}
       </div>
 
       {monthExams.length > 0 && (
@@ -209,6 +253,76 @@ export default function ExamsScreen({ onChanged }: Props) {
         />
       )}
     </div>
+  )
+}
+
+/** One day, opened from the grid: what's on it and what can be added to it. Its cards come by
+ * deck, because a study session is one deck; its exams are the ordinary rows; and "Add exam" is
+ * the outline pill it is everywhere else on this screen, second to what the day already holds. */
+function DayPanel({
+  iso,
+  total,
+  decks,
+  exams,
+  onOpenExam,
+  onAddExam,
+}: {
+  iso: string
+  /** The day's bar in the grid. Shown straight away; the rows under it follow. */
+  total: number
+  /** Null while loading, or if the breakdown couldn't be fetched: the total still stands. */
+  decks: DayDeck[] | null
+  exams: Exam[]
+  onOpenExam: (e: Exam) => void
+  onAddExam: () => void
+}) {
+  const today = daysUntil(iso) === 0
+  return (
+    <section aria-label={formatDayFull(iso)}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 truncate text-[1.0625rem] font-bold tracking-[-0.01em]">
+          {today ? `Today, ${formatDayShort(iso)}` : formatDayFull(iso)}
+        </span>
+        <button
+          onClick={onAddExam}
+          className="flex h-10 flex-shrink-0 items-center rounded-[var(--r-full)] border border-[var(--rule)] px-4 text-[0.875rem] font-bold"
+        >
+          Add exam
+        </button>
+      </div>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        {total > 0 ? (
+          <>
+            <span className="numeral text-[1.5rem]">{total}</span>
+            <span className="text-[0.875rem] text-[var(--text-muted)]">
+              {total === 1 ? 'card' : 'cards'} {today ? 'left today' : 'scheduled'}
+            </span>
+          </>
+        ) : (
+          <span className="text-[0.875rem] text-[var(--text-muted)]">
+            {today ? 'Nothing left today.' : 'Nothing scheduled yet.'}
+          </span>
+        )}
+      </div>
+      {total > 0 && decks && decks.length > 0 && (
+        <div className="mt-3 border-t border-[var(--rule)]">
+          {decks.map((d) => (
+            <div key={d.id} className="flex items-baseline justify-between gap-4 border-b border-[var(--rule)] py-2.5">
+              <span className="min-w-0 truncate text-[0.9375rem] font-semibold">{d.name}</span>
+              <span className="flex flex-shrink-0 items-baseline gap-1">
+                <span className="numeral text-[1.125rem]">{d.cards}</span>
+                <span className="text-[0.8125rem] text-[var(--text-muted)]">{d.cards === 1 ? 'card' : 'cards'}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {exams.length > 0 && (
+        <div className="mt-3">
+          <ExamRows exams={exams} onOpen={onOpenExam} />
+        </div>
+      )}
+    </section>
   )
 }
 

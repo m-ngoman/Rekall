@@ -180,7 +180,13 @@ export default function App() {
             {showAdmin && <AdminScreen onBack={() => goToTab('settings')} />}
             {showPricing && !showAdmin && <PricingScreen onBack={() => goToTab('settings')} />}
             {!showAdmin && !showPricing && tab === 'home' && (
-              <HomeScreen key={refreshKey} onStudy={openStudy} onGoToCards={() => goToTab('cards')} onOpenExams={() => goToTab('calendar')} />
+              <HomeScreen
+                key={refreshKey}
+                onStudy={openStudy}
+                onGoToCards={() => goToTab('cards')}
+                onOpenExams={() => goToTab('calendar')}
+                aiGrading={aiGrading}
+              />
             )}
             {!showAdmin && !showPricing && tab === 'cards' && (
               <CardsScreen

@@ -51,6 +51,13 @@ export interface StudyQueue {
   later: number
 }
 
+/** One deck's share of one calendar day, from GET /api/dashboard/day. */
+export interface DayDeck {
+  id: string
+  name: string
+  cards: number
+}
+
 export interface ReviewResult {
   grade: number
   /** The grader's 1-5 rubric score, shown as "4/5". Null when self-assessed — there was no
@@ -72,6 +79,9 @@ export interface Dashboard {
   reviewed_today: number
   goal_today: number
   streak_days: number
+  /** What the study queues will still serve today, goal or no goal. With a daily goal set, it is
+   * the only way to tell "goal met, cards still waiting" from "nothing left". */
+  remaining_today: number
 }
 
 export type TutorPersonality = 'strict_socratic' | 'direct' | 'encouraging' | 'terse' | 'custom'

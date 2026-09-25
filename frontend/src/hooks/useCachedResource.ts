@@ -16,6 +16,14 @@ export function setCached<T>(key: string, value: T): void {
   cache.set(key, value)
 }
 
+/** How the last fetch went, beside the value it did or didn't replace. */
+export interface ResourceStatus {
+  /** The last request failed. The value, if there is one, is the last one that did load. */
+  failed: boolean
+  /** Asks again. */
+  retry: () => void
+}
+
 /**
  * Stale-while-revalidate read of one endpoint, keyed by `key`.
  *
@@ -23,25 +31,32 @@ export function setCached<T>(key: string, value: T): void {
  * first visit in a session ever shows a loading state. That's what stops a tab switch from
  * collapsing the page height and jerking the scroll position back to the top.
  *
- * `fetcher` and `fallback` are held in refs rather than listed as effect deps: both are fresh
- * closures on every render, so depending on them would refetch in a loop. `key` is the only real
- * dependency.
+ * A failed request changes nothing it has no answer for. It used to put an empty fallback in
+ * the value, and in the shared cache, so one dropped request made Home say "Nothing to remember
+ * yet" to someone with four decks, and kept saying it on every tab that read the same key. Now
+ * the last good value stays, `failed` says the refresh didn't land, and a screen with nothing to
+ * show at all can say it couldn't load rather than that there is nothing. Empty-state copy is
+ * for a successful response that was empty.
+ *
+ * `fetcher` is held in a ref rather than listed as an effect dep: it's a fresh closure on every
+ * render, so depending on it would refetch in a loop. `key` is the real dependency, and `attempt`
+ * is what `retry` bumps.
  */
 export function useCachedResource<T>(
   key: string,
   fetcher: () => Promise<T>,
-  fallback: () => T,
-): [T | null, (next: T | ((prev: T | null) => T | null)) => void] {
+): [T | null, (next: T | ((prev: T | null) => T | null)) => void, ResourceStatus] {
   const [value, setValue] = useState<T | null>(() => (cache.get(key) as T | undefined) ?? null)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const fetcherRef = useRef(fetcher)
-  const fallbackRef = useRef(fallback)
   fetcherRef.current = fetcher
-  fallbackRef.current = fallback
 
   useEffect(() => {
     // Re-seed synchronously on a key change so the new key's cached value shows this render
     // rather than one frame later, which would flash the old key's data.
     setValue((cache.get(key) as T | undefined) ?? null)
+    setFailed(false)
 
     let alive = true
     fetcherRef.current()
@@ -51,17 +66,12 @@ export function useCachedResource<T>(
         setValue(v)
       })
       .catch(() => {
-        if (!alive) return
-        // The fallback is cached too. Without that, a screen whose request keeps failing would
-        // re-show "Loading…" on every single visit instead of its empty state.
-        const v = fallbackRef.current()
-        cache.set(key, v)
-        setValue(v)
+        if (alive) setFailed(true)
       })
     return () => {
       alive = false
     }
-  }, [key])
+  }, [key, attempt])
 
   /** Local edits write through to the cache, so leaving and returning to the tab doesn't briefly
    * resurrect the pre-edit value while the background refresh is still in flight. */
@@ -77,5 +87,7 @@ export function useCachedResource<T>(
     [key],
   )
 
-  return [value, update]
+  const retry = useCallback(() => setAttempt((n) => n + 1), [])
+
+  return [value, update, { failed, retry }]
 }
