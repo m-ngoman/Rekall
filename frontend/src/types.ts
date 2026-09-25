@@ -47,6 +47,8 @@ export interface StudyQueue {
   deck_id: string
   deck_name: string
   cards: StudyCard[]
+  /** Started cards whose next review hasn't come round yet: what reviewing ahead would serve. */
+  later: number
 }
 
 export interface ReviewResult {

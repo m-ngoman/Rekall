@@ -3,8 +3,11 @@
 import type { ReviewResult, StudyQueue } from '../types'
 import { request, streamResult } from './client'
 
-export function getStudyQueue(deckId: string): Promise<StudyQueue> {
-  return request(`/decks/${deckId}/study-queue`)
+/** Today's cards for one deck, or with `ahead`, the ones not due yet, soonest first: what the
+ * study screen offers when a deck has nothing due. Reviewing ahead goes through the ordinary
+ * review endpoint; FSRS reschedules an early review from the moment it happens. */
+export function getStudyQueue(deckId: string, { ahead = false }: { ahead?: boolean } = {}): Promise<StudyQueue> {
+  return request(`/decks/${deckId}/study-queue${ahead ? '?ahead=true' : ''}`)
 }
 
 /** Streams the grading explanation as it's generated (for a typewriter display) via SSE, then
@@ -53,6 +56,11 @@ export function revealAnswer(cardId: string): Promise<{ answer: string }> {
  */
 export function reportCard(cardId: string): Promise<void> {
   return request(`/cards/${cardId}/report`, { method: 'POST' })
+}
+
+/** Undoes reportCard: the card is back in the schedule and the report is withdrawn. */
+export function unreportCard(cardId: string): Promise<void> {
+  return request(`/cards/${cardId}/report`, { method: 'DELETE' })
 }
 
 /** Adds a card to the list the tutor opens on. Idempotent server-side, so a double tap or a
