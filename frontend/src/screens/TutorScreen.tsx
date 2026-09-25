@@ -1,5 +1,5 @@
 import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { PaymentRequired, createMemoryNote, deleteMemoryNote, deleteProfileLine, getStudentProfile, listBugs, listMemoryNotes, listTutorVoices, reportBug, resolveBug, sendTextTurn, sendVoiceTurnText, startTutorSession, updateTutorSession } from '../api'
+import { PaymentRequired, getStudentProfile, listBugs, listTutorVoices, reportBug, resolveBug, sendTextTurn, sendVoiceTurnText, startTutorSession, updateTutorSession } from '../api'
 import type { PlotSpec } from '../lib/plot'
 import Notice from '../components/Notice'
 import type { OrbState } from '../components/VoiceOrb'
@@ -24,7 +24,7 @@ import { useRevealText } from '../hooks/useRevealText'
 import { useTypewriter } from '../hooks/useTypewriter'
 import { findListedBug, renderBugs } from '../lib/bugCommands'
 import { wordStarts } from '../lib/wordTimings'
-import type { BugReport, Exam, MemoryCategory, MemoryNote, Settings, StudentProfile, TutorPersonality, TutorSession, TutorVoice, WordTiming } from '../types'
+import type { BugReport, Exam, Settings, StudentProfile, TutorPersonality, TutorSession, TutorVoice, WordTiming } from '../types'
 
 const STATUS_LABEL: Record<OrbState, string> = {
   idle: '',
@@ -126,11 +126,12 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
   const [startingSession, setStartingSession] = useState(true)
   const [openPopover, setOpenPopover] = useState<Popover | null>(null)
   const [voices, setVoices] = useState<TutorVoice[] | null>(null)
-  const [memoryNotes, setMemoryNotes] = useState<MemoryNote[] | null>(null)
-  /** The tutor's own reading of the student, kept apart from the notes they wrote. Loaded
-   * once at mount: a pass only runs every few turns and writes on a background thread, so
-   * polling it would spend requests to almost always see the same thing. */
+  /** Everything the tutor remembers about the student, as one file. Loaded once at mount: a pass
+   * only runs every few turns and writes on a background thread, so polling it would spend
+   * requests to almost always see the same thing. A save that finds the tutor got there first
+   * reloads it (see ProfileFile). */
   const [profile, setProfile] = useState<StudentProfile | null>(null)
+  const [profileFailed, setProfileFailed] = useState(false)
   /** A calendar entry the tutor has offered to add. Held until the student taps Add — the tutor
    * proposes, the student writes. `added` keeps the card in place afterwards so the confirmation
    * is visible rather than the row just vanishing. */
@@ -278,12 +279,9 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     listTutorVoices()
       .then(setVoices)
       .catch(() => setVoices([]))
-    listMemoryNotes()
-      .then(setMemoryNotes)
-      .catch(() => setMemoryNotes([]))
     getStudentProfile()
       .then(setProfile)
-      .catch(() => setProfile(null))
+      .catch(() => setProfileFailed(true))
   }, [])
 
   const { away, pinToLatest, rejoin } = useFollowLatest(logRef, bottomRef, composerRef, messages)
@@ -464,24 +462,6 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
     const updated = await updateTutorSession(session.id, { voice_id: voiceId })
     setSession(updated)
     setOpenPopover(null)
-  }
-
-  const handleAddMemory = async (category: MemoryCategory, content: string) => {
-    const note = await createMemoryNote(category, content)
-    setMemoryNotes((prev) => [...(prev ?? []), note])
-  }
-
-  const handleDeleteMemory = async (id: string) => {
-    await deleteMemoryNote(id)
-    setMemoryNotes((prev) => prev?.filter((n) => n.id !== id) ?? null)
-  }
-
-  /** Removing one of the tutor's own observations. The server also records that it was rejected,
-   * so the next pass can't re-derive it from the same conversations — without that, deleting is
-   * theatre and the line comes straight back. */
-  const handleDeleteProfileLine = async (text: string) => {
-    await deleteProfileLine(text)
-    setProfile((prev) => (prev ? { ...prev, lines: prev.lines.filter((l) => l.text !== text) } : prev))
   }
 
   const { typeInto, stopTypewriter } = useTypewriter(setMessages)
@@ -1103,15 +1083,13 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
             settings={settings}
             voices={voices}
             voiceName={voiceName}
-            memoryNotes={memoryNotes}
             profile={profile}
+            profileFailed={profileFailed}
             open={openPopover}
             onToggle={(which) => setOpenPopover((p) => (p === which ? null : which))}
             onPersonalityChange={handlePersonalityChange}
             onVoiceChange={handleVoiceChange}
-            onAddMemory={handleAddMemory}
-            onDeleteMemory={handleDeleteMemory}
-            onDeleteProfileLine={handleDeleteProfileLine}
+            onProfileChange={setProfile}
             // Also offered with no session at all, as the way to try again: after a failed start the
             // log is empty, sending needs a session, and without this nothing on screen recovers.
             onNewConversation={!startingSession && (messages.length > 0 || !session) ? handleNewConversation : null}

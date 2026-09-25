@@ -1,9 +1,7 @@
-/** The tutor: sessions, voices, the three kinds of turn, and the tutor's memory notes. */
+/** The tutor: sessions, voices, the three kinds of turn, and your profile, which is its memory. */
 
 import type { PlotSpec } from '../lib/plot'
 import type {
-  MemoryCategory,
-  MemoryNote,
   StudentProfile,
   TutorPersonality,
   TutorSession,
@@ -102,25 +100,14 @@ export async function sendVoiceTurnText(
   )
 }
 
-export function listMemoryNotes(): Promise<MemoryNote[]> {
+/** Everything the tutor remembers about you, as one file. */
+export function getStudentProfile(): Promise<StudentProfile> {
   return request('/tutor/memory')
 }
 
-export function createMemoryNote(category: MemoryCategory, content: string): Promise<MemoryNote> {
-  return request('/tutor/memory', { method: 'POST', body: JSON.stringify({ category, content }) })
-}
-
-/** What the tutor has worked out on its own, as opposed to the notes you wrote it. */
-export function getStudentProfile(): Promise<StudentProfile> {
-  return request('/tutor/memory/profile')
-}
-
-/** Removes a line and records that you rejected it, so the next pass cannot re-derive it from the
- * same evidence. A POST because the line is identified by its text. */
-export function deleteProfileLine(text: string): Promise<void> {
-  return request('/tutor/memory/profile/delete', { method: 'POST', body: JSON.stringify({ text }) })
-}
-
-export function deleteMemoryNote(id: string): Promise<void> {
-  return request(`/tutor/memory/${id}`, { method: 'DELETE' })
+/** Saves your edit of the whole file. `rev` is the version you started from: if the tutor has
+ * rewritten the file since, this fails with a 409 and nothing is saved. Lines you take out of the
+ * tutor's are remembered as removed, so it can't write them back. */
+export function saveStudentProfile(text: string, rev: number): Promise<StudentProfile> {
+  return request('/tutor/memory', { method: 'PUT', body: JSON.stringify({ text, rev }) })
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { listTutorVoices } from '../../api'
-import type { Settings, SettingsPatch, TutorVoice } from '../../types'
+import { getStudentProfile, listTutorVoices } from '../../api'
+import type { Settings, SettingsPatch, StudentProfile, TutorVoice } from '../../types'
 import { PERSONALITY_PRESETS } from '../PersonalityPicker'
+import ProfileFile from '../ProfileFile'
 import { Row, Section, Toggle } from './controls'
 
 /** Tutor defaults.
@@ -13,11 +14,16 @@ import { Row, Section, Toggle } from './controls'
  */
 export default function TutorSection({ settings, onChange }: { settings: Settings; onChange: (patch: SettingsPatch) => void }) {
   const [voices, setVoices] = useState<TutorVoice[] | null>(null)
+  const [profile, setProfile] = useState<StudentProfile | null>(null)
+  const [profileFailed, setProfileFailed] = useState(false)
 
   useEffect(() => {
     listTutorVoices()
       .then(setVoices)
       .catch(() => setVoices([]))
+    getStudentProfile()
+      .then(setProfile)
+      .catch(() => setProfileFailed(true))
   }, [])
 
   return (
@@ -85,8 +91,8 @@ export default function TutorSection({ settings, onChange }: { settings: Setting
         label="Let the tutor remember"
         hint={
           settings.tutor_auto_memory
-            ? 'The tutor notes what it learns about how you study. Everything it writes is marked "auto" in Memory, and you can delete any of it.'
-            : 'The tutor only remembers what you add yourself in Memory.'
+            ? 'The tutor adds to your profile when it sees the same thing in two sessions. You can change or take out anything it writes.'
+            : 'The tutor keeps your profile as it is and only reads it. You can still edit it yourself.'
         }
       >
         <Toggle
@@ -94,6 +100,16 @@ export default function TutorSection({ settings, onChange }: { settings: Setting
           onChange={(tutor_auto_memory) => onChange({ tutor_auto_memory })}
         />
       </Row>
+      {/* The same file as the Memory chip in the tutor, with the page's width to read it in. */}
+      <div className="flex flex-col gap-2 py-3.5">
+        <div>
+          <div className="text-[0.9375rem] font-semibold">What the tutor knows about you</div>
+          <p className="mt-0.5 text-[0.8125rem] leading-snug text-[var(--text-muted)]">
+            One file. The tutor reads all of it before every reply.
+          </p>
+        </div>
+        <ProfileFile profile={profile} failed={profileFailed} onChange={setProfile} />
+      </div>
     </Section>
   )
 }
