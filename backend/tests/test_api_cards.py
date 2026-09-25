@@ -44,6 +44,7 @@ def test_reveal_returns_only_the_answer(client) -> None:
         ("patch", "", {"question": "x"}),
         ("delete", "", None),
         ("post", "/report", None),
+        ("delete", "/report", None),
         ("post", "/study-list", None),
         ("post", "/review", {"input_mode": "self_assessed", "grade": 3}),
     ],
@@ -126,6 +127,25 @@ def test_a_report_outlives_the_card(client) -> None:
     client.delete(f"/api/cards/{card['id']}")
     [report] = query(Feedback)
     assert report.card_id is None and report.context["question"] == "What is ATP?"
+
+
+def test_undoing_a_report_brings_the_card_back_and_withdraws_the_report(client) -> None:
+    card = card_in_new_deck(client)
+    client.post(f"/api/cards/{card['id']}/report")
+    for _ in range(2):
+        assert client.delete(f"/api/cards/{card['id']}/report").status_code == 204
+    [row] = query(Card)
+    assert row.suspended is False
+    assert query(Feedback) == []
+
+
+def test_an_undone_report_can_be_made_again(client) -> None:
+    card = card_in_new_deck(client)
+    client.post(f"/api/cards/{card['id']}/report")
+    client.delete(f"/api/cards/{card['id']}/report")
+    client.post(f"/api/cards/{card['id']}/report")
+    [row] = query(Card)
+    assert row.suspended is True and len(query(Feedback)) == 1
 
 
 def test_the_study_list_is_idempotent_both_ways(client) -> None:

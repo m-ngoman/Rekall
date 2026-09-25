@@ -221,12 +221,13 @@ def delete_card(request: Request, card_id: uuid.UUID, db: Session = Depends(get_
 
 @router.post("/{card_id}/report", status_code=204)
 def report_card(request: Request, card_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
-    """"This card doesn't look right" — from the review screen, on the card being studied.
+    """"Report and remove this card" — from the review screen, on the card being studied.
 
     Suspends it as well as recording it. A report that only filed a note would leave the student
     being shown the same wrong card on an optimal forgetting schedule until they had learned it,
     which is the exact harm the button exists to stop. The card is kept rather than deleted,
-    because the student may be the one who is wrong — though nothing in the app unsuspends it.
+    because the student may be the one who is wrong. The review screen offers an undo while the
+    card is still on it (DELETE below); after that, nothing in the app unsuspends it.
 
     This is the whole safeguard for cards generated from a topic rather than from a student's own
     notes: there is no review screen before those enter the deck, by design, so the check happens
@@ -259,9 +260,38 @@ def report_card(request: Request, card_id: uuid.UUID, db: Session = Depends(get_
         db.commit()
 
 
+@router.delete("/{card_id}/report", status_code=204)
+def unreport_card(request: Request, card_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
+    """The review screen's undo for a report: the card comes back, and the report is withdrawn.
+
+    Withdrawn, not kept: the reports are evidence about which cards are wrong, and one its author
+    took back within seconds is evidence of a mis-tap. Only the latest report goes, the one this
+    suspension made — reporting only files one while the card is live. Harmless on a card that
+    isn't suspended, so a repeated undo is the same as one.
+    """
+    user = get_current_user(request, db)
+    card = get_owned_card(db, card_id, user.id)
+    if not card.suspended:
+        return
+    card.suspended = False
+    latest = (
+        db.query(Feedback)
+        .filter(
+            Feedback.user_id == user.id,
+            Feedback.card_id == card.id,
+            Feedback.category == FeedbackCategory.bad_card,
+        )
+        .order_by(Feedback.created_at.desc())
+        .first()
+    )
+    if latest is not None:
+        db.delete(latest)
+    db.commit()
+
+
 @router.post("/{card_id}/study-list", status_code=204)
 def add_to_study_list(request: Request, card_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
-    """"Go over this with the tutor" — from the review screen, after a card was missed.
+    """"Save for tutor" — from the review screen, after a card was missed.
 
     Deliberately not gated on tutor entitlement. The list is a note the student is making to
     themselves about what they don't understand, and it stays true whether or not they can afford

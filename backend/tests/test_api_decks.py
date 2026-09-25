@@ -268,6 +268,36 @@ def test_an_upcoming_exam_raises_the_new_card_cap_and_lifts_the_session_size(cli
     assert len(client.get(f"/api/decks/{deck['id']}/study-queue").json()["cards"]) == 5
 
 
+def test_reviewing_ahead_serves_what_is_not_due_yet_soonest_first(client) -> None:
+    deck = make_deck(client)
+    add_cards(
+        deck["id"],
+        dict(question="due", answer="a", state=CardState.review, due=NOW - timedelta(hours=1)),
+        dict(question="in-5", answer="a", state=CardState.review, due=NOW + timedelta(days=5)),
+        dict(question="in-1", answer="a", state=CardState.learning, due=NOW + timedelta(days=1)),
+        dict(question="reported", answer="a", state=CardState.review, due=NOW + timedelta(days=2), suspended=True),
+        dict(question="new", answer="a"),
+    )
+    today = client.get(f"/api/decks/{deck['id']}/study-queue").json()
+    assert today["later"] == 2
+    ahead = client.get(f"/api/decks/{deck['id']}/study-queue?ahead=true").json()
+    # Not the due card (today's queue has it), not the new one, not the reported one.
+    assert [c["question"] for c in ahead["cards"]] == ["in-1", "in-5"]
+    assert ahead["later"] == 2 and not any(c["is_new"] for c in ahead["cards"])
+
+
+def test_a_review_ahead_session_is_one_session_long(client) -> None:
+    deck = make_deck(client)
+    add_cards(
+        deck["id"],
+        *[dict(question=f"later-{i:02}", answer="a", state=CardState.review, due=NOW + timedelta(days=i + 1)) for i in range(25)],
+    )
+    url = f"/api/decks/{deck['id']}/study-queue?ahead=true"
+    assert len(client.get(url).json()["cards"]) == 20
+    client.patch("/api/settings", json={"session_size": 3})
+    assert [c["question"] for c in client.get(url).json()["cards"]] == ["later-00", "later-01", "later-02"]
+
+
 def test_review_history_goes_with_a_deleted_deck(client) -> None:
     deck = make_deck(client)
     [card_id] = add_cards(deck["id"], dict(question="q", answer="a"))

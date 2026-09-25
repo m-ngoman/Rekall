@@ -176,8 +176,22 @@ def create_card(request: Request, deck_id: uuid.UUID, payload: CardCreate, db: S
     return CardOut.from_card(card)
 
 
+# How many cards a review-ahead session serves when the user hasn't set a session size. Enough to
+# be worth opening a deck for, few enough that the header's count doesn't read as a chore.
+AHEAD_SESSION = 20
+
+
 @router.get("/{deck_id}/study-queue", response_model=StudyQueueOut)
-def study_queue(request: Request, deck_id: uuid.UUID, db: Session = Depends(get_db)) -> StudyQueueOut:
+def study_queue(
+    request: Request, deck_id: uuid.UUID, ahead: bool = False, db: Session = Depends(get_db)
+) -> StudyQueueOut:
+    """Today's cards for one deck. With `ahead`, the cards that *aren't* due yet instead, soonest
+    first: what the study screen offers when a deck has nothing due, so "study anytime" has
+    something behind it. Reviewing early is ordinary FSRS — the card is rescheduled from now, and
+    an early answer moves its stability less than an on-time one because it was easier to recall —
+    so these go through the normal review endpoint rather than a practice mode that pretends the
+    answer didn't happen.
+    """
     user = get_current_user(request, db)
     deck = get_owned_deck(db, deck_id, user.id)
 
@@ -185,6 +199,20 @@ def study_queue(request: Request, deck_id: uuid.UUID, db: Session = Depends(get_
 
     now = datetime.now(timezone.utc)
     live = live_cards(deck)
+    # New cards are left out on purpose: the normal queue already serves every new card the daily
+    # intake allows, so the only new cards left over are ones the user's own setting holds back.
+    later = sorted((c for c in live if not is_new(c) and not is_due(c, now)), key=lambda c: c.due or now)
+    if ahead:
+        return StudyQueueOut(
+            deck_id=deck.id,
+            deck_name=deck.name,
+            cards=[
+                StudyCardOut(id=c.id, subtopic=c.subtopic, question=c.question, is_new=False, is_math=c.is_math)
+                for c in later[: prefs.session_size or AHEAD_SESSION]
+            ],
+            later=len(later),
+        )
+
     due_cards = [c for c in live if is_due(c, now)]
     new_cards = [c for c in live if is_new(c)]
     # Most-overdue first, so a session cut short (or trimmed below) spends itself on the cards
@@ -212,6 +240,7 @@ def study_queue(request: Request, deck_id: uuid.UUID, db: Session = Depends(get_
             StudyCardOut(id=c.id, subtopic=c.subtopic, question=c.question, is_new=is_new(c), is_math=c.is_math)
             for c in queue
         ],
+        later=len(later),
     )
 
 
