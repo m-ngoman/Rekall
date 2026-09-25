@@ -5,7 +5,7 @@ const CATEGORY_LABELS: Record<MemoryCategory, string> = {
   preference: 'Preference',
   gap: 'Gap',
   context: 'Context',
-  custom: 'Note',
+  custom: 'Other',
 }
 
 interface Props {
@@ -29,14 +29,14 @@ export default function MemoryPicker({ notes, onAdd, onDelete }: Props) {
     <div className="w-80 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4">
       <div className="mb-1 text-[0.9375rem] font-bold">Memory</div>
       <p className="mb-3.5 text-xs text-[var(--text-muted)]">
-        What the tutor remembers about you across sessions. Notes marked <span className="font-bold">auto</span> are
-        ones it wrote itself — delete any that are wrong.
+        What the tutor remembers about you across sessions. Anything marked <span className="font-bold">auto</span> it
+        wrote down itself — delete what's wrong.
       </p>
 
       {notes === null ? (
         <p className="text-xs text-[var(--text-muted)]">Loading…</p>
       ) : notes.length === 0 ? (
-        <p className="mb-3 text-xs text-[var(--text-muted)]">No notes yet — add one below.</p>
+        <p className="mb-3 text-xs text-[var(--text-muted)]">Nothing remembered yet. Add something below.</p>
       ) : (
         <div className="mb-3 flex max-h-52 flex-col gap-1.5 overflow-y-auto">
           {notes.map((n) => (
@@ -60,7 +60,7 @@ export default function MemoryPicker({ notes, onAdd, onDelete }: Props) {
               </div>
               <button
                 onClick={() => onDelete(n.id)}
-                aria-label="Delete note"
+                aria-label="Forget this"
                 className="-mr-1 -mt-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-sm)] text-[var(--text-muted)]"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -81,14 +81,14 @@ export default function MemoryPicker({ notes, onAdd, onDelete }: Props) {
           <option value="preference">Preference — how you like to learn</option>
           <option value="gap">Gap — something you keep struggling with</option>
           <option value="context">Context — what you're studying for</option>
-          <option value="custom">Note — anything else</option>
+          <option value="custom">Other — anything else</option>
         </select>
         <div className="flex gap-2">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            placeholder="Add a note…"
+            placeholder="Something to remember…"
             className="min-w-0 flex-1 rounded-[var(--r-sm)] bg-[var(--bg)] px-3 py-2 text-xs"
           />
           <button

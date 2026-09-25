@@ -121,19 +121,18 @@ export default function ComposerChips({
       <div className="relative">
         <button
           onClick={() => onToggle('memory')}
-          aria-label={`Notes the tutor remembers: ${memoryNotes?.length ?? 0}`}
+          aria-label={`Tutor memory: ${memoryNotes?.length ?? 0} saved`}
           className="flex h-9 items-center gap-1.5 rounded-[var(--r-sm)] px-3 text-[0.75rem] font-semibold text-[var(--text-muted)]"
           style={{ background: open === 'memory' ? 'var(--bg)' : undefined }}
         >
           {MEMORY_ICON}
-          {/* Named even at zero, like its neighbours: an unlabelled glyph in a row of
-              labelled chips reads as a different kind of control, and "Memory" is what
-              tells you the tutor keeps notes at all. */}
-          <span className="inline">
-            {memoryNotes && memoryNotes.length > 0
-              ? `${memoryNotes.length} ${memoryNotes.length === 1 ? 'note' : 'notes'}`
-              : 'Memory'}
-          </span>
+          {/* Always "Memory", with the count beside it. It used to turn into "6 notes" once
+              anything was saved, which put a second meaning of "notes" one tab away from the
+              Notes tab and its "No notes yet": two different things under one word. Named even
+              at zero, like its neighbours, because an unlabelled glyph in a row of labelled
+              chips reads as a different kind of control. */}
+          <span className="inline">Memory</span>
+          {memoryNotes && memoryNotes.length > 0 && <span className="font-bold tabular-nums">{memoryNotes.length}</span>}
         </button>
         {open === 'memory' && (
           <>

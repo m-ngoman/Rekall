@@ -86,7 +86,7 @@ export default function TutorSection({ settings, onChange }: { settings: Setting
         hint={
           settings.tutor_auto_memory
             ? 'The tutor notes what it learns about how you study. Everything it writes is marked "auto" in Memory, and you can delete any of it.'
-            : 'The tutor only remembers the notes you write yourself in Memory.'
+            : 'The tutor only remembers what you add yourself in Memory.'
         }
       >
         <Toggle
