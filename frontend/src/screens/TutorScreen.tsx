@@ -893,7 +893,6 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
               <button
                 onClick={handleSendText}
                 className="on-accent flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--r-full)]"
-                style={{ background: 'var(--accent)' }}
               >
                 {SEND_ICON}
               </button>
@@ -911,7 +910,6 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
                 disabled={voiceModeActive}
                 className="on-accent flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--r-full)] transition-opacity duration-150"
                 style={{
-                  background: 'var(--accent)',
                   opacity: voiceModeActive ? 0 : 1,
                   pointerEvents: voiceModeActive ? 'none' : 'auto',
                 }}

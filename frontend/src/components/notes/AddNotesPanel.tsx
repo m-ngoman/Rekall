@@ -130,7 +130,7 @@ export default function AddNotesPanel({
       <button
         onClick={handleWrite}
         disabled={busy}
-        className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
+        className="on-accent w-full rounded-[var(--r-full)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
       >
         Write a note
       </button>

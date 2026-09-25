@@ -286,7 +286,7 @@ export default function WriteCardsScreen({ deckId: fixedDeckId, onDone }: Props)
           <button
             onClick={handleAdd}
             disabled={!canSave}
-            className="on-accent min-h-[44px] rounded-[var(--r-full)] bg-[var(--accent)] px-5 text-[0.875rem] font-bold disabled:opacity-50"
+            className="on-accent min-h-[44px] rounded-[var(--r-full)] px-5 text-[0.875rem] font-bold disabled:opacity-50"
           >
             {busy ? 'Saving' : 'Add card'}
           </button>
@@ -433,7 +433,7 @@ function CardEditor({
         <button
           onClick={() => onSave({ question: question.trim(), answer: answer.trim(), subtopic: subtopic.trim() })}
           disabled={!valid}
-          className="on-accent min-h-[44px] rounded-[var(--r-full)] bg-[var(--accent)] px-4 text-[0.875rem] font-bold disabled:opacity-50"
+          className="on-accent min-h-[44px] rounded-[var(--r-full)] px-4 text-[0.875rem] font-bold disabled:opacity-50"
         >
           Save changes
         </button>

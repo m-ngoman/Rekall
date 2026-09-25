@@ -189,7 +189,7 @@ export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Prop
           </div>
         )}
 
-        <button onClick={onDone} className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold">
+        <button onClick={onDone} className="on-accent w-full rounded-[var(--r-full)] py-4 text-[1.0625rem] font-bold">
           Done
         </button>
       </div>
@@ -330,7 +330,7 @@ export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Prop
       <button
         onClick={handleGenerate}
         disabled={busy || (byTopic ? !subject.trim() || !topic.trim() : files.length === 0 && pickedNotes.length === 0)}
-        className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
+        className="on-accent w-full rounded-[var(--r-full)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
       >
         {busy ? stage || 'Generating' : 'Generate flashcards'}
       </button>

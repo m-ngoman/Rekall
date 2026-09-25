@@ -275,7 +275,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
           <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
             Something went wrong fetching today's cards. Your progress is safe.
           </p>
-          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
+          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
             Back to Home
           </button>
         </div>
@@ -290,7 +290,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
         <div>
           <div className="text-[1.25rem] font-bold leading-snug">Nothing due in this deck</div>
           <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">Every card is scheduled for later. Come back when the calendar says so.</p>
-          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
+          <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
             Back to Home
           </button>
         </div>
@@ -323,7 +323,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
               </div>
             </div>
           )}
-          <button onClick={onExit} className="on-accent mt-8 w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
+          <button onClick={onExit} className="on-accent mt-8 w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
             Back to Home
           </button>
         </div>
@@ -470,7 +470,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
               )}
             </>
           )}
-          <p className={`text-[0.9375rem] leading-relaxed ${graded ? 'mt-4' : ''}`}>
+          <p className={`text-[0.9375rem] leading-relaxed [text-wrap:pretty] ${graded ? 'mt-4' : ''}`}>
             <MaybeMath text={streamedExplanation} math={current.is_math} />
             {phase === 'grading' && <span className="ml-0.5 inline-block h-[18px] w-[2px] align-text-bottom bg-[var(--accent)]" />}
           </p>
@@ -494,7 +494,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
         revealed === null ? (
           <button
             onClick={handleReveal}
-            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]"
+            className="on-accent w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]"
           >
             Show the answer
           </button>
@@ -520,7 +520,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
           <button
             onClick={handleSubmit}
             disabled={phase === 'grading'}
-            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2] disabled:opacity-50 lg:w-auto lg:px-8 lg:py-[0.6875rem]"
+            className="on-accent w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2] disabled:opacity-50 lg:w-auto lg:px-8 lg:py-[0.6875rem]"
           >
             {phase === 'grading' ? 'Checking' : 'Check my answer'}
           </button>
@@ -530,7 +530,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5">
           <button
             onClick={advance}
-            className="on-accent w-full rounded-[var(--r-full)] bg-[var(--accent)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2] lg:w-auto lg:self-start lg:px-8 lg:py-[0.6875rem]"
+            className="on-accent w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2] lg:w-auto lg:self-start lg:px-8 lg:py-[0.6875rem]"
           >
             {queue.length > 0 ? `Next card, ${queue.length} left` : 'Finish'}
           </button>

@@ -79,9 +79,16 @@ html {
   background: var(--bg);
 }
 
+/* `break-word`, not `anywhere`. Both only break a word that can't fit a line on its own, so a
+   pasted URL still wraps instead of running off the screen. The difference is layout: `anywhere`
+   lets a flex item shrink below its longest word, and a squeezed column then splits ordinary
+   words like "phosphorylation" wherever the edge falls, which in a study app is the one thing the
+   words can't afford. `[overflow-wrap:anywhere]` goes on the few strings that are safe to split
+   anywhere: filenames, URLs and narrow metadata nobody reads as prose. Questions, answers and
+   explanations take `[text-wrap:pretty]` instead, which keeps a last line from being one word. */
 body {
   overflow-x: clip;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   background: transparent;
   color: var(--text);
   font-family: var(--font-body);
@@ -104,11 +111,32 @@ body {
   line-height: 0.85;
 }
 
-/* Text on an accent fill: near-black tinted toward the accent's own hue, so it holds ≥6:1 on an
-   L 0.56–0.70 accent in either theme without introducing an eighth colour. */
+/* An accent-filled action: the fill and the text on it, set together here so they can't drift
+   apart. The text is near-black tinted toward the accent's own hue, never white.
+
+   In light, the fill is not quite --accent. --accent is pulled down to L 0.56 there so accent
+   *text* clears 4.5:1 on the pale page, but dark text on an L 0.56 fill measured 3.9:1: AA only
+   as large text, which is why the study and Home buttons were set at 19px bold while every
+   14–17px one (sign-in, generate, import, save, add) failed. At L 0.63 the presets measure 5.1:1
+   or better and any in-gamut custom hue above 4.6, and the fill still stands 3.4:1 off the page.
+   Hue and chroma stay the user's; only the lightness moves, and only on fills that carry text.
+   Dark needs nothing: --accent is the raw L 0.70 pick there, and the same text is 6.7:1 or more.
+   design/handoff/check-on-accent.mjs measures every accent-filled control in both themes. */
 .on-accent {
+  background-color: var(--accent);
   color: oklch(0.17 0.015 50);
-  color: oklch(from var(--accent) 0.17 0.02 h);
+}
+/* Behind @supports rather than as a second declaration: a value holding var() always parses, so
+   a browser without relative colours would drop to transparent here instead of to the line above.
+   Those browsers already get the raw pick as --accent (see the @supports block up top), which is
+   the dark theme's fill and passes as it is. */
+@supports (color: oklch(from red l c h)) {
+  .on-accent {
+    color: oklch(from var(--accent) 0.17 0.02 h);
+  }
+  :root:not([data-theme='dark']) .on-accent {
+    background-color: oklch(from var(--accent) 0.63 c h);
+  }
 }
 
 /* Keyboard focus. One ring, everywhere, drawn outside the control so it never fights a fill. */

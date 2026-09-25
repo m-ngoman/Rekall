@@ -184,7 +184,7 @@ export default function ExamSheet({ exam, initialDate, showDatePicker, decks, on
           <button
             onClick={save}
             disabled={busy || !name.trim() || !date}
-            className="on-accent min-h-[44px] rounded-[var(--r-full)] bg-[var(--accent)] px-5 text-[0.875rem] font-bold disabled:opacity-50"
+            className="on-accent min-h-[44px] rounded-[var(--r-full)] px-5 text-[0.875rem] font-bold disabled:opacity-50"
           >
             {busy ? 'Saving' : exam ? 'Save changes' : 'Add exam'}
           </button>

@@ -74,7 +74,7 @@ export default function ImportScreen({ onDone, onCancel }: Props) {
       <button
         onClick={handleImport}
         disabled={busy}
-        className="on-accent mt-5 w-full rounded-[var(--r-full)] bg-[var(--accent)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
+        className="on-accent mt-5 w-full rounded-[var(--r-full)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
       >
         {busy ? 'Importing' : 'Import these cards'}
       </button>
