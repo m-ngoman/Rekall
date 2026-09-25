@@ -76,7 +76,8 @@ def introduced_today(db: Session, decks: Iterable[Deck], today: date) -> dict[uu
 
     A card is introduced on the day of its earliest review log. Cards, not logs, are counted: a
     new card failed twice today was still only met once. Suspended cards count too: reporting a
-    card after meeting it doesn't hand its place in today's intake to another. A card first
+    card after meeting it doesn't hand its place in today's intake to another. (Deleting one does:
+    its review history goes with it.) A card first
     reviewed on an earlier day and again today is not new today, however many times it comes up;
     nor is one whose review count runs past its logs, since those earlier reviews happened
     somewhere the log doesn't reach (a card seeded or restored with its schedule).

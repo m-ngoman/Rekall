@@ -3,8 +3,8 @@
 //
 //   - Home tells "daily goal complete, cards left" from "caught up", and offers the cards.
 //   - Caught up is status text naming when cards come back, not a button-shaped pill.
-//   - New cards per day is a day's allowance: a deck counts what today will serve, and a second
-//     session the same day doesn't start the allowance over.
+//   - New cards per day is a day's allowance: a deck counts what today will serve, a second
+//     session the same day doesn't start the allowance over, and a deck done for the day says so.
 //   - A deck with nothing due offers to review ahead, and that starts a session.
 //   - "Report and remove this card" can be undone, into the session and the schedule.
 //   - A graded answer on a phone can show the model answer.
@@ -111,13 +111,24 @@ const cardsTab = async (page) => {
   const tile = page.getByRole('button', { name: /^Sample deck/ }).first()
   await tile.waitFor({ timeout: 5000 }).catch(() => {})
   check('and its tile says two left today', (await tile.innerText().catch(() => '')).includes('2 left today'), await tile.innerText().catch(() => ''))
-  for (const card of (await get(`/api/decks/${sample.id}/study-queue`)).cards) await review(card.id)
+  const first = (await get(`/api/decks/${sample.id}/study-queue`)).cards
+  check("the first session serves the day's two", first.length === 2, `${first.length} served`)
+  for (const card of first) await review(card.id)
   const again = (await get(`/api/decks/${sample.id}/study-queue`)).cards
   check('a second session the same day serves no more new cards', again.length === 0, `${again.length} served`)
+  const after = await deckNamed(sample.name)
+  check('with four still to meet', after.new === 4 && after.new_today === 0, `new ${after.new}, new_today ${after.new_today}`)
   await page.reload({ waitUntil: 'networkidle' })
-  await tile.waitFor({ timeout: 5000 }).catch(() => {})
-  await page.getByText('Done for today').first().waitFor({ timeout: 5000 }).catch(() => {})
-  check('and the tile is done for today, with four still to meet', (await tile.innerText().catch(() => '')).includes('Done for today'), await tile.innerText().catch(() => ''))
+  await tile.getByText('Done for today').waitFor({ timeout: 5000 }).catch(() => {})
+  check('and the tile is done for today', (await tile.innerText().catch(() => '')).includes('Done for today'), await tile.innerText().catch(() => ''))
+  // Both of the day's cards met, then reported: nothing is scheduled, but the deck isn't empty.
+  for (const card of first) await send(`/api/cards/${card.id}/report`, 'POST')
+  await tile.click()
+  await page.waitForURL('**/study/*', { timeout: 10000 }).catch(() => {})
+  const waiting = page.getByText(/4 new cards are still to come/)
+  await waiting.waitFor({ timeout: 5000 }).catch(() => {})
+  check('a deck done for the day says its new cards are still to come', await waiting.isVisible())
+  check('not to add some cards', !(await page.getByText(/Add some cards/).count()))
   await page.close()
 }
 

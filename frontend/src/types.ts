@@ -55,6 +55,9 @@ export interface StudyQueue {
   cards: StudyCard[]
   /** Started cards whose next review hasn't come round yet: what reviewing ahead would serve. */
   later: number
+  /** New cards the day's intake is holding back for later days. With nothing `later` either, an
+   * empty queue is a deck done for today rather than an empty deck. */
+  waiting: number
 }
 
 /** One deck's share of one calendar day, from GET /api/dashboard/day. */

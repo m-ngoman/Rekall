@@ -299,16 +299,19 @@ def test_the_new_card_cap_is_a_days_worth_not_a_sessions(client) -> None:
 def test_only_a_cards_first_review_counts_against_the_day(client) -> None:
     deck = make_deck(client)
     client.patch("/api/settings", json={"new_cards_per_day": 2})
-    [old, *_] = add_cards(
+    [old, carried, *_] = add_cards(
         deck["id"],
         dict(question="met-yesterday", answer="a", state=CardState.review, due=NOW - timedelta(hours=1), reviews=1, last_review=NOW - timedelta(days=1)),
+        dict(question="carried-in", answer="a", state=CardState.review, due=NOW - timedelta(hours=1), reviews=3),
         *[dict(question=f"new-{i}", answer="a") for i in range(5)],
     )
     with SessionLocal() as db:
         db.add(ReviewLog(card_id=old, user_id=dev_user_id(client), answer_input="x", input_mode="typed", grade=3, reviewed_at=NOW - timedelta(days=1)))
         db.commit()
-    # Seen yesterday and again today: a review, not an introduction.
+    # Seen yesterday and again today: a review, not an introduction. Nor is one whose earlier
+    # reviews came with it and left no log here (a seeded or restored schedule).
     review(client, old)
+    review(client, carried)
     assert len(new_served(client, deck["id"])) == 2
     # Failed twice today is still one card met, so one of the two is left.
     [first, _] = new_served(client, deck["id"])
@@ -350,11 +353,32 @@ def test_an_exam_paces_the_day_from_the_pile_it_started_with(client) -> None:
     for card_id in first[:3]:
         review(client, card_id)
     # Still five today: three met and two to go. Re-paced on the seven left it would be
-    # ceil(7 / 2) = 4, one short, and the deck wouldn't be met by exam day.
+    # ceil(7 / 2) = 4, and one of today's five would slip to tomorrow; split every day into
+    # sessions like this and the slip compounds toward exam day.
     assert len(new_served(client, deck["id"])) == 2 == new_today(client, deck["id"])
     for card_id in new_served(client, deck["id"]):
         review(client, card_id)
     assert new_served(client, deck["id"]) == []
+
+
+def test_a_deck_done_for_the_day_says_its_new_cards_are_waiting(client) -> None:
+    deck = make_deck(client)
+    client.patch("/api/settings", json={"new_cards_per_day": 2})
+    add_cards(deck["id"], *[dict(question=f"new-{i}", answer="a") for i in range(6)])
+    met = new_served(client, deck["id"])
+    for card_id in met:
+        review(client, card_id)
+    url = f"/api/decks/{deck['id']}/study-queue"
+    res = client.get(url).json()
+    assert (res["cards"], res["later"], res["waiting"]) == ([], 2, 4)
+    # Reported after meeting them: nothing is scheduled, but the deck isn't empty, and the two
+    # reported cards keep their places in today's two.
+    for card_id in met:
+        assert client.post(f"/api/cards/{card_id}/report").status_code == 204
+    res = client.get(url).json()
+    assert (res["cards"], res["later"], res["waiting"]) == ([], 0, 4)
+    assert client.get(f"{url}?ahead=true").json()["waiting"] == 4
+    assert new_today(client, deck["id"]) == 0
 
 
 def test_new_today_is_what_the_queue_serves(client) -> None:
