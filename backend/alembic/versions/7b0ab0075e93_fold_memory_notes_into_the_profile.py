@@ -7,7 +7,10 @@ wrote is lost. Then the notes table and its two enums go.
 
 The auto notes were already folded into the signal log by b74e0d19c5a2, so only manual notes are
 left here. Lines are appended after whatever the tutor has written, in the order the notes were
-made; a note spanning several lines becomes one.
+made; a note spanning several lines becomes one, and one ending in something tag-shaped loses it,
+since a tag at the end of a line is the document's markup. Where the tutor already has a line
+saying the same thing, the student's replaces it: the document keeps one of each, and the one they
+wrote is the one that is theirs.
 
 The downgrade moves every `[student]` line back out as a manual note. Categories come back from the
 section each line sits in, so a note filed as "custom" returns as "gap", which is where "custom"
@@ -18,6 +21,7 @@ Revises: d8f4b1e2a907
 Create Date: 2026-09-25 20:30:00.000000
 
 """
+import re
 from typing import Sequence, Union
 
 from alembic import op
@@ -35,6 +39,21 @@ depends_on: Union[str, Sequence[str], None] = None
 SECTIONS = ("How they work", "What helps", "Course and level")
 SECTION_FOR = {"gap": "How they work", "custom": "How they work", "preference": "What helps", "context": "Course and level"}
 CATEGORY_FOR = {"How they work": "gap", "What helps": "preference", "Course and level": "context"}
+#: A tag at the end of a line: the student's, or the tutor's evidence.
+TAG = re.compile(r"\s*\[(?:student|\d+ sessions?, latest \d{4}-\d{2}-\d{2})\]$")
+
+
+def _words(text: str) -> str:
+    """Text as one line of the document: spacing squeezed, and no tag left at its end."""
+    text = " ".join(text.split())
+    while match := TAG.search(text):
+        text = text[: match.start()]
+    return text
+
+
+def _key(line: str) -> str:
+    """A document line's text, bullet and tag off, for comparing: case and spacing don't count."""
+    return _words(line[2:] if line.startswith("- ") else line).casefold()
 
 
 def _split(body: str) -> dict[str, list[str]]:
@@ -74,16 +93,17 @@ def upgrade() -> None:
             sa.text("SELECT body FROM student_profiles WHERE user_id = :u"), {"u": user_id}
         ).scalar()
         sections = _split(existing or "")
-        seen = {line for lines in sections.values() for line in lines}
+        seen: set[str] = set()
         for row in rows:
-            text = " ".join(row["content"].split())
-            if not text:
+            text = _words(row["content"])
+            if not text or text.casefold() in seen:
                 continue
-            line = f"- {text} [student]"
-            if line in seen:
-                continue
-            seen.add(line)
-            sections[SECTION_FOR.get(row["category"], SECTIONS[0])].append(line)
+            seen.add(text.casefold())
+            for name in SECTIONS:
+                sections[name] = [line for line in sections[name] if _key(line) != text.casefold()]
+            sections[SECTION_FOR.get(row["category"], SECTIONS[0])].append(f"- {text} [student]")
+        if not seen:
+            continue  # every note was blank: nothing to fold in
         body = _join(sections)
         if existing is None:
             bind.execute(

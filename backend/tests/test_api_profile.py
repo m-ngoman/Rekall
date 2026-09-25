@@ -93,7 +93,7 @@ def test_saving_it_unchanged_writes_nothing(client) -> None:
 def test_an_edit_made_while_the_tutor_rewrote_it_is_refused(client) -> None:
     seed(client)
     res = put(client, "## What helps\n- Short sessions.", 2)
-    assert res.status_code == 409 and "while you were editing" in res.json()["detail"]
+    assert res.status_code == 409 and "changed since you opened it" in res.json()["detail"]
     [row] = query(StudentProfile)
     assert (row.rev, row.body) == (3, TUTORS)
 
@@ -102,7 +102,7 @@ def test_growing_past_the_cap_is_refused_in_words(client) -> None:
     seed(client)
     long = "\n".join(f"- {i} " + "x" * 280 for i in range(6))
     res = put(client, text_of(client) + "\n" + long, 3)
-    assert res.status_code == 422 and str(settings.profile_max_chars) in res.json()["detail"]
+    assert res.status_code == 422 and "more than your profile can hold" in res.json()["detail"]
 
 
 def test_the_tutor_reads_it_as_one_document_with_the_students_lines_marked(client) -> None:

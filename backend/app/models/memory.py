@@ -22,7 +22,7 @@ class StudentProfile(UUIDPKMixin, TimestampMixin, Base):
     looks like a duplicate of each of the three specific notes behind it, and was rejected. A
     document that can be *rewritten* is what lets three specifics become the pattern they share.
 
-    The student writes in it too. Their lines carry a `[yours]` tag instead of the tutor's
+    The student writes in it too. Their lines carry a `[student]` tag instead of the tutor's
     evidence tag, the extractor may not change them, and the prompt presents them as the
     student's own words rather than the tutor's impressions: the asymmetry between what they told
     us and what a model inferred survives inside the one document. See services/student_profile.py.

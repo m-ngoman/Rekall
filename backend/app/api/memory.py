@@ -14,8 +14,8 @@ from app.services import student_profile
 router = APIRouter(prefix="/api/tutor/memory", tags=["memory"])
 
 _CHANGED_MEANWHILE = (
-    "The tutor updated your profile while you were editing it. This is the latest version: "
-    "make your change again."
+    "Your profile changed since you opened it, so this edit wasn't saved. Load the latest "
+    "version and make it again."
 )
 
 
@@ -86,9 +86,12 @@ def save_profile(request: Request, payload: StudentProfileUpdate, db: Session = 
             db.add(StudentProfile(user_id=user.id, body="", rev=0, passes=0))
             db.flush()
         except IntegrityError:
-            # A memory pass made the row between the read and here.
+            # A memory pass made the row between the read and here. It makes it empty, at rev 0,
+            # so the edit still applies unless the pass has also written to it since.
             db.rollback()
-            raise HTTPException(409, _CHANGED_MEANWHILE) from None
+            row = _row(db, user.id)
+            if row is None or row.rev != rev:
+                raise HTTPException(409, _CHANGED_MEANWHILE) from None
 
     values = {StudentProfile.body: edit.body, StudentProfile.rev: rev + 1}
     if edit.removed:

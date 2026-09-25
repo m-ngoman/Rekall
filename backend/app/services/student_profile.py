@@ -106,9 +106,12 @@ def parse(body: str) -> dict[str, list[Line]]:
 
 
 def parse_line(line: str) -> Line | None:
+    """One line of the document, or None. The text comes back with its spacing squeezed: it is
+    matched by text when the student saves an edit, and a double space the model left in must not
+    make a line they never touched look like one they changed."""
     line = line.strip()
     if m := _YOURS_RE.match(line):
-        return Line(text=m.group("text").strip(), yours=True)
+        return Line(text=" ".join(m.group("text").split()), yours=True)
     m = _LINE_RE.match(line)
     if not m:
         return None
@@ -116,7 +119,21 @@ def parse_line(line: str) -> Line | None:
         latest = date.fromisoformat(m.group("latest"))
     except ValueError:
         return None
-    return Line(text=m.group("text").strip(), sessions=int(m.group("sessions")), latest=latest)
+    return Line(text=" ".join(m.group("text").split()), sessions=int(m.group("sessions")), latest=latest)
+
+
+def _untagged(text: str) -> str:
+    """What a line says, with spacing squeezed and every tag taken off its end.
+
+    Tags are the document's markup, never part of what a line says. A line whose own text ends in
+    something tag-shaped would lose it the first time the student saved the file — the editor
+    shows text without tags, and the save reads one back off — so the tutor's line would come back
+    as a different line, and the student's.
+    """
+    text = " ".join(text.split())
+    while (line := parse_line(f"- {text}")) is not None:
+        text = line.text
+    return text
 
 
 def render(sections: dict[str, list[Line]]) -> str:
@@ -149,6 +166,8 @@ def validate_section_body(body: str) -> tuple[list[Line], str | None]:
             )
         if not one.yours and len(line) > MAX_LINE_CHARS:
             return [], f"This line is {len(line)} characters and the limit is {MAX_LINE_CHARS}: {line[:80]}…"
+        if _untagged(one.text) != one.text:
+            return [], f"A line has exactly one tag, at its end. This one has more: {line[:100]}"
         parsed.append(one)
     ours = sum(1 for one in parsed if not one.yours)
     if ours > MAX_LINES_PER_SECTION:
@@ -195,6 +214,9 @@ def apply_op(
         return None, f"The student deleted this line; never write it again, in any wording: {back[0]}"
 
     sections = parse(current)
+    anywhere = {_key(line.text) for lines_ in sections.values() for line in lines_ if line.yours}
+    if taken := [line.text for line in lines if not line.yours and _key(line.text) in anywhere]:
+        return None, f"The student wrote that line themselves; it is theirs, not yours to add: {taken[0]}"
     theirs = [line.text for line in sections.get(section, []) if line.yours]
     kept = [line.text for line in lines if line.yours]
     if sorted(kept) != sorted(theirs):
@@ -211,9 +233,13 @@ def apply_op(
     if [line.render() for line in sections.get(section, [])] == [line.render() for line in lines]:
         return None, None
 
+    was = render(sections)
     sections[section] = lines
     candidate = render(sections)
-    if len(candidate) > max_chars:
+    # Refused only for growing past the cap. The student's own lines can leave the document over
+    # it (old notes folded in all at once, say), and a pass that shrinks it must still be allowed
+    # to, or the tutor could never tidy its own lines until the student cut theirs.
+    if len(candidate) > max_chars and len(candidate) > len(was):
         return None, (
             f"That would make the profile {len(candidate)} characters and the limit is {max_chars}. "
             "This pass may only shrink a section: merge overlapping lines, or drop what the log no "
@@ -223,13 +249,12 @@ def apply_op(
 
 
 def _plain_text(raw: str) -> str:
-    """One line of an edit as the student typed it: bullet and any tag removed, spaces squeezed."""
-    text = raw.strip()
-    if parsed := parse_line(text if text.startswith("- ") else f"- {text}"):
-        text = parsed.text
-    else:
-        text = re.sub(r"^[-*•]\s*", "", text)
-    return " ".join(text.split())
+    """One line of an edit as the student typed it: bullet and tags removed, spaces squeezed.
+
+    A bullet is a marker followed by a space. Without the space it is part of what they wrote:
+    "-3 is where I slip" and "*Always* show units" keep their first character.
+    """
+    return _untagged(re.sub(r"^[-*•](?:\s+|$)", "", raw.strip()))
 
 
 def plain(body: str) -> str:
@@ -269,15 +294,19 @@ def apply_edit(current: str, edited: str, max_chars: int) -> Edit:
     added as theirs. That is what makes a correction stick — the extractor can't rewrite a
     `[student]` line, and can't bring the original back.
 
-    Lines go under the heading they sit below; a line above every heading, or under one that isn't
-    a section, goes into the first section rather than being lost.
+    Lines go under the heading they sit below, and a line above every heading goes into the first
+    section. A heading that doesn't name a section is kept as a line of text: it is something they
+    typed, and dropping it would lose it without a word.
+
+    Where one of the tutor's lines says exactly what one of theirs does, theirs is what's kept.
     """
     before = parse(current)
     tutors = {line.text: line for lines in before.values() for line in lines if not line.yours}
+    theirs = {line.text for lines in before.values() for line in lines if line.yours}
     # Only a line being written now is held to the length limit. One already there — a long note
     # folded in by the migration, say — stays until the student chooses to change it, rather
     # than blocking every other edit they make.
-    already = set(tutors) | {line.text for lines in before.values() for line in lines if line.yours}
+    already = set(tutors) | theirs
 
     after: dict[str, list[Line]] = {name: [] for name in SECTIONS}
     by_name = {name.lower(): name for name in SECTIONS}
@@ -287,8 +316,10 @@ def apply_edit(current: str, edited: str, max_chars: int) -> Edit:
         stripped = raw.strip()
         if not stripped:
             continue
-        if heading := _EDIT_HEADING_RE.match(stripped):
-            section = by_name.get(" ".join(heading.group("name").split()).lower(), SECTIONS[0])
+        if (heading := _EDIT_HEADING_RE.match(stripped)) and (
+            known := by_name.get(" ".join(heading.group("name").split()).lower())
+        ):
+            section = known
             continue
         text = _plain_text(stripped)
         if not text or text in seen:
@@ -296,7 +327,8 @@ def apply_edit(current: str, edited: str, max_chars: int) -> Edit:
         seen.add(text)
         if len(text) > MAX_YOURS_LINE_CHARS and text not in already:
             return Edit(None, [], f"A line can be at most {MAX_YOURS_LINE_CHARS} characters. This one is {len(text)}: “{text[:60]}…”")
-        after[section].append(tutors.get(text, Line(text=text, yours=True)))
+        mine = Line(text=text, yours=True)
+        after[section].append(mine if text in theirs else tutors.get(text, mine))
 
     removed = [text for text in tutors if text not in seen]
     body, was = render(after), render(before)
@@ -305,7 +337,10 @@ def apply_edit(current: str, edited: str, max_chars: int) -> Edit:
     # Refused only for growing past the cap: a document already over it (the old notes folded in
     # all at once, say) can always be cut down, a step at a time.
     if len(body) > max_chars and len(body) > len(was):
-        return Edit(None, [], f"The profile holds up to {max_chars} characters, and this is {len(body)}. Shorten or remove something.")
+        # Counted in what's stored, tags and all, but the overshoot is what they can act on: cutting
+        # that much of what they see always brings it back under.
+        over = len(body) - max_chars
+        return Edit(None, [], f"That's {over} characters more than your profile can hold. Shorten or remove something.")
     return Edit(body, removed)
 
 
