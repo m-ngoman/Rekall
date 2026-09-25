@@ -17,7 +17,8 @@
 //   - First run opens on a sample question.
 //   - The tutor's memory chip says "Memory", whatever it holds.
 //   - The tutor's memory is one file: its lines and yours together, edited whole, kept across a
-//     reload, and the same file under Settings. An edit that crosses a memory pass is not saved.
+//     reload and a tap outside, and the same file under Settings. An edit that crosses a memory
+//     pass isn't saved over what the pass wrote, but carried onto it.
 //
 // Fixture setup as in check-fixes.mjs: the backend on :8011 with GRADER=stub against the
 // rekall_fixture database, `npm run dev:fixture` on :5199. Each block reseeds the fixture.
@@ -352,28 +353,35 @@ const cardsTab = async (page) => {
   ].join('\n')
   writeProfile(tutors, 1)
   const page = await fresh()
+  const chip = page.getByRole('button', { name: /^Tutor memory/ })
+  const box = page.getByRole('textbox', { name: 'Your profile' })
+  const line = (text) => page.getByText(text, { exact: true }).first()
+  const shown = (text) => line(text).isVisible().catch(() => false)
+  const appears = (text) => line(text).waitFor({ timeout: 5000 }).then(() => true, () => false)
   const openMemory = async () => {
     await page.getByRole('button', { name: 'Tutor', exact: true }).first().click()
-    const chip = page.getByRole('button', { name: /^Tutor memory/ })
     await chip.waitFor({ timeout: 5000 }).catch(() => {})
     await chip.click()
-    await page.waitForTimeout(400)
-    return chip.innerText().catch(() => '')
   }
-  const shown = (text) => page.getByText(text, { exact: true }).first().isVisible().catch(() => false)
 
   await page.goto(APP, { waitUntil: 'networkidle' })
-  const chipText = await openMemory()
-  check('the memory chip counts every line, the tutor\'s and yours', /^Memory\s*3$/.test(chipText.trim()), chipText)
+  await openMemory()
   check(
     'Memory shows its lines and yours in one file',
-    (await shown('When a problem has more than one step, reaches for a formula first.')) && (await shown('Ask me before telling me the answer.')),
+    (await appears('When a problem has more than one step, reaches for a formula first.')) && (await shown('Ask me before telling me the answer.')),
   )
   check('with how often it saw each of its own', await shown('3 sessions'))
-  check('and no separate list of notes', !(await page.getByText(/^(YOUR NOTES|WHAT IT.S NOTICED)$/).count()))
+  const counted = await page.getByRole('button', { name: 'Tutor memory: 3 saved' }).waitFor({ timeout: 5000 }).then(() => true, () => false)
+  check("the memory chip counts every line, the tutor's and yours", counted, await chip.innerText().catch(() => ''))
+
+  // A pass writes while the screen is open. The file is loaded afresh each time Memory opens: an
+  // edit started from the version the screen opened with could never be saved.
+  await chip.click()
+  writeProfile(tutors.replace('## Course and level', `## What helps\n- Draws a diagram first. [2 sessions, latest ${today}]\n\n## Course and level`), 2)
+  await chip.click()
+  check('opening Memory shows what the tutor wrote since the screen opened', await appears('Draws a diagram first.'))
 
   await page.getByRole('button', { name: 'Edit', exact: true }).click()
-  const box = page.getByRole('textbox', { name: 'Your profile' })
   const text = await box.inputValue().catch(() => '')
   check('Edit opens the whole file, headings and all, without the tags', text.includes('## What helps') && text.includes('- Second-year pharmacology.') && !text.includes('['), text)
   await box.fill(
@@ -381,37 +389,40 @@ const cardsTab = async (page) => {
       .replace('- Second-year pharmacology.', '- Third-year pharmacology, resitting.')
       .replace('## What helps', '## What helps\n- Short sessions, with a break.'),
   )
+  // Closed by a tap outside, to copy something from the chat say, the edit is kept.
+  await page.mouse.click(5, 5)
+  await chip.click()
+  check('a tap outside mid-edit keeps the edit', (await box.inputValue().catch(() => '')).includes('- Short sessions, with a break.'))
   await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await page.getByText('Third-year pharmacology, resitting.', { exact: true }).waitFor({ timeout: 5000 }).catch(() => {})
+  await appears('Third-year pharmacology, resitting.')
 
   await page.reload({ waitUntil: 'networkidle' })
   await openMemory()
   check(
     'saved, the edit is there after a reload',
-    (await shown('Third-year pharmacology, resitting.')) && (await shown('Short sessions, with a break.')) && !(await shown('Second-year pharmacology.')),
+    (await appears('Third-year pharmacology, resitting.')) && (await shown('Short sessions, with a break.')) && !(await shown('Second-year pharmacology.')),
   )
   const saved = await get('/api/tutor/memory')
   const lines = saved.sections.flatMap((s) => s.lines)
-  const line = (t) => lines.find((l) => l.text === t)
+  const find = (t) => lines.find((l) => l.text === t)
   check(
     'a reworded line becomes yours, and the tutor keeps the ones left alone',
-    line('Third-year pharmacology, resitting.')?.yours === true &&
-      line('When a problem has more than one step, reaches for a formula first.')?.sessions === 3,
+    find('Third-year pharmacology, resitting.')?.yours === true &&
+      find('When a problem has more than one step, reaches for a formula first.')?.sessions === 3,
     JSON.stringify(lines),
   )
 
-  await page.mouse.click(5, 5) // a tap outside closes the panel
+  await page.mouse.click(5, 5)
   await page.getByRole('button', { name: /^Settings$/ }).first().click()
-  await page.getByText('What the tutor knows about you').waitFor({ timeout: 5000 }).catch(() => {})
   check(
     'Settings shows the same file',
-    (await shown('What the tutor knows about you')) && (await shown('Third-year pharmacology, resitting.')) && (await shown('Ask me before telling me the answer.')),
+    (await appears('Third-year pharmacology, resitting.')) && (await shown('What the tutor knows about you')) && (await shown('Ask me before telling me the answer.')),
   )
 
-  // A memory pass lands while the file is open for editing. Saving would take out what it just
-  // wrote, so the save is refused and the editor reloads the latest version.
+  // A memory pass lands while the file is open for editing. Saving the edit as it stands would take
+  // out what the pass wrote, and mark it removed for good, so it isn't saved: it moves onto the
+  // latest version for another look, and saving that keeps both.
   await page.getByRole('button', { name: 'Edit', exact: true }).click()
-  const settingsBox = page.getByRole('textbox', { name: 'Your profile' })
   const stored = saved.sections
     .map((s) => [`## ${s.name}`, ...s.lines.map((l) => `- ${l.text} ${l.yours ? '[student]' : `[${l.sessions} sessions, latest ${l.latest}]`}`)].join('\n'))
     .join('\n\n')
@@ -419,16 +430,22 @@ const cardsTab = async (page) => {
     stored.replace('## What helps', `## What helps\n- Follows a worked example better than a rule. [2 sessions, latest ${today}]`),
     saved.rev + 1,
   )
-  await settingsBox.fill((await settingsBox.inputValue()) + '\n- Mornings are best.')
+  await box.fill((await box.inputValue()) + '\n- Mornings are best.')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
-  await page.getByText(/while you were editing/).waitFor({ timeout: 5000 }).catch(() => {})
-  const reloaded = await settingsBox.inputValue().catch(() => '')
+  const told = await page.getByText(/changed since you opened it/).waitFor({ timeout: 5000 }).then(() => true, () => false)
+  const carried = await box.inputValue().catch(() => '')
   check(
-    'an edit that crossed a memory pass is refused, with the latest version to redo it on',
-    (await shown("The tutor updated your profile while you were editing it. This is the latest version: make your change again.")) &&
-      reloaded.includes('Follows a worked example better than a rule.') &&
-      !reloaded.includes('Mornings are best.'),
-    reloaded,
+    "an edit that crossed a memory pass isn't saved over it, but carried onto the latest version",
+    told && carried.includes('Follows a worked example better than a rule.') && carried.includes('Mornings are best.'),
+    carried,
+  )
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await appears('Mornings are best.')
+  const after = (await get('/api/tutor/memory')).sections.flatMap((s) => s.lines)
+  check(
+    'and saving that keeps both',
+    after.some((l) => l.text === 'Follows a worked example better than a rule.' && !l.yours) && after.some((l) => l.text === 'Mornings are best.' && l.yours),
+    JSON.stringify(after),
   )
   await page.close()
 }

@@ -132,6 +132,15 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
    * reloads it (see ProfileFile). */
   const [profile, setProfile] = useState<StudentProfile | null>(null)
   const [profileFailed, setProfileFailed] = useState(false)
+  /** Loads the file again. A failure leaves what's on screen: the flag only matters while there
+   * is nothing loaded to show. */
+  const refreshProfile = () =>
+    getStudentProfile()
+      .then((p) => {
+        setProfile(p)
+        setProfileFailed(false)
+      })
+      .catch(() => setProfileFailed(true))
   /** A calendar entry the tutor has offered to add. Held until the student taps Add — the tutor
    * proposes, the student writes. `added` keeps the card in place afterwards so the confirmation
    * is visible rather than the row just vanishing. */
@@ -1086,7 +1095,12 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
             profile={profile}
             profileFailed={profileFailed}
             open={openPopover}
-            onToggle={(which) => setOpenPopover((p) => (p === which ? null : which))}
+            onToggle={(which) => {
+              // The file as it is now, not as it was when the screen opened: a memory pass may
+              // have written to it since, and an edit started from the old one can't be saved.
+              if (which === 'memory' && openPopover !== 'memory') refreshProfile()
+              setOpenPopover((p) => (p === which ? null : which))
+            }}
             onPersonalityChange={handlePersonalityChange}
             onVoiceChange={handleVoiceChange}
             onProfileChange={setProfile}

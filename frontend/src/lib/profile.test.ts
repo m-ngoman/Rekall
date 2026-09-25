@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lineEvidence, profileLineCount } from './profile'
+import { lineEvidence, profileLineCount, rebaseEdit } from './profile'
 import type { ProfileLine, StudentProfile } from '../types'
 
 const tutor = (sessions: number, stale = false): ProfileLine => ({
@@ -35,11 +35,68 @@ describe('lineEvidence', () => {
     expect(lineEvidence(tutor(1))).toBe('1 session')
   })
 
-  it('says when a line has gone quiet', () => {
-    expect(lineEvidence(tutor(2, true))).toMatch(/^2 sessions · hasn't come up since \w+/)
+  it('says when a line has gone quiet, and that the tutor is leaving it out', () => {
+    expect(lineEvidence(tutor(2, true))).toMatch(/^2 sessions · hasn't come up since \w+.*, so it's left out for now$/)
   })
 
   it('has nothing to say about your own lines', () => {
     expect(lineEvidence(mine)).toBeNull()
+  })
+})
+
+describe('rebaseEdit', () => {
+  const SECTIONS = ['How they work', 'What helps', 'Course and level']
+  const base = [
+    '## How they work',
+    '- Reaches for a formula first.',
+    '- Answers fast and checks nothing.',
+    '',
+    '## What helps',
+    '',
+    '## Course and level',
+    '- Second-year biology.',
+  ].join('\n')
+
+  it("keeps what the tutor wrote meanwhile, and adds what you added under its heading", () => {
+    const draft = base.replace('## What helps', '## What helps\n- Short sessions.')
+    const latest = base.replace('## What helps', '## What helps\n- Follows a worked example.')
+    expect(rebaseEdit(base, draft, latest, SECTIONS)).toBe(
+      base.replace('## What helps', '## What helps\n- Follows a worked example.\n- Short sessions.'),
+    )
+  })
+
+  it("takes out what you took out, and doesn't bring back what the tutor did", () => {
+    const draft = base.replace('- Answers fast and checks nothing.\n', '')
+    const latest = base.replace('- Second-year biology.', '- Third-year biology.')
+    const out = rebaseEdit(base, draft, latest, SECTIONS)
+    expect(out).not.toContain('Answers fast')
+    expect(out).toContain('- Third-year biology.')
+    expect(out).not.toContain('Second-year')
+  })
+
+  it('keeps a rewording and a move', () => {
+    const draft = base
+      .replace('- Reaches for a formula first.\n', '')
+      .replace('## What helps', '## What helps\n- Reaches for a formula before reading the question.')
+    const latest = base + '\n- Resitting in spring.'
+    const out = rebaseEdit(base, draft, latest, SECTIONS)
+    expect(out).toBe(
+      [
+        '## How they work',
+        '- Answers fast and checks nothing.',
+        '',
+        '## What helps',
+        '- Reaches for a formula before reading the question.',
+        '',
+        '## Course and level',
+        '- Second-year biology.',
+        '- Resitting in spring.',
+      ].join('\n'),
+    )
+  })
+
+  it('with nothing changed, is the latest version', () => {
+    const latest = base.replace('## What helps', '## What helps\n- Diagrams.')
+    expect(rebaseEdit(base, base, latest, SECTIONS)).toBe(latest)
   })
 })

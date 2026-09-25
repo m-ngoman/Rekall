@@ -71,8 +71,8 @@ hold no card, note or conversation text.</p>
 This is the part most policies bury, so plainly. The AI models are reached through
 <strong>OpenRouter</strong>, which passes each request to the company whose model answers it: at
 present <strong>Anthropic</strong> (Claude) for the tutor, for making cards and for reading your
-uploads, and <strong>Google</strong> (Gemini) for grading answers and for the tutor's notes about
-you.</p>
+uploads, and <strong>Google</strong> (Gemini) for grading answers and for keeping your profile up
+to date.</p>
 <ul>
   <li><strong>Photos and PDFs you upload are sent to an AI provider</strong> to be read — into the
     text of your notes when you add them, and into cards when you generate from them. When you
@@ -88,7 +88,9 @@ you.</p>
     The conversation so far is re-sent each turn, because that is the only way the model can
     follow the thread. Every fourth message you send, the recent part of the conversation is also
     sent to a second, cheaper model, which picks out anything worth remembering about how you study
-    and updates your profile; you can switch that off in Settings.</li>
+    and updates your profile. It is sent your profile too, the observations it has picked out
+    before, and the lines you have taken out of your profile, so that it doesn't write them back.
+    You can switch it off in Settings.</li>
   <li><strong>In voice mode, your speech is sent to a speech-to-text provider</strong>,
     <strong>Deepgram</strong>, and the tutor's replies are sent to a text-to-speech provider,
     <strong>Cartesia</strong> or <strong>Inworld</strong>, to be spoken.</li>
@@ -117,7 +119,8 @@ kept on the same server for 14 days, and OVHcloud keeps its own daily copy of th
 <p>Until you delete it or ask for your account to be removed. Deleting a note, deck or card
 removes it, including the file on disk — except that a card you reported stays copied in its
 report (see above). Tutor conversations can't yet be deleted from inside the app; ask, and they
-will be. To close your account, email the address below — it is done by hand, covering your
+will be. The same goes for the observations your profile is written from, and for the lines you
+take out of it, which are kept word for word so the tutor doesn't write them back. To close your account, email the address below — it is done by hand, covering your
 uploaded files as well as everything in the database, and you get a confirmation when it is
 finished. The usage counts described above are kept afterwards, with nothing linking them to
 you.</p>

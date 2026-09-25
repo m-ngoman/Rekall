@@ -105,9 +105,9 @@ export function getStudentProfile(): Promise<StudentProfile> {
   return request('/tutor/memory')
 }
 
-/** Saves your edit of the whole file. `rev` is the version you started from: if the tutor has
- * rewritten the file since, this fails with a 409 and nothing is saved. Lines you take out of the
- * tutor's are remembered as removed, so it can't write them back. */
+/** Saves your edit of the whole file. `rev` is the version you started from: if the file has
+ * changed since, this fails with a 409 and nothing is saved. A line of the tutor's you take out
+ * is remembered as removed, so it can't put that line back. */
 export function saveStudentProfile(text: string, rev: number): Promise<StudentProfile> {
   return request('/tutor/memory', { method: 'PUT', body: JSON.stringify({ text, rev }) })
 }
