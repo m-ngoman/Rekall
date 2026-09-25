@@ -1,5 +1,5 @@
-"""The tutor's own memory notes: parsing what the model wrote, not writing a note twice, and the pass
-that does both."""
+"""The memory pass: what it does when the model fails or isn't there, and what it may not do to the
+student's profile — write back a line they deleted, or drop or change a line of theirs."""
 
 import json
 import uuid

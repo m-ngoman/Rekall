@@ -59,11 +59,14 @@ const SCREENS = {
     await p.getByRole('button', { name: /Add exam/ }).first().click()
     await p.waitForTimeout(700)
   },
-  // The compact fills: the memory picker's 12px "Add" and the plans screen's 14px buttons.
+  // The compact fills: the memory panel's 12px "Save", behind its Edit, and the plans screen's
+  // 14px buttons.
   'tutor-memory': async (p) => {
     await tab('Tutor')(p)
     await p.getByRole('button', { name: /^Tutor memory/ }).click()
     await p.waitForTimeout(500)
+    await p.getByRole('button', { name: /^(Edit|Write something)$/ }).click()
+    await p.waitForTimeout(300)
   },
   plans: async (p) => {
     await p.getByRole('button', { name: /^Settings$/ }).first().click()

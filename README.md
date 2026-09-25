@@ -118,7 +118,10 @@ frontend/src/
 Beyond grading, the pieces worth a look:
 
 - **Tutor with persistent memory** — [`services/memory_extraction.py`](backend/app/services/memory_extraction.py)
-  reads the conversation in the background for durable facts about the student, and
+  reads the conversation in the background and keeps a short profile of how the student works,
+  written only from patterns it sees across sessions. The student reads and edits that same file,
+  and their own lines are theirs: [`services/student_profile.py`](backend/app/services/student_profile.py)
+  won't let the model change them, or write back a line they took out. And
   [`services/tutor_prompt.py`](backend/app/services/tutor_prompt.py) grounds every turn in the cards
   FSRS says you keep forgetting, so the tutor knows what you keep failing. Prompt assembly puts a
   base layer server-side on every turn, layered under any custom personality rather than replaced

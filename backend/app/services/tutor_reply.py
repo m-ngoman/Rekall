@@ -3,7 +3,8 @@ typed and the spoken turn.
 
 It stores the student's message, sends the conversation to the model, strips the inline markers
 out of what comes back (tutor_markers.py), streams the rest as text or as synthesized sentences,
-bills the speech, stores the reply, and every few turns lets the tutor update its memory notes.
+bills the speech, stores the reply, and every few turns lets the tutor update its profile of the
+student.
 """
 
 from __future__ import annotations

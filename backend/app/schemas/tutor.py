@@ -1,4 +1,4 @@
-"""Tutor sessions, voices, and the tutor's memory notes."""
+"""Tutor sessions, voices, and the student's profile, which is the tutor's memory."""
 
 from __future__ import annotations
 

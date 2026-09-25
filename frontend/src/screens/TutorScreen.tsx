@@ -692,7 +692,7 @@ export default function TutorScreen({ settings, isOwner, onOpenPricing }: Props)
       // Voice mode hides the composer, so an attachment would have nowhere to show and no send
       // button to leave by.
       if (voiceModeActive) return
-      // Pasted into some other field — a memory note, a custom tutor style — belongs to that field.
+      // Pasted into some other field — your profile, a custom tutor style — belongs to that field.
       // The composer, and anywhere that isn't a text field at all, are what this is for.
       const target = e.target as HTMLElement | null
       const editable = target?.closest('input, textarea, [contenteditable="true"]')
