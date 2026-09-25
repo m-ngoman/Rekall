@@ -94,6 +94,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
   // wording: these are early reviews, not the day's.
   const [ahead, setAhead] = useState(false)
   const [later, setLater] = useState(0)
+  const [waiting, setWaiting] = useState(0)
   // The last error was a 402: the panel gets a link to plans instead of just a sentence.
   const [paywall, setPaywall] = useState(false)
   const answerRef = useRef<HTMLTextAreaElement>(null)
@@ -101,6 +102,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
   const startSession = (q: StudyQueue) => {
     setDeckName(q.deck_name)
     setLater(q.later)
+    setWaiting(q.waiting)
     if (q.cards.length === 0) {
       setPhase('empty')
       return
@@ -357,6 +359,19 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
               onClick={onExit}
               className="mt-1.5 flex h-11 items-center text-[0.875rem] font-semibold text-[var(--text-muted)] underline decoration-[var(--rule)] underline-offset-4"
             >
+              Back to Home
+            </button>
+          </div>
+        ) : waiting > 0 ? (
+          // Today's new cards are met and none of them is due again yet (or they were reported):
+          // a deck done for the day, not an empty one, so "add some cards" would be wrong advice.
+          <div>
+            <div className="text-[1.25rem] font-bold leading-snug">Done for today</div>
+            <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">
+              {waiting} new {waiting === 1 ? 'card is' : 'cards are'} still to come in this deck, a
+              day's worth at a time. New cards per day, in Settings, sets how many a day brings.
+            </p>
+            <button onClick={onExit} className="on-accent mt-6 w-full rounded-[var(--r-full)] px-4 py-[0.9375rem] text-[1.1875rem] font-bold leading-[1.2]">
               Back to Home
             </button>
           </div>

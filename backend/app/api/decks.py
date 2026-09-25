@@ -212,11 +212,21 @@ def study_queue(
     prefs = get_settings_row(db, user.id)
 
     now = datetime.now(timezone.utc)
+    today = today_utc()
     live = live_cards(deck)
-    # New cards are left out on purpose: the normal queue already serves every new card the daily
-    # intake allows, so the only new cards left over are ones the user's own setting holds back
-    # until tomorrow.
+    new_cards = [c for c in live if is_new(c)]
+    # New cards up to what is left of the deck's intake for the day. It is a day's allowance, not
+    # a session's: the cards already met today count against it, so studying the deck a second
+    # time today brings back its due cards but no more new ones than the day allows. An upcoming
+    # exam raises the intake to pace the deck's new cards evenly across the days left, so every
+    # card is introduced before the date (see study_plan.intake). A *passed* exam changes nothing
+    # here — pausing only affects the dashboard; manual study always works.
+    left_today = new_card_intake(db, [deck], today, prefs.new_cards_per_day)[deck.id].left
+    # New cards are left out of `later` on purpose: the normal queue already serves every new card
+    # the day's intake allows, so the only new cards left over are the ones it holds back for
+    # later days. Those are counted apart, as `waiting`.
     later = sorted((c for c in live if not is_new(c) and not is_due(c, now)), key=lambda c: c.due or now)
+    waiting = len(new_cards) - left_today
     if ahead:
         return StudyQueueOut(
             deck_id=deck.id,
@@ -226,24 +236,16 @@ def study_queue(
                 for c in later[: prefs.session_size or AHEAD_SESSION]
             ],
             later=len(later),
+            waiting=waiting,
         )
 
     due_cards = [c for c in live if is_due(c, now)]
-    new_cards = [c for c in live if is_new(c)]
     # Most-overdue first, so a session cut short (or trimmed below) spends itself on the cards
     # closest to being forgotten.
     due_cards.sort(key=lambda c: c.due)
     random.shuffle(new_cards)
 
-    # New cards up to what is left of the deck's intake for the day. It is a day's allowance, not
-    # a session's: the cards already met today count against it, so studying the deck a second
-    # time today brings back its due cards but no more new ones than the day allows. An upcoming
-    # exam raises the intake to pace the deck's new cards evenly across the days left, so every
-    # card is introduced before the date (see study_plan.intake). A *passed* exam changes nothing
-    # here — pausing only affects the dashboard; manual study always works.
-    today = today_utc()
     exam = next_exam(deck, today)
-    left_today = new_card_intake(db, [deck], today, prefs.new_cards_per_day)[deck.id].left
     queue = due_cards + new_cards[:left_today]
 
     # session_size trims the combined queue, so due cards are kept in preference to new ones —
@@ -260,6 +262,7 @@ def study_queue(
             for c in queue
         ],
         later=len(later),
+        waiting=waiting,
     )
 
 
