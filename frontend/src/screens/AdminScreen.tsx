@@ -7,6 +7,7 @@ import type { AdminStats } from '../types'
 import { formatDate, formatDayLong, formatNumber, plural } from '../components/admin/format'
 import SectionTitle from '../components/admin/SectionTitle'
 import StatTile from '../components/admin/StatTile'
+import NodeLoader from '../components/NodeLoader'
 import { PLOT_HEIGHT, TrendChart } from '../components/admin/charts'
 import FeatureSection from '../components/admin/FeatureSection'
 import DailyTable from '../components/admin/DailyTable'
@@ -47,7 +48,11 @@ export default function AdminScreen({ onBack }: Props) {
     return (
       <div className="flex flex-col gap-6">
         <BackLink onBack={onBack} />
-        <p className="text-sm text-[var(--text-muted)]">{error ?? 'Loading…'}</p>
+        {error ? (
+          <p className="text-sm text-[var(--text-muted)]">{error}</p>
+        ) : (
+          <NodeLoader label="Loading stats" className="flex justify-center py-12" />
+        )}
       </div>
     )
   }

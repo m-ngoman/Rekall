@@ -4,6 +4,7 @@ import type { Me } from './types'
 import type { Tab } from './lib/route'
 import DesktopSidebar from './components/DesktopSidebar'
 import Logo from './components/Logo'
+import NodeLoader from './components/NodeLoader'
 import TabBar from './components/TabBar'
 import { DEFAULT_ACCENT } from './lib/accent'
 import { useRoute } from './hooks/useRoute'
@@ -97,7 +98,9 @@ export default function App() {
     if (route.kind === 'admin' && me && !me.is_owner) replace({ kind: 'tab', tab: 'settings' })
   }, [route.kind, me, replace])
 
-  if (me === undefined) return null
+  // Signing in is a cookie check, usually over before the mark's delay is, so this is most often
+  // nothing at all. On a slow start it is the mark rather than a blank page.
+  if (me === undefined) return <NodeLoader label="Loading Rekall" className="flex min-h-[100dvh] items-center justify-center" />
   if (me === null) return <SignInScreen error={authError} />
 
   if (settings && settings.onboarded_at === null) {

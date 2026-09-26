@@ -239,6 +239,27 @@ a,
   }
 }
 
+/* The loading mark (NodeLoader). Hidden, and not read out, until its delay has passed — 300ms
+   unless the element says otherwise — so a load quicker than that shows nothing, rather than a mark
+   that flashes. Its box is there from the start, so appearing moves nothing. Under reduced motion
+   the nodes hold still (NodeLoader stops its loop) and only the held node's opacity changes. */
+.node-loader {
+  animation: node-loader-in 200ms ease-out 300ms both;
+}
+@keyframes node-loader-in {
+  from { opacity: 0; visibility: hidden; }
+  to { opacity: 1; visibility: visible; }
+}
+@keyframes node-loader-breathe {
+  from { opacity: 1; }
+  to { opacity: 0.45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .node-loader-held {
+    animation: node-loader-breathe 1800ms ease-in-out infinite alternate;
+  }
+}
+
 /* Word-by-word karaoke in the voice focus view (Tutor). */
 .focus-word,
 .focus-word-idle {

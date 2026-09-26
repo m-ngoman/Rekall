@@ -3,6 +3,7 @@ import { listDecks } from '../api'
 import ActionCard from '../components/ActionCard'
 import DeckTile from '../components/DeckTile'
 import LoadNotice from '../components/LoadNotice'
+import NodeLoader from '../components/NodeLoader'
 import { useCachedResource } from '../hooks/useCachedResource'
 import type { Deck } from '../types'
 import GenerateScreen from './GenerateScreen'
@@ -181,7 +182,7 @@ export default function CardsScreen({ onStudy, onChanged, aiGeneration, onOpenPr
           decksStatus.failed ? (
             <LoadNotice stale={false} what="your decks" onRetry={decksStatus.retry} />
           ) : (
-            <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+            <NodeLoader label="Loading your decks" className="flex justify-center py-12" />
           )
         ) : decks.length === 0 ? (
           <p className="py-6 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">

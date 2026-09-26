@@ -1,6 +1,7 @@
 import { type ChangeEvent, type ReactNode, useRef, useState } from 'react'
 import { uploadNotes, serverDetail } from '../../api'
 import BackButton from '../BackButton'
+import NodeLoader from '../NodeLoader'
 import { CameraIcon, PdfIcon, PhotoIcon } from '../icons'
 import { type NoteDraft, UNFILED } from '../../lib/notes'
 import type { Deck } from '../../types'
@@ -135,20 +136,35 @@ export default function AddNotesPanel({
         Write a note
       </button>
 
-      <div className="mb-3 mt-7 text-[0.8125rem] font-semibold text-[var(--text-muted)]">Or add photos and PDFs</div>
-      <p className="mb-3 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">
-        Each file is kept with the text the AI reads out of it. This doesn't make any flashcards — the Cards tab
-        does that.
-      </p>
+      {/* While the files are read, the mark takes this block's place. It keeps its space, hidden, so
+          the files listed below and the button don't move. */}
+      <div className="relative" aria-busy={busy || undefined}>
+        <div className={busy ? 'invisible' : undefined}>
+          <div className="mb-3 mt-7 text-[0.8125rem] font-semibold text-[var(--text-muted)]">Or add photos and PDFs</div>
+          <p className="mb-3 text-[0.875rem] leading-relaxed text-[var(--text-muted)]">
+            Each file is kept with the text the AI reads out of it. This doesn't make any flashcards — the Cards tab
+            does that.
+          </p>
 
-      <div className="mb-3 grid grid-cols-3 gap-2.5">
-        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={addFiles} />
-        <input ref={libraryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={addFiles} />
-        <input ref={pdfInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={addFiles} />
+          <div className="mb-3 grid grid-cols-3 gap-2.5">
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={addFiles} />
+            <input ref={libraryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={addFiles} />
+            <input ref={pdfInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={addFiles} />
 
-        <SourceButton disabled={busy} onClick={() => cameraInputRef.current?.click()} icon={<CameraIcon />} label="Take a photo" />
-        <SourceButton disabled={busy} onClick={() => libraryInputRef.current?.click()} icon={<PhotoIcon />} label="Choose photos" />
-        <SourceButton disabled={busy} onClick={() => pdfInputRef.current?.click()} icon={<PdfIcon />} label="Choose a PDF" />
+            <SourceButton disabled={busy} onClick={() => cameraInputRef.current?.click()} icon={<CameraIcon />} label="Take a photo" />
+            <SourceButton disabled={busy} onClick={() => libraryInputRef.current?.click()} icon={<PhotoIcon />} label="Choose photos" />
+            <SourceButton disabled={busy} onClick={() => pdfInputRef.current?.click()} icon={<PdfIcon />} label="Choose a PDF" />
+          </div>
+        </div>
+        {busy && (
+          <NodeLoader
+            size={64}
+            delay={0}
+            label="Reading your notes…"
+            showLabel
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+          />
+        )}
       </div>
 
       {files.length > 0 && (
@@ -182,7 +198,7 @@ export default function AddNotesPanel({
           disabled={busy}
           className="w-full rounded-[var(--r-full)] border border-[var(--rule)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
         >
-          {busy ? 'Reading your notes' : `Add ${files.length} note${files.length === 1 ? '' : 's'}`}
+          {`${busy ? 'Adding' : 'Add'} ${files.length} note${files.length === 1 ? '' : 's'}`}
         </button>
       )}
     </div>
