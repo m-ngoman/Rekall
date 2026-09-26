@@ -45,7 +45,7 @@ export default function TutorLog({ messages, replyPending }: { messages: Message
             {replyPending && i === messages.length - 1 && !m.text ? (
               // The mark, in a box one line tall where the first words will land, so they take its
               // place without the row changing height.
-              <NodeLoader size={22} delay={0} label="Thinking" className="flex h-[1.625em] items-center" />
+              <NodeLoader size={24} delay={0} label="Thinking" className="flex h-[1.625em] items-center" />
             ) : (
               <MaybeMath text={m.text} />
             )}

@@ -1,12 +1,11 @@
-/** The Rekall mark's geometry, and how its nodes drift in the loading mark.
+/** The Rekall mark's geometry, and how its nodes float in the loading mark.
  *
  * One set of coordinates for every drawing of the mark in the app: `Logo` draws them still and
- * `NodeLoader` draws them drifting. `public/logo.svg` and the favicon `useSettings` builds are
+ * `NodeLoader` sets them floating. `public/logo.svg` and the favicon `useSettings` builds are
  * static copies of the same numbers, so a change here is a change there too.
  *
- * Pure, with no DOM, so the drift can be tested for the one thing it must never do: close the
- * bright node's two edges up into one. A single edge ending in a round terminus reads as something
- * else entirely (see `Logo`).
+ * Pure, with no DOM, so the motion can be tested: that it stays inside its box, never jumps, and
+ * really does pass nodes in front of each other.
  */
 
 export interface Point {
@@ -39,52 +38,74 @@ export const LOGO_EDGES: readonly (readonly [number, number, number])[] = [
   [1, 3, 5.5],
 ]
 
-/** Each node's own slow path around where it rests: a sine on each axis, amplitudes in viewBox
- * units, periods in ms. The periods don't line up, so the motion never visibly repeats.
- *
- * Each node moves most along its edges rather than across them, so the triangle breathes more than
- * it swings: C mostly sideways (its edge to D is nearly flat), B mostly up and down (its edge to D
- * is steep). D, the held node, moves least and slowest. A, attached to neither of D's edges, is
- * the freest — though not far vertically, since A and C are the closest pair. */
-const PATHS = [
-  { ax: 4, ay: 2.5, px: 4700, py: 3900, fx: 0, fy: 1.9 },
-  { ax: 1.5, ay: 4.5, px: 5300, py: 4300, fx: 2.3, fy: 0.7 },
-  { ax: 4.5, ay: 1.5, px: 4100, py: 5900, fx: 4.1, fy: 3.0 },
-  { ax: 2.5, ay: 2, px: 6700, py: 5100, fx: 1.2, fy: 5.2 },
-] as const
+// --- The loading mark ------------------------------------------------------------------------------
 
-/** How long the drift takes to reach its full size. It starts from the still mark, so the first
+/** The middle of the mark: its nodes span 17.5–101.5 across and 26.5–100.5 down. */
+export const CENTRE: Point = { x: 59.5, y: 63.5 }
+
+/** The loader rests as the logo drawn smaller about its middle, which leaves the nodes room to
+ * float without leaving the box. */
+export const LOADER_SCALE = 0.78
+
+/** The perspective: how far the eye is from the plane the logo sits in, in viewBox units. Nearer
+ * would exaggerate the depth; further would flatten it. */
+export const FOCAL = 150
+
+/** The furthest any node floats toward or away from the eye. */
+export const DEPTH = 22
+
+/** How long the float takes to reach its full size. It starts from the still mark, so the first
  * thing seen is the logo itself. */
-export const DRIFT_EASE_MS = 400
+export const FLOAT_EASE_MS = 2000
 
-/** A small mark drifts a little more, or its motion is lost at a few pixels. Capped here: at twice
- * the drift, D's two edges touch where they leave it. */
-export const MAX_DRIFT_GAIN = 1.5
+/** Each node's own slow path about where it rests, on each axis: [amplitude in viewBox units,
+ * period in ms, phase]. No two periods are shared, so the shape keeps changing and never visibly
+ * repeats, and every node passes in front of every other now and then. */
+const PATHS: readonly (readonly [number, number, number])[][] = [
+  [[10, 7300, 0], [8, 5900, 1.3], [22, 8300, 2.1]],
+  [[9, 6100, 2.4], [10, 7700, 0.4], [20, 9700, 4.0]],
+  [[11, 5300, 4.2], [9, 6700, 2.9], [22, 7100, 0.9]],
+  [[8, 8900, 1.1], [8, 4700, 5.3], [21, 6100, 3.3]],
+]
 
-/** The drift's scale for a mark `sizePx` wide: 1 at 40px and up, rising to the cap for small ones. */
-export function driftGain(sizePx: number): number {
-  return Math.min(MAX_DRIFT_GAIN, Math.max(1, 40 / sizePx))
+/** One node of the loading mark, as drawn this frame. */
+export interface FloatingNode extends Point {
+  r: number
+  /** How much larger perspective draws it than at rest: above 1 nearer the eye, below 1 further. */
+  scale: number
+  /** 0 at the furthest a node goes, 1 at the nearest; 0.5 at rest. */
+  near: number
 }
 
-/** Where the nodes are `t` ms into the drift. At `t` ≤ 0, exactly where the logo has them. */
-export function driftAt(t: number, gain = 1): Point[] {
-  const e = Math.min(Math.max(t / DRIFT_EASE_MS, 0), 1)
-  const scale = gain * e * e * (3 - 2 * e)
+/** Where the loader's nodes are `t` ms into the float, seen in perspective. At `t` ≤ 0 they rest in
+ * the logo's layout. A node coming toward the eye grows and moves out from the middle; one going
+ * away shrinks and moves in. */
+export function floatAt(t: number): FloatingNode[] {
+  const e = Math.min(Math.max(t / FLOAT_EASE_MS, 0), 1)
+  const ease = e * e * (3 - 2 * e)
+  const wave = ([amplitude, period, phase]: readonly [number, number, number]) =>
+    ease * amplitude * Math.sin((2 * Math.PI * t) / period + phase)
   return LOGO_NODES.map((node, i) => {
-    const path = PATHS[i]
+    const [px, py, pz] = PATHS[i]
+    const x = (node.x - CENTRE.x) * LOADER_SCALE + wave(px)
+    const y = (node.y - CENTRE.y) * LOADER_SCALE + wave(py)
+    const z = wave(pz)
+    const scale = FOCAL / (FOCAL - z)
     return {
-      x: node.x + scale * path.ax * Math.sin((2 * Math.PI * t) / path.px + path.fx),
-      y: node.y + scale * path.ay * Math.sin((2 * Math.PI * t) / path.py + path.fy),
+      x: CENTRE.x + x * scale,
+      y: CENTRE.y + y * scale,
+      r: node.r * LOADER_SCALE * scale,
+      scale,
+      near: (z + DEPTH) / (2 * DEPTH),
     }
   })
 }
 
-/** The angle at the held node between its two edges, in degrees. */
-export function heldAngle(points: readonly Point[]): number {
-  const [a, b] = LOGO_EDGES.filter(([from, to]) => from === HELD || to === HELD).map(([from, to]) => (from === HELD ? to : from))
-  const d = points[HELD]
-  const u = { x: points[a].x - d.x, y: points[a].y - d.y }
-  const v = { x: points[b].x - d.x, y: points[b].y - d.y }
-  const cos = (u.x * v.x + u.y * v.y) / (Math.hypot(u.x, u.y) * Math.hypot(v.x, v.y))
-  return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI
+/** The loader at rest: the logo's layout at the loader's scale. */
+export const LOADER_REST: readonly FloatingNode[] = floatAt(0)
+
+/** How opaque something `base`-opaque is drawn at nearness `near`: as the logo has it at rest,
+ * dimmer further away and brighter closer, never below `floor` or above 1. */
+export function depthOpacity(base: number, near: number, floor = 0): number {
+  return Math.min(1, Math.max(floor, base * (1 + 0.6 * (near - 0.5))))
 }

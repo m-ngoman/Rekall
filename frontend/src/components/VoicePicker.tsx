@@ -12,7 +12,7 @@ export default function VoicePicker({ voiceId, voices, onChange }: Props) {
     <div className="w-72 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4">
       <div className="mb-2 text-[0.9375rem] font-bold">Voice</div>
       {voices === null ? (
-        <NodeLoader size={22} label="Loading voices" className="flex py-2" />
+        <NodeLoader size={24} label="Loading voices" className="flex py-2" />
       ) : (
         <div className="flex max-h-64 flex-col overflow-y-auto">
           {voices.map((v, i) => {

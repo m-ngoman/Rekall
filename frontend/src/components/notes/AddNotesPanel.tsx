@@ -158,7 +158,7 @@ export default function AddNotesPanel({
         </div>
         {busy && (
           <NodeLoader
-            size={64}
+            size={80}
             delay={0}
             label="Reading your notes…"
             showLabel
