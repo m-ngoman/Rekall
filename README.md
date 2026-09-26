@@ -249,17 +249,32 @@ loginctl enable-linger "$USER"   # keeps user units running with nobody logged i
 The first run deploys `main` in full, whatever the checkout was on, so the checkout must be on
 `main` or behind it.
 
-Settings go in `~/.config/rekall/deploy.env`, which the script reads as shell: `$PATH` and `$HOME`
-expand, and a value with spaces needs quotes. The ones you might need:
+Settings go in `~/.config/rekall/deploy.env`, one `KEY=value` per line. The script reads the file
+itself and never runs any of it. A value is taken as written, spaces and all, with or without
+quotes, and `$NAME` in it expands, so `$PATH` and `$HOME` work. The ones you might need:
 
-- `REKALL_RESTART="systemctl --user restart my-rekall.service"`, if the backend is restarted some
+- `REKALL_RESTART=systemctl --user restart my-rekall.service`, if the backend is restarted some
   other way. It must go through systemd or another supervisor, since anything the deploy starts
-  itself is stopped when the deploy ends.
+  itself is stopped when the deploy ends. For a system service, that's `sudo systemctl restart
+  <unit>`, with a sudoers rule that lets the user run exactly that without a password.
 - `REKALL_URL=http://127.0.0.1:8080`, if the backend isn't on port 8000.
 - `PATH=$HOME/.nvm/versions/node/<version>/bin:$PATH`, if node comes from nvm.
 
+`scripts/deploy.sh --settings` prints the settings a run would use and deploys nothing.
 `systemctl --user start rekall-deploy` deploys at once, and `scripts/deploy.sh --retry` gives a
 commit that failed one more try.
+
+**A second deploy on the same account**, such as beta from its own checkout of `beta-next`, needs
+its own units and its own settings:
+
+1. Copy both units under new names, such as `rekall-beta-deploy.service` and `.timer`, and point
+   the service's `ExecStart` at that checkout's `scripts/deploy.sh`.
+2. Add `Environment=REKALL_CONFIG=%h/.config/rekall/beta.env` to that service.
+3. In `beta.env`, set `REKALL_BRANCH=beta-next`, and that backend's `REKALL_RESTART` and
+   `REKALL_URL`.
+
+Without `REKALL_CONFIG`, both deploys read `deploy.env`, and the beta one would restart and check
+production's backend.
 
 **Upgrading an install set up before this version:**
 1. Copy `rekall-deploy.service` into `~/.config/systemd/user/` again, and `rekall.service` too if
