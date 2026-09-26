@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { listNotes } from '../../api'
 import BackButton from '../BackButton'
+import NodeLoader from '../NodeLoader'
 import { kindLabel, type NoteGroup, previewText, UNFILED } from '../../lib/notes'
 import type { Note } from '../../types'
 
@@ -86,7 +87,7 @@ export default function NotePicker({
         </div>
       )}
 
-      {notes === null && !error && <p className="text-sm text-[var(--text-muted)]">Loading…</p>}
+      {notes === null && !error && <NodeLoader label="Loading your notes" className="flex justify-center py-12" />}
 
       {notes?.length === 0 && (
         <div className="rounded-[var(--r-md)] border border-dashed border-[var(--rule)] p-10 text-center">

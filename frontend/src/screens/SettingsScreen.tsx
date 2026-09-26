@@ -3,6 +3,7 @@ import { exportUrl, getBillingStatus, logout } from '../api'
 import { ACCENT_PRESETS, DEFAULT_ACCENT, readCustomAccent, writeCustomAccent } from '../lib/accent'
 import Segmented from '../components/Segmented'
 import Notice from '../components/Notice'
+import NodeLoader from '../components/NodeLoader'
 import type { BillingStatus, GradingStrictness, Me, Settings, SettingsPatch, Theme } from '../types'
 import { Row, Section, Stepper, Toggle } from '../components/settings/controls'
 import TutorSection from '../components/settings/TutorSection'
@@ -82,7 +83,11 @@ export default function SettingsScreen({ me, settings, error, onChange, onOpenAd
   })
 
   if (!settings) {
-    return <p className="text-sm text-[var(--text-muted)]">{error ?? 'Loading…'}</p>
+    return error ? (
+      <p className="text-sm text-[var(--text-muted)]">{error}</p>
+    ) : (
+      <NodeLoader label="Loading settings" className="flex justify-center py-12" />
+    )
   }
 
   return (

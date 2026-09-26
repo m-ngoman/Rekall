@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getDashboard, listDecks, listExams } from '../api'
 import DeckTile from '../components/DeckTile'
 import LoadNotice from '../components/LoadNotice'
+import NodeLoader from '../components/NodeLoader'
 import { useCachedResource } from '../hooks/useCachedResource'
 import { daysUntil } from '../lib/dates'
 import { upcomingExams } from '../lib/exams'
@@ -44,10 +45,15 @@ export default function HomeScreen({ onStudy, onGoToCards, onOpenExams, aiGradin
   // on the calendar" on screen for a beat, a statement of absence about something that exists.
   if (!loaded) {
     if (failed) return <LoadNotice stale={false} what="your cards" onRetry={retry} className="mt-4" />
-    // Nothing, in a block the height of the countdown. "Loading…" at the top-left put a line of
-    // text where the eye was already waiting for a number, then reflowed the page out from under
-    // it. Reserving the height means the countdown lands where the placeholder was.
-    return <div aria-busy className="min-h-[268px] lg:min-h-[400px]" />
+    // A block the height of the countdown. "Loading…" at the top-left put a line of text where the
+    // eye was already waiting for a number, then reflowed the page out from under it. Reserving the
+    // height means the countdown lands where the placeholder was. The mark in it shows only after
+    // its delay, so a quick load is still nothing at all.
+    return (
+      <div aria-busy className="flex min-h-[268px] items-center justify-center lg:min-h-[400px]">
+        <NodeLoader label="Loading your cards" />
+      </div>
+    )
   }
 
   const paused = decks.filter((d) => d.exam_paused)

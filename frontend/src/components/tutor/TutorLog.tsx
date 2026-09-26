@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react'
 // assistant message goes through MaybeMath, which loads KaTeX the first time a reply renders.
 // Spoken replies are plain words by instruction, so they pass through unchanged.
 import MaybeMath from '../MaybeMath'
+import NodeLoader from '../NodeLoader'
 import type { Message } from './types'
 
 /** The plot renderer and its parser, as a third lazy chunk. A conversation about history never
@@ -42,10 +43,9 @@ export default function TutorLog({ messages, replyPending }: { messages: Message
         ) : (
           <div key={i} className="max-w-[94%] self-start px-1 text-[0.9375rem] leading-relaxed text-[var(--text)]">
             {replyPending && i === messages.length - 1 && !m.text ? (
-              // Same three dots the voice stage shows while the tutor thinks.
-              <span aria-label="Thinking" className="animate-pulse tracking-[0.35em] text-[var(--text-muted)]">
-                •••
-              </span>
+              // The mark, in a box one line tall where the first words will land, so they take its
+              // place without the row changing height.
+              <NodeLoader size={22} delay={0} label="Thinking" className="flex h-[1.625em] items-center" />
             ) : (
               <MaybeMath text={m.text} />
             )}
