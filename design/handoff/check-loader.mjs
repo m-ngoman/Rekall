@@ -365,6 +365,19 @@ async function pass(theme) {
     await shot(page, 'phone-dark-voices')
     await page.close()
   }
+  {
+    // The Memory chip's panel: the profile file, loading.
+    const page = await fresh()
+    await hold(page, '**/api/tutor/memory', 2500)
+    await page.goto(APP + 'tutor', { waitUntil: 'commit' })
+    await page.getByRole('button', { name: /^Tutor memory/ }).click({ timeout: 10000 })
+    const loader = mark(page, 'Loading your profile')
+    await loader.waitFor({ state: 'attached', timeout: 5000 }).catch(() => {})
+    await sleep(700)
+    check('the Memory chip: a small "Loading your profile"', await seen(loader))
+    await shot(page, 'phone-dark-memory')
+    await page.close()
+  }
 
   // --- Quick loads show nothing ---------------------------------------------------------------------------
   {
