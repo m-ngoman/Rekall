@@ -7,13 +7,16 @@ interface Props {
 }
 
 export default function VoicePicker({ voiceId, voices, onChange }: Props) {
+  // As wide as the composer's chip row on a phone and 288px from sm up. Never taller than the room
+  // above the row, which a short phone with the row on three lines doesn't have for the whole
+  // list: the list is what gives, so the heading stays in view.
   return (
-    <div className="w-72 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4">
+    <div className="flex max-h-[calc(100dvh-16rem)] w-full flex-col rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4 sm:w-72">
       <div className="mb-2 text-[0.9375rem] font-bold">Voice</div>
       {voices === null ? (
         <p className="text-xs text-[var(--text-muted)]">Loading…</p>
       ) : (
-        <div className="flex max-h-64 flex-col overflow-y-auto">
+        <div className="flex max-h-64 min-h-0 flex-col overflow-y-auto">
           {voices.map((v) => {
             // Falls back to the server's own default rather than to the first row. Those were the
             // same voice until the curated list was reordered by preference, at which point a
