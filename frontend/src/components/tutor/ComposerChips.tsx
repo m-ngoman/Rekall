@@ -79,7 +79,8 @@ export default function ComposerChips({
   const memoryCount = profileLineCount(profile)
   return (
     <div className="relative z-20 flex flex-wrap items-end gap-1.5">
-      <div className="relative">
+      {/* Not positioned itself: like the others, its panel is placed from the whole chip row. */}
+      <div>
         <button
           onClick={() => onToggle('personality')}
           aria-label={`Tutor style${session ? ': ' + PERSONALITY_LABELS[session.personality] : ''}`}
@@ -102,19 +103,20 @@ export default function ComposerChips({
           )}
         </button>
         {open === 'personality' && session && (
-          <>
-            <div className="absolute bottom-12 left-0 z-20">
-              <PersonalityPicker
-                personality={session.personality}
-                customPrompt={session.custom_prompt ?? ''}
-                onChange={onPersonalityChange}
-              />
-            </div>
-          </>
+          <div className="absolute bottom-full left-0 right-0 z-20 mb-3 sm:right-auto">
+            <PersonalityPicker
+              personality={session.personality}
+              customPrompt={session.custom_prompt ?? ''}
+              onChange={onPersonalityChange}
+            />
+          </div>
         )}
       </div>
 
-      <div className="relative">
+      {/* Not positioned itself: the panel is placed from the whole chip row. Anchored at this
+          chip, which sits mid-row, the picker ran off the right of a phone's screen, and from a
+          chip on the row's second line it covered the chip above. */}
+      <div>
         <button
           onClick={() => onToggle('voice')}
           aria-label={`Voice${voiceName ? ': ' + voiceName : ''}`}
@@ -125,11 +127,9 @@ export default function ComposerChips({
           {voiceName ? <span className="inline">{voiceName}</span> : null}
         </button>
         {open === 'voice' && session && (
-          <>
-            <div className="absolute bottom-12 left-0 z-20">
-              <VoicePicker voiceId={session.voice_id} voices={voices} onChange={onVoiceChange} />
-            </div>
-          </>
+          <div className="absolute bottom-full left-0 right-0 z-20 mb-3 sm:right-auto">
+            <VoicePicker voiceId={session.voice_id} voices={voices} onChange={onVoiceChange} />
+          </div>
         )}
       </div>
 

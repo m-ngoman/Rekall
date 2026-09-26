@@ -21,8 +21,10 @@ interface Props {
 export default function PersonalityPicker({ personality, customPrompt, onChange }: Props) {
   const [draft, setDraft] = useState(customPrompt)
 
+  // As wide as the composer's chip row on a phone and 288px from sm up. Never taller than the room
+  // above the row: on a short phone with the row on three lines, the five presets ran off the top.
   return (
-    <div className="w-72 rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4">
+    <div className="max-h-[calc(100dvh-16rem)] w-full overflow-y-auto rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4 sm:w-72">
       <div className="mb-2 text-[0.9375rem] font-bold">Personality</div>
       <div className="flex flex-col">
         {PERSONALITY_PRESETS.map((p) => {
