@@ -9,8 +9,7 @@ interface Props {
   disabled?: Tab[]
 }
 
-/** The wordmark is plain text. The accent belongs to the active item, the countdown, the load
- * and the primary action; putting it in the logo would make it decoration. */
+/** The wordmark is plain text beside the mark, which carries the accent (see Logo). */
 export default function DesktopSidebar({ active, onChange, disabled = [] }: Props) {
   const item = (id: Tab, label: string, icon: (color: string) => React.ReactNode, isDisabled = false) => {
     const isActive = id === active

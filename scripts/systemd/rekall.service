@@ -8,7 +8,11 @@ Description=Rekall
 [Service]
 # The backend reads backend/.env relative to where it starts.
 WorkingDirectory=%h/Rekall/backend
-ExecStart=%h/Rekall/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+# uvicorn stops taking connections as soon as it's told to stop, then waits for open streams to
+# end, with no limit of its own. Fifteen seconds bounds how long a restart refuses everyone; the
+# price is that a card generation or tutor reply still streaming then is cut off.
+ExecStart=%h/Rekall/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --timeout-graceful-shutdown 15
+TimeoutStopSec=25
 Restart=on-failure
 
 [Install]

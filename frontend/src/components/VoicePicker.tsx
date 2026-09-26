@@ -1,4 +1,5 @@
 import type { TutorVoice } from '../types'
+import NodeLoader from './NodeLoader'
 
 interface Props {
   voiceId: string | null
@@ -14,7 +15,7 @@ export default function VoicePicker({ voiceId, voices, onChange }: Props) {
     <div className="flex max-h-[calc(100dvh-16rem)] w-full flex-col rounded-[var(--r-md)] border border-[var(--rule)] bg-[var(--surface)] p-4 sm:w-72">
       <div className="mb-2 text-[0.9375rem] font-bold">Voice</div>
       {voices === null ? (
-        <p className="text-xs text-[var(--text-muted)]">Loading…</p>
+        <NodeLoader size={24} label="Loading voices" className="flex py-2" />
       ) : (
         <div className="flex max-h-64 min-h-0 flex-col overflow-y-auto">
           {voices.map((v) => {
