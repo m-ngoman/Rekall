@@ -11,5 +11,9 @@ Type=oneshot
 # script reads itself; see the top of scripts/deploy.sh. Assumes the checkout is ~/Rekall: edit
 # this line if it isn't.
 ExecStart=/bin/bash %h/Rekall/scripts/deploy.sh
+# A second deploy on this account (beta, from its own checkout) is a copy of this unit and the
+# timer under other names, with ExecStart pointing at that checkout, and its own settings named
+# here, so it never reads this deploy's:
+#Environment=REKALL_CONFIG=%h/.config/rekall/beta.env
 # A oneshot waits forever by default. A run stopped by this is picked up and put right by the next.
 TimeoutStartSec=20min

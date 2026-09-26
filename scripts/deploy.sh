@@ -25,6 +25,8 @@
 #   - While a commit waits for main to move on, each run logs one line saying so.
 #     `scripts/deploy.sh --retry` gives it one more try.
 #
+# `scripts/deploy.sh --settings` prints the settings a run would use, and deploys nothing.
+#
 # The first run deploys in full (packages, build, migrations, restart) whatever the checkout was
 # on, since nothing yet says what is running.
 #
@@ -34,9 +36,14 @@
 # leave some migrations applied: most run in one transaction, but one using autocommit_block
 # (ALTER TYPE ... ADD VALUE) commits everything before it. `alembic current` says where it is.
 #
-# Settings, all optional, in ~/.config/rekall/deploy.env. This script reads that file itself, as
-# shell: a hand run gets the settings too, `$PATH` and `$HOME` expand, and a value with spaces
-# needs quotes, as in REKALL_RESTART="systemctl --user restart my-rekall.service".
+# Settings, all optional, in ~/.config/rekall/deploy.env, or in the file REKALL_CONFIG names. A
+# second deploy on the same account (beta, from its own checkout) sets REKALL_CONFIG in its unit,
+# so neither reads the other's REKALL_RESTART or REKALL_URL. This script reads the file itself, so
+# a hand run gets the settings too, and never runs any of it: one KEY=value per line, the value
+# taken as written, spaces and all, quoted or not, with $NAME and ${NAME} expanded. So both
+# `REKALL_RESTART=sudo systemctl restart rekall` and `PATH=$HOME/.nvm/versions/node/v22/bin:$PATH`
+# mean what they say, and a file written for systemd's EnvironmentFile, as the first version of
+# this setup had it, reads the same.
 #   REKALL_BRANCH       the branch to ship (main)
 #   REKALL_RESTART      a command that has the backend's supervisor restart it, and returns
 #                       (systemctl --user restart rekall.service). Not one that starts the server
@@ -47,14 +54,95 @@
 #   PATH                if node or npm come from somewhere only a login shell adds, like nvm
 set -euo pipefail
 
-config="${XDG_CONFIG_HOME:-$HOME/.config}/rekall/deploy.env"
+log() { printf '%s\n' "$*"; }
+
+# A settings value with $NAME and ${NAME} expanded, a name that isn't set to nothing, and, if it was
+# in double quotes, \" \\ \$ and \` read as the character after the backslash. Nothing else: no ~,
+# no $(...), no globs.
+expand_value() {
+  local rest=$1 escapes=$2 out="" plain name
+  while [[ -n $rest ]]; do
+    plain=${rest%%[\\\$]*}
+    out+=$plain
+    rest=${rest:${#plain}}
+    if [[ -z $rest ]]; then
+      break
+    elif [[ $rest == \\* ]]; then
+      if $escapes && [[ ${rest:1:1} == [\"\\\$\`] ]]; then
+        out+=${rest:1:1}
+        rest=${rest:2}
+      else
+        out+='\'
+        rest=${rest:1}
+      fi
+    elif [[ $rest =~ ^\$\{([A-Za-z_][A-Za-z0-9_]*)\}(.*)$ || $rest =~ ^\$([A-Za-z_][A-Za-z0-9_]*)(.*)$ ]]; then
+      name=${BASH_REMATCH[1]}
+      out+=${!name-}
+      rest=${BASH_REMATCH[2]}
+    else
+      out+='$'
+      rest=${rest:1}
+    fi
+  done
+  printf '%s' "$out"
+}
+
+# Puts a settings file's KEY=value lines into the environment without running any of them, reading
+# each the way systemd's EnvironmentFile and a shell both would. Blank lines and ones starting with
+# # or ; are skipped, and an `export ` in front is allowed. A value in "..." or '...' is what's
+# inside; an unquoted one runs to the end of the line, less a " # comment". $NAME expands, except
+# in '...'. A line that isn't KEY=value is reported and skipped, as systemd skips it.
+read_settings() {
+  local file=$1 line key value n=0
+  local assignment='^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$'
+  local ignored='^[[:space:]]*([#;].*)?$'
+  local double='^"((\\.|[^"\\])*)"[[:space:]]*(#.*)?$'
+  local single="^'([^']*)'[[:space:]]*(#.*)?\$"
+  while IFS= read -r line || [[ -n $line ]]; do
+    n=$((n + 1))
+    line=${line%$'\r'}
+    if [[ $line =~ $ignored ]]; then
+      continue
+    elif [[ ! $line =~ $assignment ]]; then
+      log "$file, line $n isn't KEY=value, so it was skipped: $line"
+      continue
+    fi
+    key=${BASH_REMATCH[2]}
+    value=${BASH_REMATCH[3]}
+    if [[ $value == \"* ]]; then
+      if [[ ! $value =~ $double ]]; then
+        log "$file, line $n has no closing \", so it was skipped: $line"
+        continue
+      fi
+      value=$(expand_value "${BASH_REMATCH[1]}" true)
+    elif [[ $value == \'* ]]; then
+      if [[ ! $value =~ $single ]]; then
+        log "$file, line $n has no closing ', so it was skipped: $line"
+        continue
+      fi
+      value=${BASH_REMATCH[1]}
+    else
+      value=${value%%[[:space:]]#*}
+      value=${value%"${value##*[![:space:]]}"}
+      value=$(expand_value "$value" false)
+    fi
+    # One bash keeps to itself (UID, say) can't be set, and trying ends the script even here, so it
+    # is tried in a subshell first: better skipped than stopping every deploy.
+    if (export "$key=$value") 2>/dev/null; then
+      export "$key=$value"
+    else
+      log "$file, line $n sets $key, which can't be set, so it was skipped."
+    fi
+  done <"$file"
+}
+
+# REKALL_CONFIG comes from the environment, the unit's Environment= say, never from the file.
+config="${REKALL_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/rekall/deploy.env}"
 if [[ -f "$config" ]]; then
-  # Without -u while it's read, so a line naming a variable that isn't set (NVM_DIR, say) expands
-  # to nothing rather than stopping every deploy.
-  set -a +u
-  # shellcheck source=/dev/null
-  . "$config"
-  set +a -u
+  read_settings "$config"
+elif [[ -n "${REKALL_CONFIG:-}" ]]; then
+  log "REKALL_CONFIG names $config, which isn't there; not deploying without the settings it holds."
+  exit 1
 fi
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -74,8 +162,6 @@ failed_file="$git_dir/rekall-deploy-failed"       # "<commit> <tries>"
 freeze="$git_dir/rekall-deploy-freeze.txt"        # packages from before a change; kept until restored
 live_assets="$git_dir/rekall-live-assets"         # the files the live build made itself
 next_assets="$git_dir/rekall-next-assets"         # the same, for the build being deployed
-
-log() { printf '%s\n' "$*"; }
 
 pip_quiet() { "$venv/bin/pip" install --quiet --disable-pip-version-check "$@"; }
 
@@ -228,6 +314,17 @@ database_up() {
 
 main() {
   cd "$repo"
+
+  if [[ "${1:-}" == --settings ]]; then
+    log "settings file: $config$([[ -f "$config" ]] || echo ' (none there)')"
+    log "REKALL_BRANCH=$branch"
+    log "REKALL_RESTART=$restart_cmd"
+    log "REKALL_URL=$url"
+    log "REKALL_VENV=$venv"
+    log "REKALL_HEALTH_WAIT=$health_wait"
+    log "PATH=$PATH"
+    return 0
+  fi
 
   # One deploy at a time: the timer never overlaps itself, but a run by hand could.
   exec 9>"$git_dir/rekall-deploy.lock"
