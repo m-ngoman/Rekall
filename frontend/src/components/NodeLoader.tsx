@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { HELD, LOGO_EDGES, LOGO_NODES, driftAt, driftGain, type Point } from '../lib/logo'
+import { HELD, LOADER_REST, LOADER_SCALE, LOGO_EDGES, depthOpacity, floatAt, type FloatingNode } from '../lib/logo'
 
 interface Props {
   /** Pixels, square. */
@@ -16,52 +16,70 @@ interface Props {
 }
 
 /**
- * The loading mark: the Rekall logo, its nodes drifting slowly about where they rest.
+ * The loading mark: the Rekall logo's nodes, each floating on its own in three dimensions.
  *
- * The logo's own colours, never the accent: muted, with the held node in the text colour. Each
- * node follows its own slow path (lib/logo), and the edges are redrawn from the nodes every frame,
- * so they stretch rather than detach. It starts as the still logo and eases into the drift.
+ * In the student's accent, like every drawing of the logo (see Logo). It starts as the logo and
+ * comes apart from there: each node follows its own slow path across and in depth (lib/logo), so
+ * the shape keeps changing and only suggests the logo. Seen in perspective, a node coming nearer
+ * grows, brightens and is drawn over the others; one going away shrinks and dims. The edges follow
+ * their nodes, heavier and brighter where their ends are near.
  *
  * Drawn by writing the SVG's attributes from an animation frame loop, as VoiceOrb draws its canvas:
  * no React render per frame, and browsers pause the loop in a hidden tab. React never touches those
- * attributes again, since the props it rendered them from never change. Under reduced motion there
- * is no loop; the mark holds still and only the held node's opacity changes, slowly (index.css).
+ * attributes again, since the props it rendered them from never change, and never reorders the
+ * circles either, so the loop can move the nearest to the end to paint it last. Under reduced
+ * motion there is no loop; the mark holds still and only the held node's opacity changes, slowly
+ * (index.css).
  *
  * The delay is CSS (`.node-loader`): hidden until then, and not read out, but taking its space from
  * the start, so appearing moves nothing.
  */
-export default function NodeLoader({ size = 40, label = 'Loading', showLabel = false, delay = 300, className = '' }: Props) {
+export default function NodeLoader({ size = 48, label = 'Loading', showLabel = false, delay = 300, className = '' }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
 
   useEffect(() => {
     const svg = svgRef.current
     if (!svg) return
     const lines = svg.querySelectorAll('line')
-    const circles = svg.querySelectorAll('circle')
-    const gain = driftGain(size)
+    // By their own index, not their place: the loop reorders them, and this effect can run again.
+    const circles = LOADER_REST.map((_, i) => svg.querySelector<SVGCircleElement>(`circle[data-node="${i}"]`)!)
+    const layer = circles[0].parentNode!
+    let order = [...layer.children].map((c) => Number(c.getAttribute('data-node')))
 
-    const draw = (points: readonly Point[]) => {
-      LOGO_EDGES.forEach(([from, to], i) => {
-        lines[i].setAttribute('x1', points[from].x.toFixed(2))
-        lines[i].setAttribute('y1', points[from].y.toFixed(2))
-        lines[i].setAttribute('x2', points[to].x.toFixed(2))
-        lines[i].setAttribute('y2', points[to].y.toFixed(2))
+    const draw = (nodes: readonly FloatingNode[]) => {
+      LOGO_EDGES.forEach(([from, to, width], i) => {
+        const [a, b] = [nodes[from], nodes[to]]
+        lines[i].setAttribute('x1', a.x.toFixed(2))
+        lines[i].setAttribute('y1', a.y.toFixed(2))
+        lines[i].setAttribute('x2', b.x.toFixed(2))
+        lines[i].setAttribute('y2', b.y.toFixed(2))
+        lines[i].setAttribute('stroke-width', (width * LOADER_SCALE * ((a.scale + b.scale) / 2)).toFixed(2))
+        lines[i].setAttribute('stroke-opacity', depthOpacity(0.42, (a.near + b.near) / 2).toFixed(3))
       })
-      points.forEach((point, i) => {
-        circles[i].setAttribute('cx', point.x.toFixed(2))
-        circles[i].setAttribute('cy', point.y.toFixed(2))
+      nodes.forEach((node, i) => {
+        circles[i].setAttribute('cx', node.x.toFixed(2))
+        circles[i].setAttribute('cy', node.y.toFixed(2))
+        circles[i].setAttribute('r', node.r.toFixed(2))
+        // The held node stays the brightest thing in the mark, however far back it goes.
+        circles[i].setAttribute('fill-opacity', (i === HELD ? depthOpacity(1, node.near, 0.85) : depthOpacity(0.58, node.near)).toFixed(3))
       })
+      // Furthest first, so the nearest is painted over the rest.
+      const byDepth = nodes.map((_, i) => i).sort((a, b) => nodes[a].near - nodes[b].near)
+      if (byDepth.some((n, k) => n !== order[k])) {
+        for (const n of byDepth) layer.appendChild(circles[n])
+        order = byDepth
+      }
     }
 
     let frame = 0
     let last: number | null = null
-    // Counts from the moment the mark appears, so the drift begins as it fades in.
+    // Counts from the moment the mark appears, so the float begins as it fades in.
     let clock = -delay
     const tick = (now: number) => {
       // A hidden tab stops the loop; on the way back, carry on rather than leap ahead.
       if (last !== null) clock += Math.min(now - last, 64)
       last = now
-      if (clock > 0) draw(driftAt(clock, gain))
+      if (clock > 0) draw(floatAt(clock))
       frame = requestAnimationFrame(tick)
     }
 
@@ -70,7 +88,7 @@ export default function NodeLoader({ size = 40, label = 'Loading', showLabel = f
       cancelAnimationFrame(frame)
       last = null
       if (reduce?.matches) {
-        draw(LOGO_NODES)
+        draw(LOADER_REST)
         return
       }
       // Turned back on mid-wait, it eases in again from the still mark.
@@ -83,7 +101,7 @@ export default function NodeLoader({ size = 40, label = 'Loading', showLabel = f
       cancelAnimationFrame(frame)
       reduce?.removeEventListener?.('change', start)
     }
-  }, [size, delay])
+  }, [delay])
 
   return (
     <span role="status" className={`node-loader ${className}`} style={{ animationDelay: `${delay}ms` }}>
@@ -95,22 +113,32 @@ export default function NodeLoader({ size = 40, label = 'Loading', showLabel = f
         fill="none"
         aria-hidden="true"
         className="block flex-shrink-0"
-        style={{ color: 'var(--text-muted)' }}
+        style={{ color: 'var(--accent)' }}
       >
         <g stroke="currentColor" strokeOpacity={0.42} strokeLinecap="round">
           {LOGO_EDGES.map(([from, to, width], i) => (
-            <line key={i} x1={LOGO_NODES[from].x} y1={LOGO_NODES[from].y} x2={LOGO_NODES[to].x} y2={LOGO_NODES[to].y} strokeWidth={width} />
+            <line
+              key={i}
+              x1={LOADER_REST[from].x}
+              y1={LOADER_REST[from].y}
+              x2={LOADER_REST[to].x}
+              y2={LOADER_REST[to].y}
+              strokeWidth={width * LOADER_SCALE}
+            />
           ))}
         </g>
         <g fill="currentColor">
-          {LOGO_NODES.map((node, i) =>
-            i === HELD ? (
-              // The one thing held, in the text colour, as the design handoff has the mark.
-              <circle key={i} cx={node.x} cy={node.y} r={node.r} className="node-loader-held" style={{ fill: 'var(--text)' }} />
-            ) : (
-              <circle key={i} cx={node.x} cy={node.y} r={node.r} fillOpacity={0.58} />
-            ),
-          )}
+          {LOADER_REST.map((node, i) => (
+            <circle
+              key={i}
+              data-node={i}
+              cx={node.x}
+              cy={node.y}
+              r={node.r}
+              fillOpacity={i === HELD ? undefined : 0.58}
+              className={i === HELD ? 'node-loader-held' : undefined}
+            />
+          ))}
         </g>
       </svg>
       <span

@@ -571,7 +571,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
               ) : (
                 // Until the first words: a box one line tall, so they take its place without the
                 // column moving. Then the caret, where the next ones will land.
-                <NodeLoader size={22} delay={0} label="Checking your answer" className="flex h-[1.625em] items-center" />
+                <NodeLoader size={24} delay={0} label="Checking your answer" className="flex h-[1.625em] items-center" />
               ))}
           </p>
           {/* Phone: what you wrote, three lines of it, and the model answer one tap below. The

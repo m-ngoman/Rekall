@@ -46,7 +46,7 @@ export default function OnboardingScreen({ onChange, onFinish }: Props) {
     <div className="flex min-h-[70vh] flex-col justify-center">
       <div className="rounded-[var(--r-md)] bg-[var(--surface)] px-7 py-12 text-center">
         <div className="mb-5 flex justify-center">
-          <Logo size={92} color="var(--text)" />
+          <Logo size={92} />
         </div>
         <h1 className="mb-2 text-[1.375rem] font-bold tracking-tight">Welcome to Rekall</h1>
         <p className="mx-auto mb-7 max-w-sm text-[0.9375rem] leading-relaxed text-[var(--text-muted)]">

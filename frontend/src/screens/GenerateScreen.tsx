@@ -322,7 +322,7 @@ export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Prop
         </div>
         {busy && (
           <NodeLoader
-            size={64}
+            size={80}
             delay={0}
             label={stage || 'Generating'}
             showLabel
