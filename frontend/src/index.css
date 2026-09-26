@@ -242,7 +242,7 @@ a,
 /* The loading mark (NodeLoader). Hidden, and not read out, until its delay has passed — 300ms
    unless the element says otherwise — so a load quicker than that shows nothing, rather than a mark
    that flashes. Its box is there from the start, so appearing moves nothing. Under reduced motion
-   the nodes hold still (NodeLoader stops its loop) and only the held node's opacity changes. */
+   the nodes hold still (NodeLoader stops its loop) and only the bright node's opacity changes. */
 .node-loader {
   animation: node-loader-in 200ms ease-out 300ms both;
 }
@@ -255,7 +255,7 @@ a,
   to { opacity: 0.45; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .node-loader-held {
+  .node-loader-bright {
     animation: node-loader-breathe 1800ms ease-in-out infinite alternate;
   }
 }

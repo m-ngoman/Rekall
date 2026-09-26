@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { HELD, LOADER_REST, LOADER_SCALE, LOGO_EDGES, depthOpacity, floatAt, type FloatingNode } from '../lib/logo'
+import { BRIGHT, LOADER_REST, PAIRS, depthOpacity, floatAt, linksAt, sizeBoost, type FloatingNode } from '../lib/loader'
 
 interface Props {
   /** Pixels, square. */
@@ -15,20 +15,39 @@ interface Props {
   className?: string
 }
 
+/** A dim node's opacity and a full link's, half way back, as the logo draws its nodes and edges. */
+const DIM = 0.58
+const LINK = 0.42
+/** A link's stroke width at rest depth, in viewBox units: finer than the logo's edges, since there
+ * are more of them. */
+const LINK_WIDTH = 4
+
+const REST_LINKS = linksAt(LOADER_REST)
+/** Furthest first, so the nearest is painted over the rest. */
+const byDepth = (nodes: readonly FloatingNode[]) => nodes.map((_, i) => i).sort((a, b) => nodes[a].near - nodes[b].near)
+const nodeOpacity = (node: FloatingNode, i: number) =>
+  // The bright node stays the brightest thing in the mark, however far back it goes.
+  i === BRIGHT ? depthOpacity(1, node.near, 0.85) : depthOpacity(DIM, node.near)
+const linkWidth = (a: FloatingNode, b: FloatingNode) => LINK_WIDTH * ((a.scale + b.scale) / 2)
+const linkOpacity = (strength: number, a: FloatingNode, b: FloatingNode) => strength * depthOpacity(LINK, (a.near + b.near) / 2)
+
 /**
- * The loading mark: the Rekall logo's nodes, each floating on its own in three dimensions.
+ * The loading mark: a handful of nodes floating through each other in three dimensions, linked
+ * while they are near.
  *
- * In the student's accent, like every drawing of the logo (see Logo). It starts as the logo and
- * comes apart from there: each node follows its own slow path across and in depth (lib/logo), so
- * the shape keeps changing and only suggests the logo. Seen in perspective, a node coming nearer
- * grows, brightens and is drawn over the others; one going away shrinks and dims. The edges follow
- * their nodes, heavier and brighter where their ends are near.
+ * In the student's accent, like every drawing of the logo (see Logo), and in its language, dim nodes
+ * around one bright one, without its shape. Each node follows its own slow path through the middle
+ * (lib/loader), so they pass in front of, behind and through each other and the whole never repeats.
+ * Seen in perspective, a node coming nearer grows, brightens and is drawn over the others; one going
+ * away shrinks and dims. Two nodes that come near each other are linked, the link fading in as they
+ * close and out as they part. A small mark draws its nodes and links larger (sizeBoost), so the
+ * 24px one inline in a reply still reads as nodes rather than specks.
  *
  * Drawn by writing the SVG's attributes from an animation frame loop, as VoiceOrb draws its canvas:
  * no React render per frame, and browsers pause the loop in a hidden tab. React never touches those
  * attributes again, since the props it rendered them from never change, and never reorders the
  * circles either, so the loop can move the nearest to the end to paint it last. Under reduced
- * motion there is no loop; the mark holds still and only the held node's opacity changes, slowly
+ * motion there is no loop; the mark holds still and only the bright node's opacity changes, slowly
  * (index.css).
  *
  * The delay is CSS (`.node-loader`): hidden until then, and not read out, but taking its space from
@@ -36,6 +55,7 @@ interface Props {
  */
 export default function NodeLoader({ size = 48, label = 'Loading', showLabel = false, delay = 300, className = '' }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const boost = sizeBoost(size)
 
   useEffect(() => {
     const svg = svgRef.current
@@ -47,27 +67,26 @@ export default function NodeLoader({ size = 48, label = 'Loading', showLabel = f
     let order = [...layer.children].map((c) => Number(c.getAttribute('data-node')))
 
     const draw = (nodes: readonly FloatingNode[]) => {
-      LOGO_EDGES.forEach(([from, to, width], i) => {
+      const links = linksAt(nodes)
+      PAIRS.forEach(([from, to], i) => {
         const [a, b] = [nodes[from], nodes[to]]
         lines[i].setAttribute('x1', a.x.toFixed(2))
         lines[i].setAttribute('y1', a.y.toFixed(2))
         lines[i].setAttribute('x2', b.x.toFixed(2))
         lines[i].setAttribute('y2', b.y.toFixed(2))
-        lines[i].setAttribute('stroke-width', (width * LOADER_SCALE * ((a.scale + b.scale) / 2)).toFixed(2))
-        lines[i].setAttribute('stroke-opacity', depthOpacity(0.42, (a.near + b.near) / 2).toFixed(3))
+        lines[i].setAttribute('stroke-width', (linkWidth(a, b) * boost).toFixed(2))
+        lines[i].setAttribute('stroke-opacity', linkOpacity(links[i], a, b).toFixed(3))
       })
       nodes.forEach((node, i) => {
         circles[i].setAttribute('cx', node.x.toFixed(2))
         circles[i].setAttribute('cy', node.y.toFixed(2))
-        circles[i].setAttribute('r', node.r.toFixed(2))
-        // The held node stays the brightest thing in the mark, however far back it goes.
-        circles[i].setAttribute('fill-opacity', (i === HELD ? depthOpacity(1, node.near, 0.85) : depthOpacity(0.58, node.near)).toFixed(3))
+        circles[i].setAttribute('r', (node.r * boost).toFixed(2))
+        circles[i].setAttribute('fill-opacity', nodeOpacity(node, i).toFixed(3))
       })
-      // Furthest first, so the nearest is painted over the rest.
-      const byDepth = nodes.map((_, i) => i).sort((a, b) => nodes[a].near - nodes[b].near)
-      if (byDepth.some((n, k) => n !== order[k])) {
-        for (const n of byDepth) layer.appendChild(circles[n])
-        order = byDepth
+      const next = byDepth(nodes)
+      if (next.some((n, k) => n !== order[k])) {
+        for (const n of next) layer.appendChild(circles[n])
+        order = next
       }
     }
 
@@ -91,7 +110,7 @@ export default function NodeLoader({ size = 48, label = 'Loading', showLabel = f
         draw(LOADER_REST)
         return
       }
-      // Turned back on mid-wait, it eases in again from the still mark.
+      // Turned back on mid-wait, it carries on from the still frame it was holding.
       clock = Math.min(clock, 0)
       frame = requestAnimationFrame(tick)
     }
@@ -101,7 +120,7 @@ export default function NodeLoader({ size = 48, label = 'Loading', showLabel = f
       cancelAnimationFrame(frame)
       reduce?.removeEventListener?.('change', start)
     }
-  }, [delay])
+  }, [delay, boost])
 
   return (
     <span role="status" className={`node-loader ${className}`} style={{ animationDelay: `${delay}ms` }}>
@@ -115,28 +134,34 @@ export default function NodeLoader({ size = 48, label = 'Loading', showLabel = f
         className="block flex-shrink-0"
         style={{ color: 'var(--accent)' }}
       >
-        <g stroke="currentColor" strokeOpacity={0.42} strokeLinecap="round">
-          {LOGO_EDGES.map(([from, to, width], i) => (
-            <line
-              key={i}
-              x1={LOADER_REST[from].x}
-              y1={LOADER_REST[from].y}
-              x2={LOADER_REST[to].x}
-              y2={LOADER_REST[to].y}
-              strokeWidth={width * LOADER_SCALE}
-            />
-          ))}
+        <g stroke="currentColor" strokeLinecap="round">
+          {PAIRS.map(([from, to], i) => {
+            const [a, b] = [LOADER_REST[from], LOADER_REST[to]]
+            return (
+              <line
+                key={i}
+                data-a={from}
+                data-b={to}
+                x1={a.x}
+                y1={a.y}
+                x2={b.x}
+                y2={b.y}
+                strokeWidth={linkWidth(a, b) * boost}
+                strokeOpacity={linkOpacity(REST_LINKS[i], a, b)}
+              />
+            )
+          })}
         </g>
         <g fill="currentColor">
-          {LOADER_REST.map((node, i) => (
+          {byDepth(LOADER_REST).map((i) => (
             <circle
               key={i}
               data-node={i}
-              cx={node.x}
-              cy={node.y}
-              r={node.r}
-              fillOpacity={i === HELD ? undefined : 0.58}
-              className={i === HELD ? 'node-loader-held' : undefined}
+              cx={LOADER_REST[i].x}
+              cy={LOADER_REST[i].y}
+              r={LOADER_REST[i].r * boost}
+              fillOpacity={nodeOpacity(LOADER_REST[i], i)}
+              className={i === BRIGHT ? 'node-loader-bright' : undefined}
             />
           ))}
         </g>
