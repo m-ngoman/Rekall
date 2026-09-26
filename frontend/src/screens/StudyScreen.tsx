@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import BackButton from '../components/BackButton'
 import MaybeMath from '../components/MaybeMath'
+import NodeLoader from '../components/NodeLoader'
 import Notice from '../components/Notice'
 import { PaymentRequired, addToStudyList, getStudyQueue, listExams, reportCard, revealAnswer, submitReviewStream, submitSelfAssessedReview, unreportCard } from '../api'
 
@@ -299,7 +300,7 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
   const left = queue.length + (current ? 1 : 0)
   const nextExam = upcomingExams(exams.filter((e) => e.deck_ids.includes(deckId)))[0]
 
-  if (phase === 'loading') return <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+  if (phase === 'loading') return <NodeLoader label="Loading this deck" className="flex justify-center py-16" />
 
   const header = (
     <div>
@@ -564,7 +565,14 @@ export default function StudyScreen({ deckId, onExit, aiGrading, aiTutor, onOpen
           )}
           <p className={`text-[0.9375rem] leading-relaxed [text-wrap:pretty] ${graded ? 'mt-4' : ''}`}>
             <MaybeMath text={streamedExplanation} math={current.is_math} />
-            {phase === 'grading' && <span className="ml-0.5 inline-block h-[18px] w-[2px] align-text-bottom bg-[var(--accent)]" />}
+            {phase === 'grading' &&
+              (streamedExplanation ? (
+                <span className="ml-0.5 inline-block h-[18px] w-[2px] align-text-bottom bg-[var(--accent)]" />
+              ) : (
+                // Until the first words: a box one line tall, so they take its place without the
+                // column moving. Then the caret, where the next ones will land.
+                <NodeLoader size={24} delay={0} label="Checking your answer" className="flex h-[1.625em] items-center" />
+              ))}
           </p>
           {/* Phone: what you wrote, three lines of it, and the model answer one tap below. The
               desktop rail shows the pair side by side; a phone used to show only the clipped half

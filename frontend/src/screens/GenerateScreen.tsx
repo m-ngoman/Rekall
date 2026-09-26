@@ -3,6 +3,7 @@ import { PaymentRequired, generateDeck, generateDeckFromNotes, generateDeckFromT
 import ActionCard from '../components/ActionCard'
 import BackButton from '../components/BackButton'
 import MaybeMath from '../components/MaybeMath'
+import NodeLoader from '../components/NodeLoader'
 import Segmented from '../components/Segmented'
 import { errorMessage } from '../lib/errors'
 import { CameraIcon, PdfIcon, PhotoIcon } from '../components/icons'
@@ -265,54 +266,70 @@ export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Prop
       <input ref={libraryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => addImages(e.target.files)} />
       <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => setPdf(e.target.files)} />
 
-      {byTopic ? (
-        // Labels above the fields, not only in the placeholders: a placeholder is gone the moment
-        // you type, and four unlabelled boxes of your own words don't say which was which.
-        <div className="mb-5 flex flex-col gap-3">
-          <Labeled label="Subject">
-            <input autoFocus value={subject} onChange={(e) => setSubject(e.target.value)} disabled={busy} maxLength={80}
-              placeholder="Chemistry, History…" className={FIELD_CLASS} />
-          </Labeled>
-          <Labeled label="Topic">
-            <input value={topic} onChange={(e) => setTopic(e.target.value)} disabled={busy} maxLength={120}
-              placeholder="What you're studying right now" className={FIELD_CLASS} />
-          </Labeled>
-          <Labeled label="Level (optional)">
-            <input value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} disabled={busy} maxLength={60}
-              placeholder="Grade 11, IB HL…" className={FIELD_CLASS} />
-          </Labeled>
-          {/* A textarea, because the useful thing to put here is a pasted unit list. A board's
-              name alone is the input most likely to be half-known and confabulated around. */}
-          <Labeled label="Curriculum or syllabus (optional)">
-            <textarea value={curriculum} onChange={(e) => setCurriculum(e.target.value)} disabled={busy} rows={3} maxLength={2000}
-              placeholder="Paste your unit list if you have one"
-              className="w-full resize-none rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 py-2.5 text-[0.9375rem] leading-relaxed outline-none placeholder:text-[var(--text-muted)]" />
-          </Labeled>
-          <p className="text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">
-            {targetDeckId && targetDeckId !== NAME_IT
-              ? 'Cards will follow the notes already in that deck where they cover this topic.'
-              : 'Pick an existing deck above and any notes in it will be used, so the cards match what you were taught.'}
-          </p>
+      {/* While the deck is made, the mark takes the inputs' place, with the stage it's at written
+          under it. The inputs keep their space, hidden, so nothing below them moves, and they
+          come back as they were if the run fails. */}
+      <div className="relative" aria-busy={busy || undefined}>
+        <div className={busy ? 'invisible' : undefined}>
+          {byTopic ? (
+            // Labels above the fields, not only in the placeholders: a placeholder is gone the moment
+            // you type, and four unlabelled boxes of your own words don't say which was which.
+            <div className="mb-5 flex flex-col gap-3">
+              <Labeled label="Subject">
+                <input autoFocus value={subject} onChange={(e) => setSubject(e.target.value)} disabled={busy} maxLength={80}
+                  placeholder="Chemistry, History…" className={FIELD_CLASS} />
+              </Labeled>
+              <Labeled label="Topic">
+                <input value={topic} onChange={(e) => setTopic(e.target.value)} disabled={busy} maxLength={120}
+                  placeholder="What you're studying right now" className={FIELD_CLASS} />
+              </Labeled>
+              <Labeled label="Level (optional)">
+                <input value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} disabled={busy} maxLength={60}
+                  placeholder="Grade 11, IB HL…" className={FIELD_CLASS} />
+              </Labeled>
+              {/* A textarea, because the useful thing to put here is a pasted unit list. A board's
+                  name alone is the input most likely to be half-known and confabulated around. */}
+              <Labeled label="Curriculum or syllabus (optional)">
+                <textarea value={curriculum} onChange={(e) => setCurriculum(e.target.value)} disabled={busy} rows={3} maxLength={2000}
+                  placeholder="Paste your unit list if you have one"
+                  className="w-full resize-none rounded-[var(--r-sm)] bg-[var(--surface)] px-3.5 py-2.5 text-[0.9375rem] leading-relaxed outline-none placeholder:text-[var(--text-muted)]" />
+              </Labeled>
+              <p className="text-[0.8125rem] leading-relaxed text-[var(--text-muted)]">
+                {targetDeckId && targetDeckId !== NAME_IT
+                  ? 'Cards will follow the notes already in that deck where they cover this topic.'
+                  : 'Pick an existing deck above and any notes in it will be used, so the cards match what you were taught.'}
+              </p>
+            </div>
+          ) : (
+            // The four sources are rows on one surface, same as the ways in on the Cards tab.
+            <div className="mb-3 rounded-[var(--r-md)] bg-[var(--surface)] [&>*+*]:border-t [&>*+*]:border-[var(--rule)]">
+              <ActionCard onClick={() => cameraInputRef.current?.click()} disabled={busy} title="Take a photo" description="Point the camera at a page of notes" icon={<CameraIcon />} />
+              <ActionCard onClick={() => libraryInputRef.current?.click()} disabled={busy} title="Choose photos" description="From your photo library" icon={<PhotoIcon />} />
+              <ActionCard onClick={() => pdfInputRef.current?.click()} disabled={busy} title="Choose a PDF" description="Lecture slides, a handout, a chapter" icon={<PdfIcon />} />
+              <ActionCard
+                onClick={() => setPicking(true)}
+                disabled={busy}
+                title="Use saved notes"
+                description={
+                  pickedNotes.length > 0
+                    ? `${pickedNotes.length} note${pickedNotes.length === 1 ? '' : 's'} chosen. Tap to change.`
+                    : 'Build cards from what is already in your library'
+                }
+                icon={NOTES_ICON}
+              />
+            </div>
+          )}
         </div>
-      ) : (
-        // The four sources are rows on one surface, same as the ways in on the Cards tab.
-        <div className="mb-3 rounded-[var(--r-md)] bg-[var(--surface)] [&>*+*]:border-t [&>*+*]:border-[var(--rule)]">
-          <ActionCard onClick={() => cameraInputRef.current?.click()} disabled={busy} title="Take a photo" description="Point the camera at a page of notes" icon={<CameraIcon />} />
-          <ActionCard onClick={() => libraryInputRef.current?.click()} disabled={busy} title="Choose photos" description="From your photo library" icon={<PhotoIcon />} />
-          <ActionCard onClick={() => pdfInputRef.current?.click()} disabled={busy} title="Choose a PDF" description="Lecture slides, a handout, a chapter" icon={<PdfIcon />} />
-          <ActionCard
-            onClick={() => setPicking(true)}
-            disabled={busy}
-            title="Use saved notes"
-            description={
-              pickedNotes.length > 0
-                ? `${pickedNotes.length} note${pickedNotes.length === 1 ? '' : 's'} chosen. Tap to change.`
-                : 'Build cards from what is already in your library'
-            }
-            icon={NOTES_ICON}
+        {busy && (
+          <NodeLoader
+            size={80}
+            delay={0}
+            label={stage || 'Generating'}
+            showLabel
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3"
           />
-        </div>
-      )}
+        )}
+      </div>
 
       {!byTopic && staged.length > 0 && (
         <div className="mb-5 flex flex-col border-t border-[var(--rule)]">
@@ -347,7 +364,7 @@ export default function GenerateScreen({ onDone, onCancel, onOpenPricing }: Prop
         disabled={busy || (byTopic ? !subject.trim() || !topic.trim() : files.length === 0 && pickedNotes.length === 0)}
         className="on-accent w-full rounded-[var(--r-full)] py-4 text-[1.0625rem] font-bold disabled:opacity-50"
       >
-        {busy ? stage || 'Generating' : 'Generate flashcards'}
+        {busy ? 'Generating' : 'Generate flashcards'}
       </button>
     </div>
   )

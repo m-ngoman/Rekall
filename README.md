@@ -207,31 +207,69 @@ moving live data, so they've been left alone.
 ## Deploying
 
 Merging to `main` is the release. On the server, a systemd timer runs
-[`scripts/deploy.sh`](scripts/deploy.sh) every five minutes. When `main` has moved, the script
-fast-forwards the checkout, installs, builds the frontend beside the live one, runs the
-migrations, swaps the new build in and restarts the backend, then checks that `/health` and `/`
-answer. If anything fails before the restart, the running app is left as it was. If the restart
-doesn't come up healthy, it is rolled back to the previous commit, keeping any migrations the new
-commit ran. Either way, that commit isn't retried until `main` moves again, and
-`journalctl --user -u rekall-deploy` says what happened.
+[`scripts/deploy.sh`](scripts/deploy.sh) every five minutes. When `main` has moved, the script:
+
+1. fast-forwards the checkout;
+2. installs;
+3. builds the frontend beside the live one;
+4. runs the migrations;
+5. swaps the new build in and restarts the backend;
+6. checks that a newly started backend answers `/health` and `/`.
+
+If something goes wrong:
+
+- **A failure before the restart:** the old backend and build keep serving. The commit gets three
+  tries, five minutes apart.
+- **A restart that doesn't come up healthy:** it rolls back to the previous commit, build and
+  Python packages. That commit isn't tried again until `main` moves, since each try is an
+  outage.
+- **An interrupted deploy** (a timeout, a reboot): the next run notices and puts things right.
+- **A checkout moved by hand:** nothing deploys until you run `scripts/deploy.sh --adopt`, which
+  takes the checkout as what's running.
+
+`journalctl --user -u rekall-deploy` says what happened. Migrations are never undone
+automatically, so after a rollback, fix forward on `main` rather than reverting: a revert removes
+a revision the database is already at, and alembic then refuses every deploy.
 
 One-time setup on the server, as the user that runs Rekall, from the checkout:
+
+1. Make sure the checkout can fetch from GitHub unattended: a read-only deploy key without a
+   passphrase, or a token in git's credential store.
+2. Install the units. They assume the checkout is `~/Rekall`; edit their paths if it isn't.
 
 ```bash
 mkdir -p ~/.config/systemd/user
 cp scripts/systemd/rekall-deploy.service scripts/systemd/rekall-deploy.timer ~/.config/systemd/user/
-cp scripts/systemd/rekall.service ~/.config/systemd/user/   # only if the backend isn't a service yet
+# Only if the backend isn't a service yet. Stop the one you started by hand first, or the
+# service can't take its port.
+cp scripts/systemd/rekall.service ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now rekall.service rekall-deploy.timer
+systemctl --user enable --now rekall.service      # only if you copied it
+systemctl --user enable --now rekall-deploy.timer
 loginctl enable-linger "$USER"   # keeps user units running with nobody logged in
 ```
 
-The units assume the checkout is `~/Rekall`; edit their paths if it isn't. The checkout has to
-fetch from GitHub unattended, so use a read-only deploy key without a passphrase, or a token in
-git's credential store. Settings go in `~/.config/rekall/deploy.env`: `REKALL_RESTART` if the
-backend is restarted some other way, `REKALL_URL` if it isn't on port 8000, and `PATH` if node
-comes from nvm, since systemd doesn't read shell profiles. `scripts/deploy.sh` deploys at once,
-and `scripts/deploy.sh --retry` tries a commit that failed again.
+The first run deploys `main` in full, whatever the checkout was on, so the checkout must be on
+`main` or behind it.
+
+Settings go in `~/.config/rekall/deploy.env`, which the script reads as shell: `$PATH` and `$HOME`
+expand, and a value with spaces needs quotes. The ones you might need:
+
+- `REKALL_RESTART="systemctl --user restart my-rekall.service"`, if the backend is restarted some
+  other way. It must go through systemd or another supervisor, since anything the deploy starts
+  itself is stopped when the deploy ends.
+- `REKALL_URL=http://127.0.0.1:8080`, if the backend isn't on port 8000.
+- `PATH=$HOME/.nvm/versions/node/<version>/bin:$PATH`, if node comes from nvm.
+
+`systemctl --user start rekall-deploy` deploys at once, and `scripts/deploy.sh --retry` gives a
+commit that failed one more try.
+
+**Upgrading an install set up before this version:**
+1. Copy `rekall-deploy.service` into `~/.config/systemd/user/` again, and `rekall.service` too if
+   you installed it from here.
+2. Run `systemctl --user daemon-reload && systemctl --user restart rekall.service`.
+
+Until then, systemd still reads `deploy.env` itself and doesn't expand `$PATH`.
 
 The scripts in [`scripts/`](scripts/) back up the database and uploads and read the owner's bug
 inbox. They reach Postgres through a podman container named `pipcards-db`: set

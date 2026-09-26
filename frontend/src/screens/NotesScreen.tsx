@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createDeck, createTextNote, deleteNote, getNote, listDecks, listNotes, moveNote, renameDeck, unfileCategory } from '../api'
 import { getCached, setCached, useCachedResource } from '../hooks/useCachedResource'
 import LoadNotice from '../components/LoadNotice'
+import NodeLoader from '../components/NodeLoader'
 import Notice from '../components/Notice'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useConfirm } from '../hooks/useConfirm'
@@ -70,7 +71,9 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
 
   // Debounced so typing doesn't fire a full-text query per keystroke. `current` goes false once
   // the query moves on, so a slow answer to an older search can't land after a newer one and
-  // leave its matches under a search box that no longer says that.
+  // leave its matches under a search box that no longer says that. The whole list, with nothing
+  // typed, goes at once: there's nothing to wait for, and the wait counts against the loading
+  // mark's delay.
   useEffect(() => {
     let current = true
     const id = window.setTimeout(() => {
@@ -82,7 +85,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
           setListFailed(false)
         })
         .catch(() => current && setListFailed(true))
-    }, 250)
+    }, query.trim() ? 250 : 0)
     return () => {
       current = false
       clearTimeout(id)
@@ -348,7 +351,7 @@ export default function NotesScreen({ onGoToCards, aiGeneration }: Props) {
       )}
 
       {notes === null ? (
-        !listFailed && <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+        !listFailed && <NodeLoader label="Loading your notes" className="flex justify-center py-12" />
       ) : notes.length === 0 && searching ? (
         <div className="rounded-[var(--r-md)] border border-dashed border-[var(--rule)] p-10 text-center">
           <p className="text-sm text-[var(--text-muted)]">No notes match "{query.trim()}".</p>

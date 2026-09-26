@@ -3,6 +3,7 @@ import { ApiError, getStudentProfile, saveStudentProfile } from '../api'
 import { errorMessage } from '../lib/errors'
 import { lineEvidence, rebaseEdit } from '../lib/profile'
 import type { StudentProfile } from '../types'
+import NodeLoader from './NodeLoader'
 import Notice from './Notice'
 
 interface Props {
@@ -167,7 +168,7 @@ export default function ProfileFile({ profile, failed = false, onChange, autoMem
             </button>
           </div>
         ) : (
-          <p className={`${text} text-[var(--text-muted)]`}>Loading…</p>
+          <NodeLoader size={24} label="Loading your profile" className="flex py-2" />
         )
       ) : (
         <>
