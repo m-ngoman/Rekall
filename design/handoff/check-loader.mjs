@@ -7,8 +7,9 @@
 //     caret are gone.
 //   - Generating cards and reading notes show it over the inputs with the stage written under it,
 //     and the button doesn't move.
-//   - The nodes float on their own in three dimensions: a nearer node is drawn larger, brighter
-//     and over the others, and the edges stay on their nodes. Reduced motion holds them still.
+//   - The nodes float through each other in three dimensions: a nearer node is drawn larger,
+//     brighter and over the others, nodes cross, and every link stays on its two nodes. Reduced
+//     motion holds them still.
 //   - It is the student's accent, like every drawing of the logo in the app.
 //
 // Fixture setup as in check-fixes.mjs. Screenshots go to design/handoff/out/loader/, phone and
@@ -41,24 +42,28 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const PHONE = { width: 390, height: 844 }
 const DESKTOP = { width: 1280, height: 800 }
-/** Where the loader rests: the logo's nodes, A B C D, drawn at 0.78 about the mark's middle
- * (LOADER_REST in lib/logo), and their radii there. */
-const REST = [
-  [26, 84],
-  [56, 92],
-  [38, 58],
-  [88, 40],
-].map(([x, y]) => [59.5 + (x - 59.5) * 0.78, 63.5 + (y - 63.5) * 0.78])
-const REST_R = [8.5, 8.5, 8.5, 13.5].map((r) => r * 0.78)
-const EDGES = [
-  [0, 1],
-  [1, 2],
-  [2, 0],
-  [2, 3],
-  [1, 3],
-]
-
 const browser = await chromium.launch()
+/** The float's own numbers (lib/loader), from the module as the fixture's dev server serves it:
+ * where each node rests and its radius there, its radius at rest depth, the bright node, and the
+ * pairs a link can join, in the order the mark draws them. */
+const FLOAT = await (async () => {
+  const page = await browser.newPage()
+  await page.goto(APP, { waitUntil: 'commit' })
+  const float = await page.evaluate(async () => {
+    const m = await import('/src/lib/loader.ts')
+    return {
+      rest: m.LOADER_REST.map((n) => [n.x, n.y]),
+      restR: m.LOADER_REST.map((n) => n.r),
+      baseR: m.LOADER_NODES.map((n) => n.r),
+      bright: m.BRIGHT,
+      pairs: m.PAIRS,
+    }
+  })
+  await page.close()
+  return float
+})()
+const { rest: REST, restR: REST_R, baseR: BASE_R, bright: BRIGHT, pairs: PAIRS } = FLOAT
+const NODES = BASE_R.map((_, i) => i)
 const errs = []
 /** Runs in every page: each mark, from the frame it mounts, with how it looked each frame of its
  * first two seconds and the most opaque it ever got. Asking Playwright after the fact can't say
@@ -131,10 +136,18 @@ const geometry = (loc) =>
       radii: byNode.map((c) => Number(c.getAttribute('r'))),
       opacity: byNode.map((c) => Number(c.getAttribute('fill-opacity') ?? 1)),
       painted: painted.map((c) => Number(c.dataset.node)),
-      edges: [...el.querySelectorAll('line')].map((l) => ['x1', 'y1', 'x2', 'y2'].map((a) => Number(l.getAttribute(a)))),
+      links: [...el.querySelectorAll('line')].map((l) => ({
+        a: Number(l.dataset.a),
+        b: Number(l.dataset.b),
+        ends: ['x1', 'y1', 'x2', 'y2'].map((a) => Number(l.getAttribute(a))),
+        opacity: Number(l.getAttribute('stroke-opacity')),
+      })),
     }
   })
-const attached = (g) => EDGES.every(([from, to], i) => near(g.edges[i].slice(0, 2), g.nodes[from]) && near(g.edges[i].slice(2), g.nodes[to]))
+/** One line per pair, in the float's order, each ending on its two nodes' centres. */
+const attached = (g) =>
+  g.links.length === PAIRS.length &&
+  g.links.every(({ a, b, ends }, i) => a === PAIRS[i][0] && b === PAIRS[i][1] && near(ends.slice(0, 2), g.nodes[a]) && near(ends.slice(2), g.nodes[b]))
 /** Where an element sits on the page, not the viewport: a click scrolls what it clicks into view. */
 const pageBox = (loc) =>
   loc.first().evaluate((el) => {
@@ -219,12 +232,13 @@ async function pass(theme) {
     if (dark && tag === 'phone') {
       check('tutor: the mark while it thinks, at once, in a row one line tall', (await seen(thinking)) && Math.abs(row - 24.375) < 0.6, `${row}`)
       check('and the dots are gone', (await page.getByText('•••').count()) === 0)
-      // Floating from the start: the nodes move, and the edges stay on them.
+      // Floating from the start: every node moves, and the links stay on them.
       const a = await geometry(thinking)
       await sleep(600)
       const b = await geometry(thinking)
-      const moved = [0, 1, 2, 3].every((i) => !near(a.nodes[i], b.nodes[i], 0.2))
-      check('the nodes float out of the logo, the edges staying on them', moved && attached(a) && attached(b), JSON.stringify(b.nodes))
+      const moved = NODES.every((i) => !near(a.nodes[i], b.nodes[i], 0.2))
+      const linked = b.links.filter((l) => l.opacity > 0.1).length
+      check('the nodes float, a few of them linked, the links staying on them', moved && linked >= 3 && attached(a) && attached(b), JSON.stringify(b.nodes))
     }
     await shot(page, `${tag}-${theme}-tutor`)
     const gone = await thinking.waitFor({ state: 'detached', timeout: 15000 }).then(() => true, () => false)
@@ -405,25 +419,32 @@ async function pass(theme) {
     await page.goto(APP + 'cards', { waitUntil: 'commit' })
     const loader = mark(page, 'Loading your decks')
     await loader.waitFor({ state: 'attached', timeout: 10000 })
-    // Past the ease-in, so the float is at its full size.
-    await sleep(2600)
+    await sleep(800)
     const frames = []
-    for (let k = 0; k < 8; k++) {
+    for (let k = 0; k < 30; k++) {
       frames.push(await geometry(loader))
-      await sleep(400)
+      await sleep(150)
     }
-    const scales = (g) => g.radii.map((r, i) => r / REST_R[i])
+    const scales = (g) => g.radii.map((r, i) => r / BASE_R[i])
     // Painted far to near: each circle drawn at least as large, for its size, as the one before it,
     // and the dim ones brighter as they come closer.
     const ordered = frames.every((g) => {
       const s = scales(g)
       const inOrder = g.painted.every((n, k) => k === 0 || s[n] >= s[g.painted[k - 1]] - 1e-3)
-      const dim = [0, 1, 2].sort((a, b) => s[a] - s[b])
+      const dim = NODES.filter((n) => n !== BRIGHT).sort((a, b) => s[a] - s[b])
       return inOrder && dim.every((n, k) => k === 0 || g.opacity[n] >= g.opacity[dim[k - 1]] - 1e-3)
     })
     const deep = frames.some((g) => Math.max(...scales(g)) - Math.min(...scales(g)) > 0.05)
     check('a nearer node is drawn larger, brighter and over the others', ordered && deep, JSON.stringify(frames.map((g) => [g.painted, scales(g).map((v) => +v.toFixed(3))])))
-    check('and every edge stays on its nodes as they float', frames.every(attached))
+    // Two nodes drawn over each other, the nearer one on top: passing through, not around.
+    const crossings = frames.flatMap((g) =>
+      PAIRS.filter(([a, b]) => Math.hypot(g.nodes[a][0] - g.nodes[b][0], g.nodes[a][1] - g.nodes[b][1]) < g.radii[a] + g.radii[b]).map(([a, b]) => {
+        const [front, back] = scales(g)[a] >= scales(g)[b] ? [a, b] : [b, a]
+        return g.painted.indexOf(front) > g.painted.indexOf(back)
+      }),
+    )
+    check('nodes pass through each other, the nearer drawn on top', crossings.length > 0 && crossings.every(Boolean), `${crossings.length} overlaps`)
+    check('and every link stays on its two nodes as they float', frames.every(attached))
     await shot(page, 'phone-dark-float')
     await page.close()
   }
@@ -440,9 +461,9 @@ async function pass(theme) {
     await sleep(1200)
     const b = await geometry(loader)
     const still = [a, b].every((g) => g.nodes.every((p, i) => near(p, REST[i])) && g.radii.every((r, i) => Math.abs(r - REST_R[i]) < 0.01))
-    const breathing = await loader.locator('.node-loader-held').evaluate((el) => getComputedStyle(el).animationName)
-    check('reduced motion: the mark holds still, as the logo', still, JSON.stringify(b.nodes))
-    check('and only the held node fades, slowly', breathing === 'node-loader-breathe', breathing)
+    const breathing = await loader.locator('.node-loader-bright').evaluate((el) => getComputedStyle(el).animationName)
+    check('reduced motion: the mark holds still', still, JSON.stringify(b.nodes))
+    check('and only the bright node fades, slowly', breathing === 'node-loader-breathe', breathing)
     await page.close()
   }
   {
@@ -470,14 +491,14 @@ async function pass(theme) {
       return {
         accent,
         mark: getComputedStyle(svg).color,
-        held: getComputedStyle(svg.querySelector('.node-loader-held')).fill,
+        bright: getComputedStyle(svg.querySelector('.node-loader-bright')).fill,
         // The sidebar's, in the page even where a phone hides it.
         logos: [...document.querySelectorAll('svg[aria-label="Rekall"]')].map((l) => getComputedStyle(l).color),
       }
     })
     check(
       'the mark is the accent, and so is every logo on the page',
-      colours.mark === colours.accent && colours.held === colours.accent && colours.logos.length > 0 && colours.logos.every((c) => c === colours.accent),
+      colours.mark === colours.accent && colours.bright === colours.accent && colours.logos.length > 0 && colours.logos.every((c) => c === colours.accent),
       JSON.stringify(colours),
     )
     await page.close()
