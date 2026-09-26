@@ -9,7 +9,7 @@ import { HELD, LOGO_EDGES, LOGO_NODES } from '../lib/logo'
  *
  * The bright node is held by TWO edges on purpose. A single edge ending in a round terminus reads
  * as something else entirely once you can only see the silhouette — don't reduce it to one. The
- * geometry lives in lib/logo, which the loading mark (NodeLoader) draws from too.
+ * geometry lives in lib/logo. The loading mark (NodeLoader) only suggests it, by its own numbers.
  */
 export default function Logo({ size = 28, color = 'var(--accent)' }: { size?: number; color?: string }) {
   return (
