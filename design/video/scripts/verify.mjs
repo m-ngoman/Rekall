@@ -51,7 +51,9 @@ for (const [id, spec] of Object.entries(COMPOSITIONS)) {
   check(entry, v.width === spec.width && v.height === spec.height, `${v.width}×${v.height}`)
   check(entry, v.r_frame_rate === '30/1' && v.avg_frame_rate === '30/1', `30 fps constant (${v.avg_frame_rate})`)
   check(entry, Number(v.nb_frames) === cut.frames, `${v.nb_frames} frames (${cut.frames} expected)`)
-  check(entry, v.codec_name === 'h264' && v.profile === 'High', `${v.codec_name} ${v.profile}`)
+  // Remotion's ffprobe build prints the profile's number rather than its name; 100 is High.
+  const high = v.profile === 'High' || String(v.profile) === '100'
+  check(entry, v.codec_name === 'h264' && high, `${v.codec_name} High (profile ${v.profile})`)
   check(entry, v.pix_fmt === 'yuv420p', v.pix_fmt)
   check(entry, v.color_primaries === 'bt709' && v.color_transfer === 'bt709' && v.color_space === 'bt709', `BT.709 tagged (${v.color_primaries}/${v.color_transfer}/${v.color_space})`)
   check(entry, Math.abs(duration - cut.frames / 30) < 1 / 30 + 0.03, `${duration.toFixed(3)} s`)
