@@ -30,7 +30,7 @@ describe.each(CUTS)('$id', (cut) => {
   })
 
   it('puts the voice where the render scripts expect it', () => {
-    expect(voiceStartFrame(cut)).toBe(cut.id === 'Launch30' ? 420 : 622)
+    expect(voiceStartFrame(cut)).toBe(cut.id === 'Launch30' ? 420 : 612)
   })
 
   it('shows one caption at a time, each long enough to read', () => {

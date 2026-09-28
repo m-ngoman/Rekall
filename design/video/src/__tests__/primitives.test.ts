@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { LOGO_NODES, HELD } from '@app/lib/logo'
 import { BRIGHT, floatAt } from '@app/lib/loader'
@@ -15,6 +17,10 @@ import { pillAt } from '../lib/pill'
 import { revealedAt } from '../lib/reveal'
 import { typedChars } from '../lib/stream'
 import { typedAt, typingSchedule } from '../lib/typing'
+// @ts-expect-error — plain ESM helper shared with the scripts; typed by use here.
+import { foldWords, readPinnedAlignment } from '../../scripts/lib/inworld.mjs'
+
+const backendTest = fs.readFileSync(path.resolve(__dirname, '../../../../backend/tests/test_tts_inworld.py'), 'utf8')
 
 describe('easing', () => {
   it('matches CSS where CSS publishes values', () => {
@@ -73,10 +79,13 @@ describe('typed-out explanation', () => {
 describe('karaoke', () => {
   const starts = take.words.map((w) => w.s)
   it('lights each word on the frame the app would', () => {
-    expect(starts.map((s) => litFrame(s, 420, 30) - 420)).toEqual([0, 12, 34, 43, 73, 87, 99, 111, 123, 131])
+    // Pinned against the alignment the backend's test keeps, not the take, so a new take can't
+    // move the expected frames along with the ones under test.
+    const pinned = foldWords(readPinnedAlignment(backendTest)).map((w: { s: number }) => w.s)
+    expect(pinned.map((s: number) => litFrame(s, 420, 30) - 420)).toEqual([0, 12, 34, 43, 73, 87, 99, 111, 123, 131])
   })
   it('agrees with the app’s own count at every frame of the line', () => {
-    for (let f = 420; f < 420 + 170; f++) {
+    for (let f = 420; f < 420 + Math.ceil(take.duration * 30) + 2; f++) {
       const byFrame = starts.filter((s) => litFrame(s, 420, 30) <= f).length
       expect(litCount((f - 420) / 30, starts), `frame ${f}`).toBe(byFrame)
     }

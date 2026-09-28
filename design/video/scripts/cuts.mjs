@@ -4,7 +4,7 @@
 // (src/primitives/AppCanvas.tsx) by src/__tests__/scripts.test.ts.
 export const CUTS = {
   Launch30: { frames: 900, voiceStart: 420, fadeOut: 30, posters: { cover: 0, graded: 250, voice: 560, end: 899 } },
-  Launch60: { frames: 1770, voiceStart: 622, fadeOut: 40, posters: { cover: 0, graded: 300, voice: 765, end: 1769 } },
+  Launch60: { frames: 1770, voiceStart: 612, fadeOut: 40, posters: { cover: 0, graded: 300, voice: 765, end: 1769 } },
 }
 export const COMPOSITIONS = {
   'Launch30-Landscape': { cut: 'Launch30', out: 'rekall-launch-30s-16x9', width: 1920, height: 1080 },
