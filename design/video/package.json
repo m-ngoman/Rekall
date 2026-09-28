@@ -1,0 +1,63 @@
+{
+  "name": "rekall-launch-video",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Rekall's launch video, rebuilt in Remotion from the app's own tokens, fonts and animation code.",
+  "scripts": {
+    "studio": "remotion studio",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "smoke": "remotion still Smoke out/smoke.png && node scripts/check-smoke.mjs",
+    "tts": "NODE_USE_ENV_PROXY=1 node scripts/tts-inworld.mjs",
+    "audio:check": "node scripts/check-audio.mjs",
+    "render": "node scripts/render.mjs --all",
+    "render:30:16x9": "node scripts/render.mjs Launch30-Landscape",
+    "render:30:9x16": "node scripts/render.mjs Launch30-Portrait",
+    "render:60:16x9": "node scripts/render.mjs Launch60-Landscape",
+    "render:60:9x16": "node scripts/render.mjs Launch60-Portrait",
+    "posters": "node scripts/render.mjs --posters",
+    "contact": "node scripts/render.mjs --sheets",
+    "reference": "node scripts/reference.mjs",
+    "fidelity": "node scripts/fidelity.mjs",
+    "verify": "node scripts/verify.mjs",
+    "release": "npm run check && npm run audio:check && npm run render && npm run posters && npm run verify"
+  },
+  "dependencies": {
+    "@fontsource-variable/nunito": "5.3.0",
+    "@fontsource/barlow-condensed": "5.3.0",
+    "@remotion/cli": "4.0.529",
+    "@remotion/fonts": "4.0.529",
+    "@remotion/media": "4.0.529",
+    "@remotion/media-utils": "4.0.529",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.529"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@remotion/eslint-plugin": "4.0.529",
+    "@types/node": "22.20.4",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "autoprefixer": "10.5.4",
+    "css-loader": "7.1.4",
+    "eslint": "9.39.5",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "globals": "17.12.0",
+    "pixelmatch": "7.2.0",
+    "playwright-core": "1.56.1",
+    "pngjs": "7.0.0",
+    "postcss": "8.5.26",
+    "postcss-loader": "8.2.1",
+    "style-loader": "4.0.0",
+    "tailwindcss": "3.4.19",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.1",
+    "vitest": "2.1.9"
+  },
+  "engines": {
+    "node": ">=22.21"
+  }
+}

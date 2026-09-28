@@ -1,0 +1,59 @@
+{
+  "text": "Tertiary substrates go SN1; primary ones almost always go SN2.",
+  "voice": "Ashley",
+  "model": "inworld-tts-2-flash",
+  "source": "Inworld alignment pinned in backend/tests/test_tts_inworld.py; no audio take yet",
+  "duration": 5.58,
+  "words": [
+    {
+      "w": "Tertiary",
+      "s": 0,
+      "e": 0.48
+    },
+    {
+      "w": "substrates",
+      "s": 0.48,
+      "e": 1.21
+    },
+    {
+      "w": "go",
+      "s": 1.21,
+      "e": 1.47
+    },
+    {
+      "w": "SN1",
+      "s": 1.5,
+      "e": 2.49
+    },
+    {
+      "w": "primary",
+      "s": 2.49,
+      "e": 2.95
+    },
+    {
+      "w": "ones",
+      "s": 2.95,
+      "e": 3.32
+    },
+    {
+      "w": "almost",
+      "s": 3.35,
+      "e": 3.75
+    },
+    {
+      "w": "always",
+      "s": 3.78,
+      "e": 4.18
+    },
+    {
+      "w": "go",
+      "s": 4.18,
+      "e": 4.41
+    },
+    {
+      "w": "SN2",
+      "s": 4.44,
+      "e": 5.58
+    }
+  ]
+}

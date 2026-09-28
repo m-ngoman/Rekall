@@ -50,3 +50,8 @@ frontend/public/sitemap.xml
 design/design-system/.render/
 design/incoming/
 frontend/_plotcheck.html
+
+# The launch video's renders, review sheets and reference screenshots are all regenerable from
+# design/video; a music track in public/audio/local/ is one whose licence doesn't allow committing it.
+design/video/out/
+design/video/public/audio/local/

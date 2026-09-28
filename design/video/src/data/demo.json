@@ -1,0 +1,241 @@
+{
+  "today": "2026-10-07",
+  "decks": [
+    {
+      "id": "0f2c9a4e-7b1d-4c3a-9e5f-000000000001",
+      "name": "Organic Chemistry II",
+      "total": 612,
+      "due": 18,
+      "new": 0,
+      "new_today": 0,
+      "learned": 612,
+      "exam_paused": false
+    },
+    {
+      "id": "0f2c9a4e-7b1d-4c3a-9e5f-000000000002",
+      "name": "Pharmacology",
+      "total": 240,
+      "due": 23,
+      "new": 0,
+      "new_today": 0,
+      "learned": 240,
+      "exam_paused": false
+    },
+    {
+      "id": "0f2c9a4e-7b1d-4c3a-9e5f-000000000003",
+      "name": "Statistics",
+      "total": 180,
+      "due": 0,
+      "new": 0,
+      "new_today": 0,
+      "learned": 180,
+      "exam_paused": false
+    },
+    {
+      "id": "0f2c9a4e-7b1d-4c3a-9e5f-000000000004",
+      "name": "Anatomy",
+      "total": 95,
+      "due": 0,
+      "new": 0,
+      "new_today": 0,
+      "learned": 95,
+      "exam_paused": true
+    }
+  ],
+  "exams": [
+    {
+      "id": "exam-orgo",
+      "name": "Organic Chemistry II",
+      "date": "2026-11-10",
+      "deck_ids": [
+        "0f2c9a4e-7b1d-4c3a-9e5f-000000000001"
+      ]
+    },
+    {
+      "id": "exam-stats",
+      "name": "Statistics",
+      "date": "2026-11-16",
+      "deck_ids": [
+        "0f2c9a4e-7b1d-4c3a-9e5f-000000000003"
+      ]
+    },
+    {
+      "id": "exam-pharm",
+      "name": "Pharmacology",
+      "date": "2026-11-23",
+      "deck_ids": [
+        "0f2c9a4e-7b1d-4c3a-9e5f-000000000002"
+      ]
+    },
+    {
+      "id": "exam-anat",
+      "name": "Anatomy",
+      "date": "2026-09-25",
+      "deck_ids": [
+        "0f2c9a4e-7b1d-4c3a-9e5f-000000000004"
+      ]
+    }
+  ],
+  "dashboard": {
+    "reviewed_today": 0,
+    "goal_today": 41,
+    "streak_days": 12,
+    "remaining_today": 41
+  },
+  "load": {
+    "2026-10-07": 41,
+    "2026-10-08": 19,
+    "2026-10-09": 15,
+    "2026-10-10": 19,
+    "2026-10-11": 23,
+    "2026-10-12": 19,
+    "2026-10-13": 23,
+    "2026-10-14": 28,
+    "2026-10-15": 22,
+    "2026-10-16": 27,
+    "2026-10-17": 32,
+    "2026-10-18": 26,
+    "2026-10-19": 32,
+    "2026-10-20": 37,
+    "2026-10-21": 29,
+    "2026-10-22": 36,
+    "2026-10-23": 41,
+    "2026-10-24": 32,
+    "2026-10-25": 40,
+    "2026-10-26": 46,
+    "2026-10-27": 36,
+    "2026-10-28": 44,
+    "2026-10-29": 50,
+    "2026-10-30": 39,
+    "2026-10-31": 48,
+    "2026-11-01": 55,
+    "2026-11-02": 43,
+    "2026-11-03": 53,
+    "2026-11-04": 59,
+    "2026-11-05": 46,
+    "2026-11-06": 57,
+    "2026-11-07": 64,
+    "2026-11-08": 49,
+    "2026-11-09": 61,
+    "2026-11-10": 68,
+    "2026-11-11": 25,
+    "2026-11-12": 32,
+    "2026-11-13": 35,
+    "2026-11-14": 27,
+    "2026-11-15": 34,
+    "2026-11-16": 37,
+    "2026-11-17": 18,
+    "2026-11-18": 23,
+    "2026-11-19": 25,
+    "2026-11-20": 19,
+    "2026-11-21": 24,
+    "2026-11-22": 26,
+    "2026-11-23": 20,
+    "2026-11-24": 3,
+    "2026-11-25": 3,
+    "2026-11-26": 3,
+    "2026-11-27": 3,
+    "2026-11-28": 3,
+    "2026-11-29": 3,
+    "2026-11-30": 3,
+    "2026-12-01": 3,
+    "2026-12-02": 3,
+    "2026-12-03": 3,
+    "2026-12-04": 3,
+    "2026-12-05": 3,
+    "2026-12-06": 3,
+    "2026-12-07": 3,
+    "2026-12-08": 3,
+    "2026-12-09": 3,
+    "2026-12-10": 3,
+    "2026-12-11": 3,
+    "2026-12-12": 3,
+    "2026-12-13": 3,
+    "2026-12-14": 3,
+    "2026-12-15": 3,
+    "2026-12-16": 3,
+    "2026-12-17": 3,
+    "2026-12-18": 3,
+    "2026-12-19": 3,
+    "2026-12-20": 3,
+    "2026-12-21": 3
+  },
+  "study": {
+    "deckId": "0f2c9a4e-7b1d-4c3a-9e5f-000000000001",
+    "queueLength": 18,
+    "card": {
+      "id": "card-sn1",
+      "subtopic": "Substitution reactions",
+      "question": "Why does an SN1 reaction give a racemic mixture?",
+      "is_new": false,
+      "is_math": false
+    },
+    "typed": "You get a carbocation in the middle of the reaction.",
+    "result": {
+      "grade": 2,
+      "score": 3,
+      "explanation": "You missed why it matters: the carbocation is planar, so the nucleophile can attack either face equally.",
+      "state": "review",
+      "due": "2026-10-14T12:00:00Z",
+      "reviews": 3,
+      "lapses": 0
+    },
+    "modelAnswer": "The leaving group departs first, giving a planar sp2 carbocation intermediate. The nucleophile can attack either face of that plane with equal probability, so stereochemistry at the reacting carbon is lost and the product is a 50:50 mixture of both enantiomers."
+  },
+  "tutor": {
+    "personality": "direct",
+    "voice": "Ashley",
+    "memoryNotes": 3,
+    "question": "How do I tell if it goes SN1 or SN2?",
+    "reply": "Tertiary substrates go SN1; primary ones almost always go SN2."
+  },
+  "generate": {
+    "deckId": "0f2c9a4e-7b1d-4c3a-9e5f-000000000001",
+    "note": {
+      "id": "note-sn1",
+      "title": "SN1 vs SN2 mechanisms",
+      "body": "SN1 goes through a planar carbocation, so the nucleophile attacks either face and you lose stereochemistry. SN2 is one concerted step with backside attack, so configuration inverts every time. Tertiary substrates favour SN1, primary favour SN2."
+    },
+    "stages": [
+      "Starting…",
+      "Generating flashcards…",
+      "Double-checking against your notes…"
+    ],
+    "added": [
+      {
+        "id": "gen-1",
+        "subtopic": "Substitution reactions",
+        "question": "Why does an SN1 reaction lose stereochemistry?",
+        "answer": "It goes through a planar carbocation, so the nucleophile can attack either face.",
+        "is_math": false
+      },
+      {
+        "id": "gen-2",
+        "subtopic": "Substitution reactions",
+        "question": "What happens to configuration in an SN2 reaction?",
+        "answer": "It inverts every time: one concerted step, with backside attack.",
+        "is_math": false
+      },
+      {
+        "id": "gen-3",
+        "subtopic": "Substitution reactions",
+        "question": "Which substrates favour SN1, and which favour SN2?",
+        "answer": "Tertiary substrates favour SN1; primary substrates favour SN2.",
+        "is_math": false
+      },
+      {
+        "id": "gen-4",
+        "subtopic": "Substitution reactions",
+        "question": "How many steps does an SN2 reaction take?",
+        "answer": "One: the nucleophile attacks as the leaving group leaves.",
+        "is_math": false
+      }
+    ],
+    "dropped": [
+      {
+        "question": "Which solvents favour SN1?",
+        "reason": "Your notes don't mention solvents, so nothing supports it."
+      }
+    ]
+  }
+}
