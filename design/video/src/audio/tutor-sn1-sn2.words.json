@@ -2,58 +2,61 @@
   "text": "Tertiary substrates go SN1; primary ones almost always go SN2.",
   "voice": "Ashley",
   "model": "inworld-tts-2-flash",
-  "source": "Inworld alignment pinned in backend/tests/test_tts_inworld.py; no audio take yet",
-  "duration": 5.58,
+  "source": "Inworld take, 2026-09-28",
+  "sha256": "695b01ae0e7d09d9bed252a152029e5b677d68e0702acda6dd024c4c3df2cbba",
+  "sampleRate": 44100,
+  "duration": 6,
+  "processedCharacters": 62,
   "words": [
     {
       "w": "Tertiary",
       "s": 0,
-      "e": 0.48
+      "e": 0.51
     },
     {
       "w": "substrates",
-      "s": 0.48,
-      "e": 1.21
+      "s": 0.51,
+      "e": 1.18
     },
     {
       "w": "go",
-      "s": 1.21,
-      "e": 1.47
+      "s": 1.18,
+      "e": 1.43
     },
     {
       "w": "SN1",
-      "s": 1.5,
-      "e": 2.49
+      "s": 1.47,
+      "e": 2.82
     },
     {
       "w": "primary",
-      "s": 2.49,
-      "e": 2.95
+      "s": 2.82,
+      "e": 3.25
     },
     {
       "w": "ones",
-      "s": 2.95,
-      "e": 3.32
+      "s": 3.25,
+      "e": 3.6
     },
     {
       "w": "almost",
-      "s": 3.35,
-      "e": 3.75
+      "s": 3.63,
+      "e": 4.07
     },
     {
       "w": "always",
-      "s": 3.78,
-      "e": 4.18
+      "s": 4.1,
+      "e": 4.57
     },
     {
       "w": "go",
-      "s": 4.18,
-      "e": 4.41
+      "s": 4.57,
+      "e": 4.82
     },
     {
       "w": "SN2",
-      "s": 4.44,
-      "e": 5.58
+      "s": 4.82,
+      "e": 5.98
     }
   ]
 }
