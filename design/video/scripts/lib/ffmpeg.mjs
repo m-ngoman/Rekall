@@ -29,7 +29,8 @@ export const LOUDNESS = { I: -14, TP: -1.5, LRA: 11 }
 
 /** loudnorm's measurement pass: integrated loudness, true peak, range, threshold, offset. */
 export function measureLoudness(file) {
-  const err = ffmpeg(['-i', file, '-af', `loudnorm=I=${LOUDNESS.I}:TP=${LOUDNESS.TP}:LRA=${LOUDNESS.LRA}:print_format=json`, '-f', 'null', '-'])
+  // -vn: given a video, measure only its sound. This ffmpeg has no encoder to feed a picture to null.
+  const err = ffmpeg(['-i', file, '-vn', '-af', `loudnorm=I=${LOUDNESS.I}:TP=${LOUDNESS.TP}:LRA=${LOUDNESS.LRA}:print_format=json`, '-f', 'null', '-'])
   const json = err.slice(err.lastIndexOf('{'), err.lastIndexOf('}') + 1)
   return JSON.parse(json)
 }
@@ -52,7 +53,7 @@ export function normalise(input, output, m) {
 
 /** Where sound starts, from silencedetect: the end of the first silence. */
 export function firstSound(file, noise = '-45dB', minSilence = 0.15) {
-  const err = ffmpeg(['-i', file, '-af', `silencedetect=noise=${noise}:d=${minSilence}`, '-f', 'null', '-'])
+  const err = ffmpeg(['-i', file, '-vn', '-af', `silencedetect=noise=${noise}:d=${minSilence}`, '-f', 'null', '-'])
   const m = err.match(/silence_end: ([\d.]+)/)
   return m ? Number(m[1]) : 0
 }
