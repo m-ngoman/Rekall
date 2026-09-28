@@ -42,10 +42,12 @@ npm run release
 ```
 
 This writes `public/audio/tutor-sn1-sn2.wav` and `src/audio/tutor-sn1-sn2.words.json`; commit both.
-Until a take exists, the video renders silent. The karaoke still runs on the real alignment pinned
-in `backend/tests/test_tts_inworld.py`, and the orb runs on a seeded stand-in shaped by those word
-timings. With a take, the orb is driven by the audio exactly as the app's analyser would read it
-(`lib/analyser`). The audio is normalised to −14 LUFS with a true peak at or below −1 dBTP.
+The committed take was made this way (6.12 s). Without a take the video renders silent: the
+karaoke runs on the alignment pinned in `backend/tests/test_tts_inworld.py`, and the orb on a
+seeded stand-in shaped by those word timings. With one, the orb is driven by the audio exactly as
+the app's analyser would read it (`lib/analyser`). The audio is normalised to −14 LUFS with a true
+peak at or below −1 dBTP. A take of a different length may need the voice scene's beats in
+`src/timeline.ts` moved; the timeline tests say so if it does.
 
 A music bed is optional. Drop a licensed track in as `public/audio/music.mp3` (or
 `public/audio/local/music.mp3`, which is gitignored, if the licence doesn't allow committing it).
