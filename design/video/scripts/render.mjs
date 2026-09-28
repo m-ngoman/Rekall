@@ -39,7 +39,8 @@ function cutAudio(cut) {
   const raw = path.join(tmp, `${cut}.wav`)
   const norm = path.join(tmp, `${cut}.norm.wav`)
   console.log(`\n${cut}: audio`)
-  remotion(['render', `${cut}-Landscape`, raw, '--codec=wav', `--props=${props}`, '--log=error'])
+  // The audio pass: remotion.config.ts leaves out the videos' encoding settings, which a WAV can't take.
+  remotion(['render', `${cut}-Landscape`, raw, '--codec=wav', '--audio-codec=pcm-16', `--props=${props}`, '--log=error'], { env: { REKALL_RENDER_PASS: 'audio' } })
   const m = measureLoudness(raw)
   console.log(`  measured ${m.input_i} LUFS, ${m.input_tp} dBTP, LRA ${m.input_lra}`)
   if (!(Number(m.input_i) > -60)) {

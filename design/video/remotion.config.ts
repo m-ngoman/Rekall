@@ -14,13 +14,17 @@ Config.setChromiumOpenGlRenderer('swangle')
 
 Config.setEntryPoint('src/index.ts')
 Config.setVideoImageFormat('png')
-Config.setCodec('h264')
-Config.setCrf(16)
-Config.setX264Preset('slow')
-Config.setPixelFormat('yuv420p')
-Config.setColorSpace('bt709')
-Config.setAudioCodec('aac')
-Config.setAudioBitrate('320k')
+// How the videos are encoded. scripts/render.mjs also renders each cut's sound on its own, as a
+// WAV to measure and normalise, and a WAV takes none of these, so that one pass leaves them out.
+if (process.env.REKALL_RENDER_PASS !== 'audio') {
+  Config.setCodec('h264')
+  Config.setCrf(16)
+  Config.setX264Preset('slow')
+  Config.setPixelFormat('yuv420p')
+  Config.setColorSpace('bt709')
+  Config.setAudioCodec('aac')
+  Config.setAudioBitrate('320k')
+}
 Config.setSampleRate(48000)
 Config.setConcurrency(3)
 Config.setDelayRenderTimeoutInMilliseconds(60_000)

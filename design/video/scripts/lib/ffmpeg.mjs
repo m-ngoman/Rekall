@@ -8,8 +8,8 @@ import path from 'node:path'
 export const root = path.resolve(import.meta.dirname, '../..')
 const remotionBin = path.join(root, 'node_modules/.bin/remotion')
 
-export function remotion(args, { quiet = false } = {}) {
-  execFileSync(remotionBin, args, { cwd: root, stdio: quiet ? 'pipe' : 'inherit' })
+export function remotion(args, { quiet = false, env = {} } = {}) {
+  execFileSync(remotionBin, args, { cwd: root, stdio: quiet ? 'pipe' : 'inherit', env: { ...process.env, ...env } })
 }
 
 /** ffmpeg's stderr — where it writes its reports. Throws if it fails. */
