@@ -32,6 +32,9 @@ export interface StudyView {
   caret: boolean
   focused: boolean
   streamed: string
+  /** While the explanation is being typed out: the part not typed yet, laid out but invisible, so
+   * the lines are where they'll end up from the first character and nothing reflows. */
+  unwritten?: string
   /** Time since the grading mark mounted, while it's up. */
   loaderMs: number | null
   score: number
@@ -105,15 +108,22 @@ export function StudyScreen(v: StudyView) {
     </>
   )
 
+  // While it's typed out, the app's 2 px accent caret follows the last character. It is drawn out
+  // of the flow here — the app's is an inline-block — so that it can't push the invisible rest of
+  // the sentence onto another line: an empty inline box marks the spot (the bar's bottom on its
+  // text-bottom, as `align-text-bottom` puts it) and the bar hangs from it.
   const explanation = (withMargin: boolean) => (
     <p className={`text-[0.9375rem] leading-relaxed [text-wrap:pretty] ${withMargin ? 'mt-4' : ''}`}>
       {v.streamed}
       {v.phase === 'grading' &&
         (v.streamed ? (
-          <span className="ml-0.5 inline-block h-[18px] w-[2px] align-text-bottom bg-[var(--accent)]" />
+          <span className="relative">
+            <span className="absolute bottom-0 left-0 ml-0.5 h-[18px] w-[2px] bg-[var(--accent)]" />
+          </span>
         ) : (
           <NodeLoaderFrame ms={v.loaderMs ?? 0} size={24} delay={0} label="Checking your answer" className="flex h-[1.625em] items-center" />
         ))}
+      {v.phase === 'grading' && v.streamed && v.unwritten && <span style={{ color: 'transparent' }}>{v.unwritten}</span>}
     </p>
   )
 

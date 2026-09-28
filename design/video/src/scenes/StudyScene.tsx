@@ -3,7 +3,7 @@ import { STUDY, demo } from '../data/demo'
 import { cameraAt } from '../lib/camera'
 import { pointerAt, pressed } from '../lib/cursor'
 import { gradeLanding } from '../lib/grade'
-import { streamSchedule, streamedAt } from '../lib/stream'
+import { typedChars } from '../lib/stream'
 import { caretVisible, typedAt, typingSchedule } from '../lib/typing'
 import { AppCanvas } from '../primitives/AppCanvas'
 import { Pointer } from '../primitives/Pointer'
@@ -12,19 +12,20 @@ import { FPS, type Layout, type StudyBeats } from '../timeline'
 import { centre, ms, useSceneFrame } from './common'
 
 /** A card answered and graded: the answer typed, "Check my answer", the mark while the grader
- * reads it, the explanation streaming in, the score landing — and in the 60 s cut, the card saved
+ * reads it, the explanation typed out, the score landing — and in the 60 s cut, the card saved
  * for the tutor. Everything on screen is StudyScreen's; this decides only when. */
 export function StudyScene({ layout, beats }: { layout: Layout; beats: StudyBeats }) {
   const f = useSceneFrame()
   const desktop = layout === 'landscape'
   const typing = useMemo(() => typingSchedule(demo.study.typed, beats.typeStart, beats.typeEnd, 'answer'), [beats.typeStart, beats.typeEnd])
-  const stream = useMemo(() => streamSchedule(demo.study.result.explanation, beats.streamStart, beats.streamEnd, 'grade'), [beats.streamStart, beats.streamEnd])
 
   const released = beats.press + 2
   const phase = f < released ? 'answering' : f < beats.land ? 'grading' : 'graded'
   const typed = typedAt(f, demo.study.typed, typing)
   const landing = f >= beats.land && f < beats.land + 16 ? gradeLanding(f, beats.land) : undefined
   const save = beats.save
+  const explanation = demo.study.result.explanation
+  const written = typedChars(f, explanation, beats.streamStart, beats.streamEnd)
 
   // The pointer: to "Check my answer", then (60 s) to "Save for tutor".
   const check = centre(layout, 'study-answering', 'check')
@@ -62,7 +63,8 @@ export function StudyScene({ layout, beats }: { layout: Layout; beats: StudyBeat
         typed={phase === 'answering' ? typed.text : demo.study.typed}
         caret={phase === 'answering' && caretVisible(f, typed.lastKey, FPS)}
         focused={phase === 'answering'}
-        streamed={phase === 'answering' ? '' : phase === 'graded' ? demo.study.result.explanation : streamedAt(f, demo.study.result.explanation, stream)}
+        streamed={phase === 'answering' ? '' : phase === 'graded' ? explanation : explanation.slice(0, written)}
+        unwritten={phase === 'grading' ? explanation.slice(written) : undefined}
         loaderMs={phase === 'grading' ? ms(f - released) : null}
         score={demo.study.result.score}
         gradeLabel={STUDY.gradeLabel}

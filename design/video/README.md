@@ -70,7 +70,8 @@ graded; only the tutor listens to speech, and voice mode is always shown startin
 | New cards are paced to land before your exam. | `ExamsScreen.tsx`: "Linked decks pace their new cards to land before the date." |
 
 The graded answer is the sign-in screen's own example (`SignInScreen.tsx`). The explanation is kept
-short there, and so it is here.
+short there, and so it is here. The video types it out a character at a time. In the app it appears
+as the grader's chunks arrive, a few words at a time.
 
 The demo data in `src/data/demo.json` comes from `scripts/make-demo.mjs`. It follows
 `design/handoff/seed_fixture.py` with one change: Pharmacology's exam is at +47 days, not +16. Home's
@@ -83,9 +84,9 @@ app itself put "Organic Chemistry II, 34 days" on Home.
   windows, posters. Change the pacing here.
 - `src/scenes/` holds one component per scene. Each decides only when things happen, and draws with
   `src/replica/`, which are the app's screens.
-- `src/lib/` holds the pure, tested per-frame maths: easing curves, typing, streaming, the score
-  landing, karaoke, the orb and its analyser, the camera, the calendar, the sliding pill and the
-  logo morph.
+- `src/lib/` holds the pure, tested per-frame maths: easing curves, typing, the typed-out
+  explanation, the score landing, karaoke, the orb and its analyser, the camera, the calendar, the
+  sliding pill and the logo morph.
 - `src/primitives/` holds the window the app is shown in (`AppCanvas`), captions, the pointer, the
   loading mark, the orb and the logo morph.
 - `src/data/anchors.json` records where the real app's controls are, so the pointer and the camera

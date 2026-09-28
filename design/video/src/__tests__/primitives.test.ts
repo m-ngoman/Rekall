@@ -13,7 +13,7 @@ import { assignNodes, logoMorph } from '../lib/logoMorph'
 import { orbBandsAt, type OrbInput } from '../lib/orb'
 import { pillAt } from '../lib/pill'
 import { revealedAt } from '../lib/reveal'
-import { streamSchedule, streamedAt } from '../lib/stream'
+import { typedChars } from '../lib/stream'
 import { typedAt, typingSchedule } from '../lib/typing'
 
 describe('easing', () => {
@@ -51,15 +51,22 @@ describe('typing', () => {
   })
 })
 
-describe('streamed explanation', () => {
+describe('typed-out explanation', () => {
   const text = demo.study.result.explanation
-  const schedule = streamSchedule(text, 122, 180, 'grade')
-  it('arrives in whole words and ends complete, on time', () => {
-    expect(schedule[schedule.length - 1]).toEqual({ chars: text.length, frame: 180 })
-    for (const ev of schedule) expect([' ', undefined]).toContain(text[ev.chars - 1] === ' ' ? ' ' : text[ev.chars] === ' ' || ev.chars === text.length ? undefined : 'mid-word')
+  it('shows nothing before it starts, its first character on the start frame, and all of it by the end', () => {
+    expect(typedChars(121, text, 122, 180)).toBe(0)
+    expect(typedChars(122, text, 122, 180)).toBe(1)
+    expect(typedChars(179, text, 122, 180)).toBeLessThan(text.length)
+    expect(typedChars(180, text, 122, 180)).toBe(text.length)
+    expect(typedChars(400, text, 122, 180)).toBe(text.length)
   })
-  it('shows nothing before the first event', () => {
-    expect(streamedAt(121, text, schedule)).toBe('')
+  it('types at an even pace, never going back', () => {
+    const perFrame = text.length / (180 - 122)
+    for (let f = 123; f <= 180; f++) {
+      const added = typedChars(f, text, 122, 180) - typedChars(f - 1, text, 122, 180)
+      expect(added).toBeGreaterThanOrEqual(Math.floor(perFrame))
+      expect(added).toBeLessThanOrEqual(Math.ceil(perFrame) + 1)
+    }
   })
 })
 
