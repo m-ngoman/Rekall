@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "description": "Rekall's launch video, rebuilt in Remotion from the app's own tokens, fonts and animation code.",
   "scripts": {
-    "studio": "remotion studio",
+    "studio": "npm run audio && remotion studio",
+    "audio": "vite-node scripts/make-audio.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

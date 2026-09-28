@@ -23,5 +23,5 @@
       "react/*": ["./node_modules/@types/react/*"]
     }
   },
-  "include": ["src", "remotion.config.ts", "vitest.config.mts"]
+  "include": ["src", "scripts/**/*.ts", "remotion.config.ts", "vitest.config.mts"]
 }

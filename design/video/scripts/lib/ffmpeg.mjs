@@ -26,6 +26,8 @@ export function ffprobe(file) {
 }
 
 export const LOUDNESS = { I: -14, TP: -1.5, LRA: 11 }
+/** Where the mix sits when there is no voice to set it by. */
+export const MIX_WITHOUT_VOICE = -18
 
 /** loudnorm's measurement pass: integrated loudness, true peak, range, threshold, offset. */
 export function measureLoudness(file) {
@@ -35,20 +37,9 @@ export function measureLoudness(file) {
   return JSON.parse(json)
 }
 
-/** The second, linear pass to -14 LUFS with 1.5 dB of true-peak headroom — room for the AAC
- * encoder's own overshoot to stay under -1 dBTP — resampled back to 48 kHz (loudnorm works at
- * 192 kHz). */
-export function normalise(input, output, m) {
-  const args = [
-    `measured_I=${m.input_i}`,
-    `measured_TP=${m.input_tp}`,
-    `measured_LRA=${m.input_lra}`,
-    `measured_thresh=${m.input_thresh}`,
-    `offset=${m.target_offset}`,
-  ].join(':')
-  const err = ffmpeg(['-y', '-i', input, '-af', `loudnorm=I=${LOUDNESS.I}:TP=${LOUDNESS.TP}:LRA=${LOUDNESS.LRA}:${args}:linear=true:print_format=json,aresample=48000`, '-ar', '48000', '-c:a', 'pcm_s16le', output])
-  const out = JSON.parse(err.slice(err.lastIndexOf('{'), err.lastIndexOf('}') + 1))
-  return out.normalization_type
+/** One linear gain, to a 48 kHz 16-bit WAV — nothing dynamic, so the mix keeps its balance. */
+export function applyGain(input, output, gainDb) {
+  ffmpeg(['-y', '-i', input, '-af', `volume=${gainDb.toFixed(2)}dB`, '-ar', '48000', '-c:a', 'pcm_s16le', output])
 }
 
 /** Where sound starts, from silencedetect: the end of the first silence. */

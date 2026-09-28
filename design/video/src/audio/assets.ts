@@ -6,11 +6,23 @@ import type { AudioSamples } from '../lib/orb'
 /** The tutor's line, made by scripts/tts-inworld.mjs. Until it exists the video renders silent:
  * the karaoke still runs on the committed word timings and the orb on its seeded stand-in. */
 export const VOICE_FILE = 'audio/tutor-sn1-sn2.wav'
-/** An optional music bed, if one has been licensed and dropped in. */
-export const MUSIC_FILES = ['audio/music.mp3', 'audio/music.wav', 'audio/music.m4a', 'audio/local/music.mp3', 'audio/local/music.wav', 'audio/local/music.m4a']
+/** The music bed: a licensed track, if one has been dropped in, and otherwise the video's own
+ * (src/audio/music.ts, made into public/audio/generated/ by scripts/make-audio.ts). */
+export const MUSIC_FILES = [
+  'audio/music.mp3',
+  'audio/music.wav',
+  'audio/music.m4a',
+  'audio/local/music.mp3',
+  'audio/local/music.wav',
+  'audio/local/music.m4a',
+  'audio/generated/music.wav',
+]
+/** A cut's sound effects, mixed by scripts/make-audio.ts from src/audio/cues.ts. */
+export const sfxFile = (cutId: string) => `audio/generated/sfx-${cutId}.wav`
 
 export const hasStaticFile = (name: string) => getStaticFiles().some((f) => f.name === name)
 export const voiceSrc = (): string | null => (hasStaticFile(VOICE_FILE) ? staticFile(VOICE_FILE) : null)
+export const sfxSrc = (cutId: string): string | null => (hasStaticFile(sfxFile(cutId)) ? staticFile(sfxFile(cutId)) : null)
 export const musicSrc = (): string | null => {
   const found = MUSIC_FILES.find(hasStaticFile)
   return found ? staticFile(found) : null

@@ -42,17 +42,52 @@ npm run release
 ```
 
 This writes `public/audio/tutor-sn1-sn2.wav` and `src/audio/tutor-sn1-sn2.words.json`; commit both.
-The committed take was made this way (6.12 s). Without a take the video renders silent: the
-karaoke runs on the alignment pinned in `backend/tests/test_tts_inworld.py`, and the orb on a
-seeded stand-in shaped by those word timings. With one, the orb is driven by the audio exactly as
-the app's analyser would read it (`lib/analyser`). The audio is normalised to −14 LUFS with a true
-peak at or below −1 dBTP. A take of a different length may need the voice scene's beats in
-`src/timeline.ts` moved; the timeline tests say so if it does.
+The committed take was made this way (6.12 s). Without a take there's no voice: the karaoke runs on
+the alignment pinned in `backend/tests/test_tts_inworld.py`, and the orb on a seeded stand-in
+shaped by those word timings. With one, the orb is driven by the audio exactly as the app's
+analyser would read it (`lib/analyser`), and the voice is set to −14 LUFS with its true peak at or
+below −1 dBTP. A take of a different length may need the voice scene's beats in `src/timeline.ts`
+moved; the timeline tests say so if it does.
 
-A music bed is optional. Drop a licensed track in as `public/audio/music.mp3` (or
-`public/audio/local/music.mp3`, which is gitignored, if the licence doesn't allow committing it).
-It plays at −16 dB and ducks to −28 dB under the voice. On TikTok and Reels it's usually better to
-add music in the app instead.
+## The rest of the sound
+
+Nothing in the video is silent. Everything besides the voice is made in code, so there is nothing to
+license or credit, and it's re-made identically before every render (`npm run audio`, into the
+gitignored `public/audio/generated/`):
+
+- **Sound effects** (`src/audio/cues.ts`, `sounds.ts`). Each is placed from the same beats and
+  schedules the scenes animate with, so it can't drift from the picture:
+  - a laptop key for every character of the answer, on the frame it appears;
+  - a small tick every third character as the explanation types itself out;
+  - a click on every press;
+  - a mallet as the score lands;
+  - a pop for "Saved" and for the generated cards;
+  - air as voice mode opens and closes, and under the crossfades;
+  - rising plucks as the calendar's bars fill, left to right;
+  - a bell as the logo settles.
+
+  Nothing plays while the tutor is speaking; a test holds that.
+- **A lo-fi study bed** (`src/audio/music.ts`) at 80 BPM:
+  - electric-piano chords (Fmaj9, Em7, Dm9, Cmaj9), a round bass and a soft swung kit;
+  - the kit comes in after two bars, so the answer's keys are heard first;
+  - a little vinyl, and the top rolled off so it sits under a voice.
+
+  It plays 16 dB down and ducks another 12 under the voice.
+
+The mix is levelled by the voice: one gain puts the tutor's line at −14 LUFS, and everything else
+keeps the balance it was mixed at. The whole mix lands near −19 LUFS. Normalising the whole mix to
+−14 instead would have meant squashing the voice to keep its peaks under the limit.
+
+A licensed track dropped in as `public/audio/music.mp3` takes the bed's place. Use
+`public/audio/local/music.mp3`, which is gitignored, if the licence doesn't allow committing it.
+
+On TikTok and Reels, music is often added in the app instead. For that, render without the bed,
+and without the effects too if they should go:
+
+```sh
+node scripts/render.mjs Launch30-Portrait --no-music      # keys, clicks and voice, no bed
+node scripts/render.mjs Launch30-Portrait --no-sfx        # bed and voice only
+```
 
 ## What it says, and where the app says it
 
@@ -116,7 +151,9 @@ desktop. It stays still on the phone, where zooming would crop a 390 px column o
   `out/fidelity/`. Needs `cd frontend && npm ci`.
 - `npm run contact` renders one-frame-a-second review sheets of every cut.
 - `npm run verify` checks the rendered files: size, 30 fps, frame count, H.264 High, yuv420p,
-  BT.709, faststart, loudness, and that the voice starts where the karaoke expects it.
+  BT.709, faststart, and the true peak. It also checks that the voice sits at −14 LUFS and starts
+  where the karaoke expects it. The render measures those two on the voice alone, where nothing
+  plays over it.
 
 ## Notes
 

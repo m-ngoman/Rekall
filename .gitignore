@@ -55,3 +55,5 @@ frontend/_plotcheck.html
 # design/video; a music track in public/audio/local/ is one whose licence doesn't allow committing it.
 design/video/out/
 design/video/public/audio/local/
+# The sound effects and the music bed, made from source before every render (npm run audio).
+design/video/public/audio/generated/

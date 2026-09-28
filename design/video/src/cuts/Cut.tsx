@@ -23,6 +23,8 @@ export type CutProps = {
   silent?: boolean
   /** Leave out the music bed (the voice stays). */
   music?: boolean
+  /** Leave out the sound effects (the voice stays). */
+  sfx?: boolean
   /** Draw the platforms' overlay zones, for review. */
   guides?: boolean
   /** Draw the captions (off for the automated check that their band is empty). */
@@ -54,7 +56,7 @@ function FadeIn({ frames, children }: { frames: number; children: ReactNode }) {
 }
 
 /** One cut of the video, in one format, from the storyboard in timeline.ts. */
-export const Cut: React.FC<CutProps> = ({ cut: id, layout, silent = false, music = true, guides = false, captions = true }) => {
+export const Cut: React.FC<CutProps> = ({ cut: id, layout, silent = false, music = true, sfx = true, guides = false, captions = true }) => {
   const cut: CutSpec = CUTS_BY_ID[id]
   return (
     <AbsoluteFill style={{ background: 'var(--bg)' }}>
@@ -70,7 +72,7 @@ export const Cut: React.FC<CutProps> = ({ cut: id, layout, silent = false, music
         )
       })}
       {captions && cut.captions.map((c) => <Caption key={`${c.id}-${c.from}`} text={CAPTIONS[c.id]} from={c.from} to={c.to} place={layout} />)}
-      <Soundtrack cut={cut} silent={silent} music={music} />
+      <Soundtrack cut={cut} silent={silent} music={music} sfx={sfx} />
       {guides && <SafeZones layout={layout} />}
     </AbsoluteFill>
   )

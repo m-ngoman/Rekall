@@ -24,7 +24,7 @@ export const Root: React.FC = () => {
             durationInFrames={cut.durationInFrames}
             fps={FPS}
             {...SIZES[layout]}
-            defaultProps={{ cut: cut.id, layout, silent: false, music: true, guides: false, captions: true } satisfies CutProps}
+            defaultProps={{ cut: cut.id, layout, silent: false, music: true, sfx: true, guides: false, captions: true } satisfies CutProps}
           />
         )),
       )}
