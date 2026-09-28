@@ -235,7 +235,20 @@ export const LAUNCH60: Cut = {
         result: 196,
         homePointerStart: 322,
         homePress: 346,
-        camera: still(),
+        // The result fits a desktop window, so there's nothing to scroll to: the camera leans in on
+        // the list — the cards added, what was dropped and why (anchors: generate-result dropped),
+        // and Done — with the column centred and nothing cut at the sides, and is back out before
+        // the pointer heads for the sidebar.
+        camera: {
+          landscape: [
+            { f: 0, ...WHOLE.landscape },
+            { f: 236, ...WHOLE.landscape },
+            { f: 266, x: 760, y: 420, z: 1.3 },
+            { f: 300, x: 760, y: 420, z: 1.3 },
+            { f: 322, ...WHOLE.landscape },
+          ],
+          portrait: [{ f: 0, ...WHOLE.portrait }],
+        },
       },
     },
     { kind: 'home', start: 1200, duration: 120, beats: { pointerStart: 90, press: 112, camera: still() } },
@@ -246,12 +259,15 @@ export const LAUNCH60: Cut = {
       beats: {
         nextMonth: { pointerStart: 100, press: 120 },
         // Into November's grid, around the exam's day (anchors: calendar-next grid, examDay): the
-        // grid alone, neither the sidebar nor the column beside it.
+        // grid alone, neither the sidebar nor the column beside it. Its rows are 78 px apart with a
+        // 2 px gap, so no framing shows whole rows only; this one's top edge is in the gap above
+        // the week of the 2nd, and the week of the 30th is cut below its "3 cards" — no line of
+        // text is sliced.
         camera: {
           landscape: [
             { f: 0, ...WHOLE.landscape },
             { f: 130, ...WHOLE.landscape },
-            { f: 176, x: 572, y: 400, z: 2 },
+            { f: 176, x: 572, y: 449, z: 2 },
           ],
           portrait: [{ f: 0, ...WHOLE.portrait }],
         },
@@ -268,7 +284,7 @@ export const LAUNCH60: Cut = {
     { id: 'talk', from: 486, to: 570 },
     { id: 'memory', from: 780, to: 836 },
     { id: 'notes', from: 846, to: 940 },
-    { id: 'checked', from: 970, to: 1090 },
+    { id: 'checked', from: 970, to: 1140 },
     { id: 'countdown', from: 1206, to: 1300 },
     { id: 'perDay', from: 1328, to: 1430 },
     { id: 'paced', from: 1450, to: 1578 },

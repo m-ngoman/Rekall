@@ -21,16 +21,25 @@ export function GenerateScene({ layout, beats }: { layout: Layout; beats: Genera
   const stageIndex = beats.stages.filter((s) => f >= s).length - 1
   const stage = demo.generate.stages[Math.max(0, stageIndex)]
 
-  // Scrolling: down to the button before it's pressed. The result then replaces the form where the
-  // page already is — the app doesn't scroll it — so it goes back up to the summary line, and then
-  // down to what the check dropped.
-  const formScroll = desktop ? 90 : 270
-  const resultScroll = desktop ? 150 : 372
+  // Scrolling, within what the real pages allow (measured in the app: the form ends 75 px below a
+  // desktop window and 279 px below a phone's). Down to the button before it's pressed — on the
+  // desktop to 60, which shows the form whole with "Back" as its first line; on a phone to 282,
+  // where the button clears the tab bar and the window's top edge falls between the paragraph and
+  // "Add to" instead of through a line of text. (Those 3 px past the page's end show only more of
+  // its background, under the tab bar.) While it runs the inputs only turn invisible, so the page
+  // keeps its length. The result then replaces the form where the page already is — the app
+  // doesn't scroll it. On the desktop the result fits the window, so the browser is back at the
+  // top at once, and the camera leans in on the list instead. On a phone it goes back up to the
+  // summary line, then down to the end of the page (312), where the dropped card is.
+  const formScroll = desktop ? 60 : 282
+  const resultScroll = 312
   const scrollY =
     phase === 'result'
-      ? f < beats.result + 40
-        ? lerp(formScroll, 0, progress(f, beats.result + 6, 18, CAMERA_EASE))
-        : lerp(0, resultScroll, progress(f, beats.result + 40, 40, CAMERA_EASE))
+      ? desktop
+        ? 0
+        : f < beats.result + 40
+          ? lerp(formScroll, 0, progress(f, beats.result + 6, 18, CAMERA_EASE))
+          : lerp(0, resultScroll, progress(f, beats.result + 40, 40, CAMERA_EASE))
       : lerp(0, formScroll, progress(f, beats.pointerStart - 22, 20, CAMERA_EASE))
 
   const button = centre(layout, 'generate-form', 'generate', formScroll)

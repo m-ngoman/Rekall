@@ -33,8 +33,11 @@ export function StudyScene({ layout, beats }: { layout: Layout; beats: StudyBeat
   if (desktop) {
     const rest = { x: check.x + 330, y: check.y + 150 }
     if (save && f >= save.pointerStart) {
-      const p = pointerAt(f, { x: check.x + 40, y: check.y + 60 }, saveAt, save.pointerStart, save.hover)
-      pointer = { ...p, visible: Math.min(1, (f - save.pointerStart) / 4), down: pressed(f, save.press), hand: f >= save.hover - 2 }
+      // Once the button has become its confirmation there's nothing under the hand to press: it
+      // turns back into an arrow and drifts off the words, into the empty page below.
+      const off = { x: saveAt.x + 36, y: saveAt.y + 74 }
+      const p = f < save.press + 6 ? pointerAt(f, { x: check.x + 40, y: check.y + 60 }, saveAt, save.pointerStart, save.hover) : pointerAt(f, saveAt, off, save.press + 6, save.press + 26)
+      pointer = { ...p, visible: Math.min(1, (f - save.pointerStart) / 4), down: pressed(f, save.press), hand: f >= save.hover - 2 && f < save.press + 2 }
     } else if (f >= beats.pointerStart && f < beats.land) {
       const p = f < released + 4 ? pointerAt(f, rest, check, beats.pointerStart, beats.hover) : pointerAt(f, check, { x: check.x + 40, y: check.y + 60 }, released + 4, released + 16)
       pointer = { ...p, visible: Math.min(1, (f - beats.pointerStart) / 4) * Math.min(1, (beats.land - f) / 6), down: pressed(f, beats.press), hand: f >= beats.hover - 2 && f < released + 6 }

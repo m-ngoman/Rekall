@@ -12,6 +12,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 import { chromium } from 'playwright-core'
+import { VIEWPORTS } from './cuts.mjs'
 import { demo, respond } from './lib/mock-api.mjs'
 
 const root = path.resolve(import.meta.dirname, '..')
@@ -22,10 +23,10 @@ const APP = 'http://127.0.0.1:5199'
 const { values: opts } = parseArgs({ options: { only: { type: 'string' }, anchors: { type: 'boolean', default: false } } })
 const only = opts.only?.split(',')
 
-export const LAYOUTS = {
-  landscape: { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1.35 }, // CANVAS.landscape.base
-  portrait: { viewport: { width: 390, height: 643 }, deviceScaleFactor: 2.3 }, // CANVAS.portrait.base
-}
+// At the scale the video draws each replica, so a screenshot and a Fidelity still are the same size.
+const LAYOUTS = Object.fromEntries(
+  Object.entries(VIEWPORTS).map(([layout, v]) => [layout, { viewport: { width: v.width, height: v.height }, deviceScaleFactor: v.scale }]),
+)
 
 const up = async () => fetch(APP).then((r) => r.ok, () => false)
 let server = null

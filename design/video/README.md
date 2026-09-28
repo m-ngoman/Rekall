@@ -107,8 +107,10 @@ desktop. It stays still on the phone, where zooming would crop a 390 px column o
   independently from OKLCH.
 - `npm run reference`, then `npm run fidelity`, drive the real frontend (`npm run dev:fixture`, with
   the backend replaced by `scripts/lib/mock-api.mjs` serving `demo.json`) into each state the video
-  shows, then compare those screenshots with the replicas pixel by pixel. They write reference,
-  replica and differences side by side to `out/fidelity/`. Needs `cd frontend && npm ci`.
+  shows, then compare those screenshots with the replicas pixel by pixel. The app is photographed
+  at the size and scale the video draws it (`VIEWPORTS` in `scripts/cuts.mjs`, which a test keeps
+  equal to `CANVAS`). They write reference, replica and differences side by side to
+  `out/fidelity/`. Needs `cd frontend && npm ci`.
 - `npm run contact` renders one-frame-a-second review sheets of every cut.
 - `npm run verify` checks the rendered files: size, 30 fps, frame count, H.264 High, yuv420p,
   BT.709, faststart, loudness, and that the voice starts where the karaoke expects it.
@@ -120,4 +122,6 @@ desktop. It stays still on the phone, where zooming would crop a 390 px column o
   (`remotion.config.ts`). Elsewhere, Remotion fetches its own.
 - Scripts that reach the network (`npm run tts`) run with `NODE_USE_ENV_PROXY=1`, so Node's `fetch`
   goes through `HTTPS_PROXY` where one is set.
+- Judge framing on full-size frames. A still rendered with `--scale` below 1 lays text out at a
+  different device pixel ratio, and lines can land a few pixels away from where the video has them.
 - Remotion's licence is free for individuals and companies of up to three people.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error — plain ESM shared with the render scripts.
-import { COMPOSITIONS, CUTS } from '../../scripts/cuts.mjs'
+import { COMPOSITIONS, CUTS, VIEWPORTS } from '../../scripts/cuts.mjs'
+import { CANVAS } from '../primitives/AppCanvas'
 import { LAUNCH30, LAUNCH60, SIZES, voiceStartFrame } from '../timeline'
 
 describe('the render scripts', () => {
@@ -9,6 +10,12 @@ describe('the render scripts', () => {
     expect(spec.frames).toBe(cut.durationInFrames)
     expect(spec.voiceStart).toBe(voiceStartFrame(cut))
     expect(spec.posters).toEqual(Object.fromEntries(cut.posters.map((p) => [p.name, p.frame])))
+  })
+  it('photograph the real app at the size and scale the video draws it', () => {
+    for (const layout of ['landscape', 'portrait'] as const) {
+      const c = CANVAS[layout]
+      expect(VIEWPORTS[layout]).toEqual({ width: c.width, height: c.height, scale: c.base })
+    }
   })
   it('render every composition at its size', () => {
     for (const [id, spec] of Object.entries(COMPOSITIONS) as [string, { width: number; height: number }][]) {
