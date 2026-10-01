@@ -58,15 +58,16 @@ gitignored `public/audio/generated/`):
 - **Sound effects** (`src/audio/cues.ts`, `sounds.ts`). Each is placed from the same beats and
   schedules the scenes animate with, so it can't drift from the picture:
   - a laptop key for every character of the answer, on the frame it appears;
-  - a small tick every third character as the explanation types itself out;
+  - a faint tick on each word as the explanation types itself out;
   - a click on every press;
   - a mallet as the score lands;
   - a pop for "Saved" and for the generated cards;
-  - air as voice mode opens and closes, and under the crossfades;
-  - rising plucks as the calendar's bars fill, left to right;
+  - air as voice mode opens and closes, and as the month turns;
+  - rising plucks as the calendar's bars fill, left to right, one every four days;
   - a bell as the logo settles.
 
-  Nothing plays while the tutor is speaking; a test holds that.
+  Nothing plays while the tutor is speaking; a test holds that. One number, `SFX_TRIM` in
+  `src/audio/cues.ts`, turns the whole layer up or down.
 - **A lo-fi study bed** (`src/audio/music.ts`) at 80 BPM:
   - electric-piano chords (Fmaj9, Em7, Dm9, Cmaj9), a round bass and a soft swung kit;
   - the kit comes in after two bars, so the answer's keys are heard first;

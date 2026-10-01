@@ -33,11 +33,15 @@ export interface Cue {
 /** Pentatonic, G4 up two octaves: the calendar's bars filling in, left to right, low to high. */
 const SCALE = [392, 440, 523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98]
 
-function sceneCues(scene: Scene, lead: number, cutId: string): Cue[] {
+/** The whole effects layer's level, on top of each sound's own: the one number to turn them all
+ * up or down by. */
+export const SFX_TRIM = -4
+
+function sceneCues(scene: Scene, cutId: string): Cue[] {
   const cues: Cue[] = []
   const at = (frame: number) => (scene.start + frame) / FPS
   const tag = `${cutId}-${scene.kind}`
-  const add = (frame: number, sound: Sound, gain: number, pan = 0, seed = `${tag}-${frame}`) => cues.push({ at: at(frame), sound, gain, pan, seed })
+  const add = (frame: number, sound: Sound, gain: number, pan = 0, seed = `${tag}-${frame}`) => cues.push({ at: at(frame), sound, gain: gain + SFX_TRIM, pan, seed })
 
   switch (scene.kind) {
     case 'study': {
@@ -49,12 +53,13 @@ function sceneCues(scene: Scene, lead: number, cutId: string): Cue[] {
         add(frame, { kind: 'key', space }, -11 + (r() * 2 - 1) * 1.5, (r() * 2 - 1) * 0.12, `${tag}-key-${i}`)
       })
       add(b.press, { kind: 'click' }, -10)
-      // The explanation typing itself out: a small tick on the frame every third character lands.
+      // The explanation typing itself out: a faint tick on the frame each word's first letter lands.
       const text = demo.study.result.explanation
+      const wordStarts = [...text].flatMap((ch, i) => (ch !== ' ' && (i === 0 || text[i - 1] === ' ') ? [i] : []))
       let last = 0
       for (let f = b.streamStart; f <= b.streamEnd; f++) {
         const n = typedChars(f, text, b.streamStart, b.streamEnd)
-        for (let k = Math.floor(last / 3) + 1; k <= Math.floor(n / 3); k++) add(f, { kind: 'tick' }, -16 + (r() * 2 - 1) * 2, (r() * 2 - 1) * 0.2, `${tag}-tick-${k}`)
+        for (const w of wordStarts) if (w >= last && w < n) add(f, { kind: 'tick' }, -18 + (r() * 2 - 1) * 2, (r() * 2 - 1) * 0.2, `${tag}-tick-${w}`)
         last = n
       }
       // The score landing: a mallet, and a quieter fifth above it.
@@ -80,7 +85,6 @@ function sceneCues(scene: Scene, lead: number, cutId: string): Cue[] {
       const b = scene.beats
       add(b.press, { kind: 'click' }, -10)
       add(b.result, { kind: 'pop' }, -14)
-      add(b.result + 3, { kind: 'mallet', freq: 523.25, length: 0.8 }, -20, 0.1)
       add(b.homePress, { kind: 'click' }, -10)
       break
     }
@@ -92,13 +96,14 @@ function sceneCues(scene: Scene, lead: number, cutId: string): Cue[] {
       const [y, m] = demo.today.split('-').map(Number)
       const glissando = (month: number, from: number, seedTag: string) => {
         const future = monthCells(y, month, demo.today, demo.load).cells.filter((c) => c.iso >= demo.today).length
-        const plucks = Math.ceil(future / 2)
+        const plucks = Math.ceil(future / 4)
         for (let i = 0; i < plucks; i++) {
           const p = plucks > 1 ? i / (plucks - 1) : 0
-          add(from + i * 2, { kind: 'mallet', freq: SCALE[Math.min(SCALE.length - 1, Math.floor(p * SCALE.length))], length: 0.6 }, -23 - 3 * p, -0.45 + 0.9 * p, `${tag}-${seedTag}-${i}`)
+          add(from + i * 4, { kind: 'mallet', freq: SCALE[Math.min(SCALE.length - 1, Math.floor(p * SCALE.length))], length: 0.6 }, -23 - 3 * p, -0.45 + 0.9 * p, `${tag}-${seedTag}-${i}`)
         }
       }
-      // CalendarScene grows the bars from frame 4, one a frame, in date order from today.
+      // CalendarScene grows the bars from frame 4, one a frame, in date order from today: a pluck
+      // on every fourth.
       glissando(m - 1, 4, 'oct')
       if (b.nextMonth) {
         add(b.nextMonth.press, { kind: 'click' }, -10)
@@ -115,13 +120,11 @@ function sceneCues(scene: Scene, lead: number, cutId: string): Cue[] {
       add(40, { kind: 'chime', freq: 1567.98 }, -20, 0.12)
       break
   }
-  // A crossfade is the video's, not the app's: a breath of air under it.
-  if (lead > 0 && scene.kind !== 'end') add(-lead, { kind: 'whoosh', seconds: 0.4, rising: false }, -26)
   return cues
 }
 
 export function cuesFor(cut: Cut): Cue[] {
-  const cues = cut.scenes.flatMap((scene, i) => sceneCues(scene, i > 0 ? cut.transitions[i - 1].frames : 0, cut.id))
+  const cues = cut.scenes.flatMap((scene) => sceneCues(scene, cut.id))
   return cues.filter((c) => c.at >= 0 && c.at < cut.durationInFrames / FPS).sort((a, b) => a.at - b.at || a.seed.localeCompare(b.seed))
 }
 
