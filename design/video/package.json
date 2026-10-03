@@ -20,6 +20,7 @@
     "render:60:9x16": "node scripts/render.mjs Launch60-Portrait",
     "posters": "node scripts/render.mjs --posters",
     "contact": "node scripts/render.mjs --sheets",
+    "banners": "node scripts/render.mjs --banners",
     "reference": "node scripts/reference.mjs",
     "fidelity": "node scripts/fidelity.mjs",
     "verify": "node scripts/verify.mjs",

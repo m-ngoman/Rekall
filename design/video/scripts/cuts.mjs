@@ -16,3 +16,10 @@ export const VIEWPORTS = {
   landscape: { width: 1280, height: 720, scale: 1.15 },
   portrait: { width: 390, height: 643, scale: 2.2 },
 }
+/** The profile images (src/tools/bannerSpecs.ts): composition id -> file. */
+export const PROFILES = {
+  'Banner-x': 'x-header',
+  'Banner-linkedin': 'linkedin-banner',
+  'Banner-youtube': 'youtube-banner',
+  Avatar: 'avatar',
+}

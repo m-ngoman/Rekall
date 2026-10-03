@@ -4,6 +4,7 @@
 //   node scripts/render.mjs Launch30-Portrait [--silent] [--no-music] [--no-sfx]
 //   npm run posters                      cover, graded, voice and end frames of each
 //   npm run contact                      one-frame-a-second review sheets
+//   npm run banners                      the X, LinkedIn and YouTube banners, and the avatar
 //
 // A video is rendered in three steps, because Remotion's bundled ffmpeg can measure and set
 // loudness but a render can't do both at once: the cut's audio once (it's the same in both
@@ -17,7 +18,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
-import { COMPOSITIONS, CUTS } from './cuts.mjs'
+import { COMPOSITIONS, CUTS, PROFILES } from './cuts.mjs'
 import { LOUDNESS, MIX_WITHOUT_VOICE, applyGain, ffmpeg, firstSound, measureLoudness, remotion, root } from './lib/ffmpeg.mjs'
 
 const { values: opts, positionals } = parseArgs({
@@ -26,6 +27,7 @@ const { values: opts, positionals } = parseArgs({
     all: { type: 'boolean', default: false },
     posters: { type: 'boolean', default: false },
     sheets: { type: 'boolean', default: false },
+    banners: { type: 'boolean', default: false },
     silent: { type: 'boolean', default: false },
     'no-music': { type: 'boolean', default: false },
     'no-sfx': { type: 'boolean', default: false },
@@ -35,7 +37,7 @@ const out = path.join(root, 'out')
 const tmp = path.join(out, 'tmp')
 fs.mkdirSync(tmp, { recursive: true })
 
-const rendering = !opts.posters && !opts.sheets
+const rendering = !opts.posters && !opts.sheets && !opts.banners
 if (rendering && !opts.silent) {
   console.log('Making the sound effects and the music bed:')
   execFileSync(path.join(root, 'node_modules/.bin/vite-node'), ['scripts/make-audio.ts'], { cwd: root, stdio: 'inherit' })
@@ -141,7 +143,19 @@ function renderSheets() {
   }
 }
 
-if (opts.posters) renderPosters()
+/** The profile images: a banner each for X, LinkedIn and YouTube, and the avatar. */
+function renderBanners() {
+  const dir = path.join(out, 'banners')
+  fs.mkdirSync(dir, { recursive: true })
+  for (const [id, file] of Object.entries(PROFILES)) {
+    const target = path.join(dir, `${file}.png`)
+    remotion(['still', id, target, '--log=error'], { quiet: true })
+    console.log(`  ${path.relative(root, target)}`)
+  }
+}
+
+if (opts.banners) renderBanners()
+else if (opts.posters) renderPosters()
 else if (opts.sheets) renderSheets()
 else {
   const ids = opts.all ? Object.keys(COMPOSITIONS) : positionals

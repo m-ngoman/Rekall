@@ -6,6 +6,8 @@ import { applyTheme } from './theme'
 import { FIDELITY_STATES, Fidelity, fidelitySize } from './tools/Fidelity'
 import { ContactSheet, sheetFrames, sheetSize, type SheetProps } from './tools/ContactSheet'
 import { Smoke } from './tools/Smoke'
+import { Avatar, Banner } from './tools/Banner'
+import { AVATAR, BANNERS, type BannerName } from './tools/bannerSpecs'
 import { FPS, SIZES, type Layout } from './timeline'
 
 applyTheme()
@@ -29,6 +31,12 @@ export const Root: React.FC = () => {
         )),
       )}
       <Still id="Smoke" component={Smoke} width={1200} height={400} />
+      <Folder name="Profiles">
+        {(Object.keys(BANNERS) as BannerName[]).map((name) => (
+          <Still key={name} id={`Banner-${name}`} component={Banner} width={BANNERS[name].width} height={BANNERS[name].height} defaultProps={{ name }} />
+        ))}
+        <Still id="Avatar" component={Avatar} width={AVATAR.size} height={AVATAR.size} />
+      </Folder>
       <Folder name="Sheets">
         {Object.values(CUTS_BY_ID).flatMap((cut) =>
           LAYOUTS.map((layout) => {

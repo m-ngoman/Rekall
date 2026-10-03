@@ -29,6 +29,11 @@ end frames, plus portrait covers as JPEG) go to `out/posters/`. Nothing in `out/
 | TikTok, Reels, Shorts | 9:16, with `out/posters/*-9x16-cover.jpg` as the cover |
 | Product Hunt | its gallery takes a YouTube link: upload the 60 s 16:9 there |
 
+`npm run banners` also makes the profile images into `out/banners/`: a header for X (1500 × 500),
+LinkedIn (1584 × 396) and YouTube (2560 × 1440, content inside the 1546 × 423 area every device
+shows), and a circle-safe 1024 × 1024 avatar for TikTok and Instagram. They are the end card's
+lockup on the app's flat background (`src/tools/Banner.tsx`, sizes in `bannerSpecs.ts`).
+
 ## The voice
 
 The tutor's line, "Tertiary substrates go SN1; primary ones almost always go SN2.", is made the way
