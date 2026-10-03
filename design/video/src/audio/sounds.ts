@@ -84,21 +84,6 @@ export function mallet(seed: string, freq: number, length = 1.1): Float32Array {
   return normalise(x)
 }
 
-/** A small bell: inharmonic partials, the upper ones dying first. */
-export function chime(seed: string, freq: number): Float32Array {
-  const r = rng(`chime-${seed}`)
-  const x = buffer(2.8)
-  const partials: [number, number, number][] = [
-    [1, 1, 1.5],
-    [2.0, 0.28, 0.9],
-    [2.76, 0.4, 0.7],
-    [5.4, 0.16, 0.35],
-    [8.93, 0.06, 0.18],
-  ]
-  for (const [ratio, amp, decay] of partials) partial(x, freq * ratio * vary(r, 0.002), amp, decay, 0.003)
-  return normalise(x)
-}
-
 /** Air moving past: noise through a band that sweeps up (opening) or down (closing), swelling and
  * fading. Processed in short blocks so the band can move. */
 export function whoosh(seed: string, seconds: number, rising: boolean): Float32Array {

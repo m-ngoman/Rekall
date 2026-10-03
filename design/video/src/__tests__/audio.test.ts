@@ -4,7 +4,7 @@ import demo from '../data/demo.json'
 import { cuesFor, soundFor, type Cue } from '../audio/cues'
 import { SR, Stereo, buffer, db, lufs } from '../audio/dsp'
 import { lofiBed } from '../audio/music'
-import { chime, click, keystroke, mallet, pop, tick, whoosh } from '../audio/sounds'
+import { click, keystroke, mallet, pop, tick, whoosh } from '../audio/sounds'
 import { typingSchedule } from '../lib/typing'
 import { CUTS, FPS, voiceStartFrame } from '../timeline'
 
@@ -35,7 +35,6 @@ describe('the sound effects', () => {
     ['click', click('a')],
     ['pop', pop('a')],
     ['mallet', mallet('a', 392)],
-    ['chime', chime('a', 1046.5)],
     ['whoosh', whoosh('a', 0.5, true)],
   ]
   it.each(made)('%s is finite, peaks at full scale and has no DC offset', (_, x) => {

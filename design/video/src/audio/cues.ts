@@ -8,7 +8,7 @@ import { typedChars } from '../lib/stream'
 import { typingSchedule } from '../lib/typing'
 import { FPS, type Cut, type Scene } from '../timeline'
 import { Stereo, rng } from './dsp'
-import { chime, click, keystroke, mallet, pop, tick, whoosh } from './sounds'
+import { click, keystroke, mallet, pop, tick, whoosh } from './sounds'
 
 export type Sound =
   | { kind: 'key'; space: boolean }
@@ -16,7 +16,6 @@ export type Sound =
   | { kind: 'click' }
   | { kind: 'pop' }
   | { kind: 'mallet'; freq: number; length?: number }
-  | { kind: 'chime'; freq: number }
   | { kind: 'whoosh'; seconds: number; rising: boolean }
 
 export interface Cue {
@@ -113,11 +112,9 @@ function sceneCues(scene: Scene, cutId: string): Cue[] {
       break
     }
     case 'end':
-      // The loading mark resolving into the logo (EndCard: the morph runs from frame 10 for 28),
-      // and a bell as it settles and the name comes up.
+      // The loading mark resolving into the logo (EndCard: the morph runs from frame 10 for 28):
+      // air, and nothing struck — the name comes up in silence but for the bed.
       add(8, { kind: 'whoosh', seconds: 1.0, rising: true }, -23)
-      add(36, { kind: 'chime', freq: 1046.5 }, -15, -0.1)
-      add(40, { kind: 'chime', freq: 1567.98 }, -20, 0.12)
       break
   }
   return cues
@@ -141,8 +138,6 @@ export function soundFor(cue: Cue): Float32Array {
       return pop(cue.seed)
     case 'mallet':
       return mallet(cue.seed, s.freq, s.length)
-    case 'chime':
-      return chime(cue.seed, s.freq)
     case 'whoosh':
       return whoosh(cue.seed, s.seconds, s.rising)
   }

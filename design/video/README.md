@@ -67,9 +67,8 @@ gitignored `public/audio/generated/`):
   - a click on every press;
   - a mallet as the score lands;
   - a pop for "Saved" and for the generated cards;
-  - air as voice mode opens and closes, and as the month turns;
-  - rising plucks as the calendar's bars fill, left to right, one every four days;
-  - a bell as the logo settles.
+  - air as voice mode opens and closes, as the month turns, and as the logo forms;
+  - rising plucks as the calendar's bars fill, left to right, one every four days.
 
   Nothing plays while the tutor is speaking; a test holds that. One number, `SFX_TRIM` in
   `src/audio/cues.ts`, turns the whole layer up or down.
