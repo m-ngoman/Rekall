@@ -97,3 +97,18 @@ def test_an_image_is_labelled_by_its_bytes(data: bytes, mime: str) -> None:
 
 def test_an_image_data_url_declares_what_the_bytes_are() -> None:
     assert image_data_url(b"\x89PNG\r\n\x1a\n").startswith("data:image/png;base64,iVBORw0KGgo")
+
+
+_RATE_LIMITED = {"code": 429, "message": "temporarily rate-limited upstream", "metadata": {"error_type": "rate_limit_exceeded"}}
+
+
+def test_a_mid_stream_error_is_raised_when_asked_and_kept_quiet_otherwise(monkeypatch) -> None:
+    from fake_http import openrouter_stream
+
+    Recorder(monkeypatch, lambda req: openrouter_stream(["You"], error=_RATE_LIMITED))
+    finishes = []
+    with pytest.raises(llm_http.StreamInterrupted, match="rate-limited") as caught:
+        list(llm_http.stream_openrouter({}, headers={}, timeout=5.0, on_finish=finishes.append, raise_interruptions=True))
+    assert caught.value.code == 429 and finishes == ["error"]
+    # The tutor keeps what it got, as before.
+    assert list(llm_http.stream_openrouter({}, headers={}, timeout=5.0)) == ["You"]
