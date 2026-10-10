@@ -11,6 +11,7 @@ import httpx
 import pytest
 
 from app.services.grading import CloudGrader, GradeResult, LocalLLMGrader, PrometheusGrader, StubGrader
+from app.services.llm_http import StreamInterrupted
 from fake_http import FakeResponse, Recorder, ollama_stream, openrouter_stream
 
 Q, REF = "What is the capital of France?", "Paris"
@@ -147,3 +148,45 @@ def test_prometheus_and_stub_grade_a_blank_without_a_model(monkeypatch) -> None:
 def test_the_stub_grades_by_similarity(answer, grade, score) -> None:
     _, result = run(StubGrader(), answer)
     assert (result.grade, result.score) == (grade, score)
+
+
+_CUT = {"code": 429, "message": "temporarily rate-limited upstream"}
+
+
+def cloud_sequence(monkeypatch, *replies) -> tuple[CloudGrader, Recorder]:
+    """A cloud grader whose successive calls get `replies`, the last one repeating."""
+    calls = iter(replies)
+    last = []
+
+    def respond(req):
+        last[:] = [next(calls, last[0] if last else None)]
+        return last[0]
+
+    monkeypatch.setattr("app.services.grading._INTERRUPTION_PAUSE_S", 0)
+    return CloudGrader(api_key="k", model="m"), Recorder(monkeypatch, respond)
+
+
+def test_a_reply_cut_off_before_anything_was_shown_is_asked_for_again(monkeypatch) -> None:
+    grader, rec = cloud_sequence(
+        monkeypatch, openrouter_stream(["You"], error=_CUT), openrouter_stream(["Right, it is Paris.\n###SCORE: 5"])
+    )
+    pieces, result = run(grader, "Paris")
+    assert len(rec.requests) == 2
+    assert "".join(pieces) == "Right, it is Paris.\n"
+    assert result == GradeResult(grade=4, explanation="Right, it is Paris.", score=5)
+
+
+def test_a_reply_cut_off_twice_fails_instead_of_scoring_a_three(monkeypatch) -> None:
+    grader, rec = cloud_sequence(monkeypatch, openrouter_stream(["You"], error=_CUT))
+    with pytest.raises(StreamInterrupted):
+        run(grader, "Paris")
+    assert len(rec.requests) == 2
+
+
+def test_a_reply_cut_off_after_the_student_saw_it_is_not_retried(monkeypatch) -> None:
+    grader, rec = cloud_sequence(monkeypatch, openrouter_stream(["That is a long and careful explanation of "], error=_CUT))
+    shown = []
+    with pytest.raises(StreamInterrupted):
+        for item in grader.grade_stream(Q, REF, "Paris"):
+            shown.append(item)
+    assert shown and len(rec.requests) == 1

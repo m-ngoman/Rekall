@@ -23,6 +23,19 @@ import httpx
 OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
+class StreamInterrupted(RuntimeError):
+    """The provider ended a reply it had already started streaming with an error.
+
+    OpenRouter has sent its 200 by then, so the failure can't be an HTTP status; it arrives as a
+    chunk with a top-level `error` (e.g. 429 `rate_limit_exceeded` when the upstream provider
+    throttles mid-reply). What was streamed before it is a fragment of a reply, not a short one.
+    """
+
+    def __init__(self, message: str, code: int | str | None = None):
+        super().__init__(message)
+        self.code = code
+
+
 def bearer(api_key: str | None) -> dict[str, str]:
     return {"Authorization": f"Bearer {api_key}"}
 
@@ -90,6 +103,7 @@ def stream_openrouter(
     timeout: float,
     on_usage: Callable[[dict], None] | None = None,
     on_finish: Callable[[str | None], None] | None = None,
+    raise_interruptions: bool = False,
 ) -> Iterator[str]:
     """A streamed chat completion, as its text pieces. `on_usage` is handed the usage block, which
     a stream only carries when the body asks for it with `stream_options.include_usage`.
@@ -97,11 +111,21 @@ def stream_openrouter(
     `on_finish` is handed the last finish reason the stream carried, or None if it carried none,
     once the stream has been read to the end. "length" is the one callers act on: the reply was
     cut off by `max_tokens`, which from the text alone looks like a reply that simply stopped.
+
+    With `raise_interruptions`, a chunk carrying an `error` raises `StreamInterrupted`: the reply was
+    cut off by the provider, and handing back its first words as if they were the whole thing is
+    how a half sentence got graded. Off by default, so the tutor, which keeps what it got, is as
+    it was.
     """
     finish_reason: str | None = None
     with httpx.stream("POST", OPENROUTER_CHAT_URL, headers=headers, json=body, timeout=timeout) as response:
         response.raise_for_status()
         for chunk in sse_data(response.iter_lines()):
+            if raise_interruptions and (error := chunk.get("error")):
+                if on_finish:
+                    on_finish("error")
+                detail = error if isinstance(error, dict) else {"message": str(error)}
+                raise StreamInterrupted(str(detail.get("message") or "stream error"), detail.get("code"))
             if on_usage and (usage := chunk.get("usage")):
                 on_usage(usage)
             if choices := chunk.get("choices"):

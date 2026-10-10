@@ -100,11 +100,18 @@ def ollama_stream(pieces: list[str], key: str = "response") -> FakeResponse:
     return FakeResponse(lines=[chunk(p, False) for p in pieces] + [chunk("", True)])
 
 
-def openrouter_stream(pieces: list[str], usage: dict | None = None, extra_lines: list[str] = ()) -> FakeResponse:
-    """OpenRouter's SSE stream of chat-completion chunks, ending in [DONE]."""
+def openrouter_stream(
+    pieces: list[str], usage: dict | None = None, extra_lines: list[str] = (), error: dict | None = None
+) -> FakeResponse:
+    """OpenRouter's SSE stream of chat-completion chunks, ending in [DONE].
+
+    `error` is the chunk OpenRouter sends, after its 200, when the upstream provider fails mid-reply.
+    """
     lines = list(extra_lines)
     for p in pieces:
         lines.append("data: " + json.dumps({"choices": [{"delta": {"content": p}}]}))
+    if error:
+        lines.append("data: " + json.dumps({"error": error, "choices": [{"delta": {"content": ""}, "finish_reason": "error"}]}))
     if usage:
         lines.append("data: " + json.dumps({"choices": [], "usage": usage}))
     lines.append("data: [DONE]")

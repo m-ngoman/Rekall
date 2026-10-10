@@ -11,13 +11,14 @@ from __future__ import annotations
 import difflib
 import logging
 import re
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import partial
 from typing import Protocol, Union
 
 from app.config import settings
-from app.services.llm_http import bearer, post_ollama, stream_ollama, stream_openrouter
+from app.services.llm_http import StreamInterrupted, bearer, post_ollama, stream_ollama, stream_openrouter
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,12 @@ _RESULT_RE = re.compile(r"\[RESULT\]\s*\(?(\d)\)?")
 # trailing "###SCORE: N" never gets flushed as visible text before we know it's the marker and not
 # genuine content. About twice the marker's length, so it is held however the chunks fall.
 _HOLDBACK_CHARS = 24
+
+#: How many times a reply the provider cut off before the student saw any of it is asked for again,
+#: and how long to wait first. One retry: the cuts seen were upstream rate limits that clear in
+#: moments, and the student is waiting on this screen.
+_INTERRUPTION_RETRIES = 1
+_INTERRUPTION_PAUSE_S = 0.5
 
 # Room a hosted grader gets on top of its answer budget when thinking is forced on — see
 # CloudGrader._body. Sized from GPT-6 Luna at default effort, the heaviest thinker measured: its
@@ -538,16 +545,33 @@ class _RubricGrader:
 
         full_text = ""
         sent_len = 0
-        for piece in self._tokens(prompt, temperature=0.2, max_tokens=250):
-            full_text += piece
-            # Recomputed on the whole text each step (cheap at this length) so a LaTeX pair
-            # split across two network chunks still gets cleaned correctly — sent_len and the
-            # holdback margin are both in cleaned-text space, not raw.
-            cleaned = _clean_latex(full_text, math)
-            safe_len = max(0, len(cleaned) - _HOLDBACK_CHARS)
-            if safe_len > sent_len:
-                yield cleaned[sent_len:safe_len]
-                sent_len = safe_len
+        for attempt in range(_INTERRUPTION_RETRIES + 1):
+            full_text = ""
+            try:
+                for piece in self._tokens(prompt, temperature=0.2, max_tokens=250):
+                    full_text += piece
+                    # Recomputed on the whole text each step (cheap at this length) so a LaTeX pair
+                    # split across two network chunks still gets cleaned correctly — sent_len and the
+                    # holdback margin are both in cleaned-text space, not raw.
+                    cleaned = _clean_latex(full_text, math)
+                    safe_len = max(0, len(cleaned) - _HOLDBACK_CHARS)
+                    if safe_len > sent_len:
+                        yield cleaned[sent_len:safe_len]
+                        sent_len = safe_len
+                break
+            except StreamInterrupted as e:
+                # The provider cut the reply off (a mid-stream rate limit, typically). Grading what
+                # arrived would score a fragment as a 3. If the student hasn't seen any of it yet,
+                # ask again, silently; once words are on screen a second reply would contradict
+                # them, and past the retry the review fails loudly, which the endpoint reports
+                # as "Grading failed", rather than a grade nobody earned.
+                logger.warning(
+                    "grading stream interrupted (model=%s, code=%s, %d chars, %d shown, attempt %d): %s",
+                    self._model, e.code, len(full_text), sent_len, attempt + 1, e,
+                )
+                if sent_len or attempt == _INTERRUPTION_RETRIES:
+                    raise
+                time.sleep(_INTERRUPTION_PAUSE_S)
 
         cleaned = _clean_latex(full_text, math)
         match = _LOCAL_RESULT_RE.search(cleaned)
@@ -679,6 +703,7 @@ class CloudGrader(_RubricGrader):
             headers={**bearer(self._api_key), "Content-Type": "application/json"},
             timeout=60.0,
             on_finish=self._record_finish,
+            raise_interruptions=True,
         )
 
     def _record_finish(self, reason: str | None) -> None:
